@@ -243,11 +243,11 @@ export default function Layout() {
                         {isAdminOrManager && (
                             <>
                                 <li style={sectionTitle as React.CSSProperties}>Admin</li>
-                                <li>
+                                {/* <li>
                                     <NavLink to="/goods/pending" style={navLinkStyle}>
                                         Approve Goods
                                     </NavLink>
-                                </li>
+                                </li> */}
                                 <li>
                                     <NavLink to="/users" style={navLinkStyle}>
                                         Users
