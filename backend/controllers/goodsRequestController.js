@@ -321,13 +321,53 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
     await goodsRequest.save();
     console.log(`Goods request ${id} approved successfully`);
 
+    // Automatically update inventory stock when approved
+    console.log("Updating inventory stock for approved items...");
+    const stockUpdates = [];
+
+    for (const requestItem of goodsRequest.items) {
+      try {
+        const inventoryItem = await InventoryItem.findById(requestItem.item._id);
+        if (inventoryItem) {
+          const oldStock = inventoryItem.currentStock;
+          inventoryItem.currentStock -= requestItem.quantity;
+
+          // Update inventory status based on stock levels
+          if (inventoryItem.currentStock === 0) {
+            inventoryItem.status = "out_of_stock";
+          } else if (inventoryItem.currentStock <= inventoryItem.minimumStock) {
+            inventoryItem.status = "low_stock";
+          } else {
+            inventoryItem.status = "active";
+          }
+
+          await inventoryItem.save();
+
+          stockUpdates.push({
+            itemId: inventoryItem.itemId,
+            name: inventoryItem.name,
+            quantityReduced: requestItem.quantity,
+            oldStock: oldStock,
+            newStock: inventoryItem.currentStock,
+            status: inventoryItem.status
+          });
+
+          console.log(`Stock updated for ${inventoryItem.name}: ${oldStock} -> ${inventoryItem.currentStock} (reduced by ${requestItem.quantity}), Status: ${inventoryItem.status}`);
+        }
+      } catch (stockError) {
+        console.error(`Error updating stock for item ${requestItem.item.itemId}:`, stockError);
+        // Don't fail the entire approval if one stock update fails
+      }
+    }
+
     // Populate approver details
     await goodsRequest.populate("approvedBy", "userId profile.firstName profile.lastName");
 
     res.status(StatusCodes.OK).json({
       success: true,
-      message: "Goods request approved successfully",
+      message: "Goods request approved successfully and inventory stock updated",
       goodsRequest,
+      stockUpdates: stockUpdates
     });
   } catch (error) {
     console.error("Error saving approved goods request:", error);
@@ -410,43 +450,11 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Only approved goods requests can be released", 400));
   }
 
-  // Update inventory levels - reduce stock for each requested item
-  try {
-    for (const requestItem of goodsRequest.items) {
-      const inventoryItem = await InventoryItem.findById(requestItem.item._id);
-
-      if (!inventoryItem) {
-        return next(createCustomError(`Inventory item ${requestItem.item.name} not found`, 404));
-      }
-
-      // Check if there's enough stock
-      if (inventoryItem.currentStock < requestItem.quantity) {
-        return next(createCustomError(
-          `Insufficient stock for ${inventoryItem.name}. Available: ${inventoryItem.currentStock}, Requested: ${requestItem.quantity}`,
-          400
-        ));
-      }
-
-      // Reduce the stock
-      inventoryItem.currentStock -= requestItem.quantity;
-
-      // Update status based on stock levels
-      if (inventoryItem.currentStock === 0) {
-        inventoryItem.status = "out_of_stock";
-      } else if (inventoryItem.currentStock <= inventoryItem.reorderLevel) {
-        inventoryItem.status = "low_stock";
-      } else {
-        inventoryItem.status = "available";
-      }
-
-      await inventoryItem.save();
-    }
-  } catch (error) {
-    console.error("Failed to update inventory stock:", error);
-    return next(createCustomError("Failed to update inventory stock", 500));
-  }
+  // Mark as released (stock was already reduced during approval)
+  console.log("Marking goods request as released (stock already updated during approval)");
 
   goodsRequest.status = "released";
+  goodsRequest.releasedAt = new Date();
   await goodsRequest.save();
 
   // Populate the updated goods request for response
@@ -458,7 +466,7 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
 
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "Goods released successfully and inventory updated",
+    message: "Goods released successfully (inventory was updated during approval)",
     goodsRequest,
   });
 });
