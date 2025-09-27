@@ -23,9 +23,17 @@ export default function MyLeave() {
         setIsLoading(true);
         setMsg({ text: "", type: "" });
         try {
+            console.log("Loading leave requests...");
             const r = await http.get("/leave-requests/my-requests");
-            setRows(r.data?.requests || []);
-        } catch (e) {
+            console.log("Leave requests response:", r.data);
+            const requests = r.data?.leaveRequests || [];
+            console.log("Setting requests:", requests);
+            setRows(requests);
+            if (requests.length === 0) {
+                console.log("No leave requests found");
+            }
+        } catch (e: any) {
+            console.error("Error loading leave requests:", e);
             setMsg({ text: e.message || "Failed to load leave requests", type: "error" });
         } finally {
             setIsLoading(false);
@@ -38,9 +46,16 @@ export default function MyLeave() {
             setIsLoading(true);
             setMsg({ text: "", type: "" });
             try {
+                console.log("Initial loading of leave requests...");
                 const r = await http.get("/leave-requests/my-requests");
-                if (!cancelled) setRows(r.data?.requests || []);
-            } catch (e) {
+                console.log("Initial leave requests response:", r.data);
+                if (!cancelled) {
+                    const requests = r.data?.leaveRequests || [];
+                    console.log("Setting initial requests:", requests);
+                    setRows(requests);
+                }
+            } catch (e: any) {
+                console.error("Error in initial load:", e);
                 if (!cancelled) setMsg({ text: e.message || "Failed to load leave requests", type: "error" });
             } finally {
                 if (!cancelled) setIsLoading(false);
@@ -212,22 +227,7 @@ export default function MyLeave() {
                 </div>
             )}
 
-            {/* Loading */}
-            {isLoading && (
-                <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
-                    <span>Loading requests…</span>
-                    <div
-                        style={{
-                            width: 14,
-                            height: 14,
-                            border: "2px solid transparent",
-                            borderTop: "2px solid #6b7280",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                        }}
-                    />
-                </div>
-            )}
+
 
             {/* Apply Form */}
             <form onSubmit={submit} style={card}>
@@ -309,9 +309,41 @@ export default function MyLeave() {
                 </div>
             </form>
 
-            {/* Requests Table */}
-            {!isLoading && (
-                <div style={{ ...card, padding: 0 }}>
+            {/* My Leave Requests Section */}
+            <div style={card}>
+                <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "16px",
+                    paddingBottom: "12px",
+                    borderBottom: "1px solid #e5e7eb"
+                }}>
+                    <h2 style={sectionTitle}>My Leave Requests</h2>
+                    <button
+                        type="button"
+                        onClick={load}
+                        disabled={isLoading}
+                        style={{
+                            padding: "8px 16px",
+                            backgroundColor: "#f3f4f6",
+                            color: "#374151",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            opacity: isLoading ? 0.6 : 1,
+                        }}
+                    >
+                        🔄 Refresh
+                    </button>
+                </div>
+
+                {!isLoading ? (
                     <div style={tableWrap}>
                         <table style={tableStyle} aria-label="My leave requests">
                             <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
@@ -330,7 +362,13 @@ export default function MyLeave() {
                                 {rows.length === 0 && (
                                     <tr>
                                         <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                            No leave requests
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                                                <span style={{ fontSize: "16px" }}>📋</span>
+                                                <span>No leave requests found</span>
+                                                <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+                                                    Submit your first leave request using the form above
+                                                </span>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}
@@ -375,8 +413,22 @@ export default function MyLeave() {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#6b7280", padding: "24px" }}>
+                        <span>Loading requests…</span>
+                        <div
+                            style={{
+                                width: 14,
+                                height: 14,
+                                border: "2px solid transparent",
+                                borderTop: "2px solid #6b7280",
+                                borderRadius: "50%",
+                                animation: "spin 1s linear infinite",
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
 
             <style>
                 {`

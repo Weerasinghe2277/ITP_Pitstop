@@ -13,7 +13,7 @@ export default function ManageLeave() {
         setMsg({ text: "", type: "" });
         try {
             const r = await http.get("/leave-requests");
-            setRows(r.data?.requests || []);
+            setRows(r.data?.leaveRequests || []);
         } catch (e) {
             setMsg({ text: e.message || "Failed to load leave requests", type: "error" });
         } finally {
@@ -28,7 +28,7 @@ export default function ManageLeave() {
             setMsg({ text: "", type: "" });
             try {
                 const r = await http.get("/leave-requests");
-                if (!cancelled) setRows(r.data?.requests || []);
+                if (!cancelled) setRows(r.data?.leaveRequests || []);
             } catch (e) {
                 if (!cancelled) setMsg({ text: e.message || "Failed to load leave requests", type: "error" });
             } finally {
@@ -191,84 +191,84 @@ export default function ManageLeave() {
                                 Leave requests
                             </caption>
                             <thead>
-                            <tr>
-                                <th scope="col" style={thStyle}>Request</th>
-                                <th scope="col" style={thStyle}>Employee</th>
-                                <th scope="col" style={thStyle}>Dates</th>
-                                <th scope="col" style={thStyle}>Reason</th>
-                                <th scope="col" style={thStyle}>Status</th>
-                                <th scope="col" style={thStyle}></th>
-                            </tr>
+                                <tr>
+                                    <th scope="col" style={thStyle}>Request</th>
+                                    <th scope="col" style={thStyle}>Employee</th>
+                                    <th scope="col" style={thStyle}>Dates</th>
+                                    <th scope="col" style={thStyle}>Reason</th>
+                                    <th scope="col" style={thStyle}>Status</th>
+                                    <th scope="col" style={thStyle}></th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        No leave requests
-                                    </td>
-                                </tr>
-                            )}
-                            {rows.map((x) => {
-                                const s = String(x.status || "").toLowerCase();
-                                const badge =
-                                    s === "approved"
-                                        ? pill("#f0fdf4", "#166534", "#bbf7d0")
-                                        : s === "rejected"
-                                            ? pill("#fef2f2", "#991b1b", "#fecaca")
-                                            : pill("#fffbeb", "#92400e", "#fde68a");
-                                return (
-                                    <tr key={x._id}>
-                                        <td style={tdStyle}>
-                                            <div style={{ display: "flex", flexDirection: "column" }}>
-                                                <span style={{ fontWeight: 700, color: "#111827" }}>{x.requestId || x._id}</span>
-                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
-                            {x.createdAt ? new Date(x.createdAt).toLocaleDateString() : ""}
-                          </span>
-                                            </div>
-                                        </td>
-                                        <td style={tdStyle}>
-                                            {x.employee?.profile?.firstName || x.employee?.name || x.employee?.email || "—"}
-                                        </td>
-                                        <td style={tdStyle}>
-                                            {(x.startDate || x.endDate) ? (
-                                                <span>
-                            {x.startDate ? new Date(x.startDate).toLocaleDateString() : "—"} to{" "}
-                                                    {x.endDate ? new Date(x.endDate).toLocaleDateString() : "—"}
-                          </span>
-                                            ) : (
-                                                "—"
-                                            )}
-                                        </td>
-                                        <td style={{ ...tdStyle, maxWidth: 360 }}>
-                                            <span style={{ color: "#374151" }}>{x.reason || "—"}</span>
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <span style={badge}>{x.status || "pending"}</span>
-                                        </td>
-                                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => act(x._id, "approve")}
-                                                disabled={actingId === x._id || s === "approved"}
-                                                style={{ ...approveBtn, opacity: actingId === x._id || s === "approved" ? 0.6 : 1 }}
-                                                aria-label={`Approve request ${x.requestId || ""}`}
-                                            >
-                                                Approve
-                                            </button>
-                                            <span style={{ display: "inline-block", width: 8 }} />
-                                            <button
-                                                type="button"
-                                                onClick={() => act(x._id, "reject")}
-                                                disabled={actingId === x._id || s === "rejected"}
-                                                style={{ ...rejectBtn, opacity: actingId === x._id || s === "rejected" ? 0.6 : 1 }}
-                                                aria-label={`Reject request ${x.requestId || ""}`}
-                                            >
-                                                Reject
-                                            </button>
+                                {rows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={6} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                            No leave requests
                                         </td>
                                     </tr>
-                                );
-                            })}
+                                )}
+                                {rows.map((x) => {
+                                    const s = String(x.status || "").toLowerCase();
+                                    const badge =
+                                        s === "approved"
+                                            ? pill("#f0fdf4", "#166534", "#bbf7d0")
+                                            : s === "rejected"
+                                                ? pill("#fef2f2", "#991b1b", "#fecaca")
+                                                : pill("#fffbeb", "#92400e", "#fde68a");
+                                    return (
+                                        <tr key={x._id}>
+                                            <td style={tdStyle}>
+                                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                                    <span style={{ fontWeight: 700, color: "#111827" }}>{x.requestId || x._id}</span>
+                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                        {x.createdAt ? new Date(x.createdAt).toLocaleDateString() : ""}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td style={tdStyle}>
+                                                {x.employee?.profile?.firstName || x.employee?.name || x.employee?.email || "—"}
+                                            </td>
+                                            <td style={tdStyle}>
+                                                {(x.startDate || x.endDate) ? (
+                                                    <span>
+                                                        {x.startDate ? new Date(x.startDate).toLocaleDateString() : "—"} to{" "}
+                                                        {x.endDate ? new Date(x.endDate).toLocaleDateString() : "—"}
+                                                    </span>
+                                                ) : (
+                                                    "—"
+                                                )}
+                                            </td>
+                                            <td style={{ ...tdStyle, maxWidth: 360 }}>
+                                                <span style={{ color: "#374151" }}>{x.reason || "—"}</span>
+                                            </td>
+                                            <td style={tdStyle}>
+                                                <span style={badge}>{x.status || "pending"}</span>
+                                            </td>
+                                            <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => act(x._id, "approve")}
+                                                    disabled={actingId === x._id || s === "approved"}
+                                                    style={{ ...approveBtn, opacity: actingId === x._id || s === "approved" ? 0.6 : 1 }}
+                                                    aria-label={`Approve request ${x.requestId || ""}`}
+                                                >
+                                                    Approve
+                                                </button>
+                                                <span style={{ display: "inline-block", width: 8 }} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => act(x._id, "reject")}
+                                                    disabled={actingId === x._id || s === "rejected"}
+                                                    style={{ ...rejectBtn, opacity: actingId === x._id || s === "rejected" ? 0.6 : 1 }}
+                                                    aria-label={`Reject request ${x.requestId || ""}`}
+                                                >
+                                                    Reject
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
