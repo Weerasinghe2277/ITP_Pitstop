@@ -614,7 +614,7 @@ export default function CreateJob() {
                                 onChange={(e) => setInventorySearch(e.target.value)}
                                 style={{
                                     padding: "8px 12px",
-                                    border: "1px solid #d1d5db",
+                                    border: "1px solid #575764ff",
                                     borderRadius: "6px",
                                     fontSize: "14px"
                                 }}

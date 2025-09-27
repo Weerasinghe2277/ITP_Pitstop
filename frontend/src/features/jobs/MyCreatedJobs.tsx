@@ -112,7 +112,7 @@ export default function MyCreatedJobs() {
     textAlign: "left",
     padding: "12px",
     fontSize: "12px",
-    color: "#6b7280",
+    color: "#596274ff",
     textTransform: "uppercase",
     letterSpacing: "0.04em",
     background: "#f9fafb",
