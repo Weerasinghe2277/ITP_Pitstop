@@ -1,5 +1,5 @@
 // src/features/bookings/CreateBooking.jsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { http } from "../../lib/http";
 import { useNavigate } from "react-router-dom";
 import { Enums } from "../../lib/validators";
@@ -77,6 +77,25 @@ export default function CreateBooking() {
     const [isRegisteringCustomer, setIsRegisteringCustomer] = useState(false);
     const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
     const [searchNicOrEmail, setSearchNicOrEmail] = useState("");
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Update current time every minute to check for past time slots
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+
+            // Clear selected time slot if it has become past
+            if (form.timeSlot && form.scheduledDate && isTimeSlotPast(form.timeSlot, form.scheduledDate)) {
+                setForm(prev => ({ ...prev, timeSlot: "" }));
+                setMessage({
+                    text: "Selected time slot has passed and has been cleared. Please select a new time slot.",
+                    type: "error"
+                });
+            }
+        }, 60000); // Update every minute
+
+        return () => clearInterval(timer);
+    }, [form.timeSlot, form.scheduledDate]); // Dependencies for clearing past slots
 
     // Search for existing customer
     async function searchExistingCustomer() {
@@ -164,6 +183,30 @@ export default function CreateBooking() {
         ],
         []
     );
+
+    // Check if a time slot is in the past
+    function isTimeSlotPast(timeSlot: string, selectedDate: string): boolean {
+        if (!selectedDate) return false;
+
+        const today = new Date();
+        const selectedDateObj = new Date(selectedDate);
+
+        // If selected date is not today, then no slots are past
+        if (selectedDateObj.toDateString() !== today.toDateString()) {
+            return false;
+        }
+
+        // Extract end time from slot (e.g., "09:00-11:00" -> "11:00")
+        const endTime = timeSlot.split('-')[1];
+        const [hours, minutes] = endTime.split(':').map(Number);
+
+        // Create a Date object for the slot end time today
+        const slotEndTime = new Date();
+        slotEndTime.setHours(hours, minutes, 0, 0);
+
+        // Check if current time is past the slot end time
+        return currentTime >= slotEndTime;
+    }
 
     function validateCustomer() {
         if (!customerForm.name?.trim()) return "Customer name is required";
@@ -636,13 +679,67 @@ export default function CreateBooking() {
                                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>You can book up to 30 days from today.</div>
                             </div>
                             <div>
-                                <label style={labelStyle}>Time Slot</label>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                                    <label style={labelStyle}>Time Slot</label>
+                                    <div style={{
+                                        fontSize: "12px",
+                                        color: "#6b7280",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "4px"
+                                    }}>
+                                        🕐 Current time: {currentTime.toLocaleTimeString('en-US', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: false
+                                        })}
+                                    </div>
+                                </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
-                                    {suggestedSlots.map((slot) => (
-                                        <button key={slot} type="button" onClick={() => update("timeSlot", slot)} style={{ ...pill(form.timeSlot === slot), cursor: "pointer" }}>
-                                            {slot}
-                                        </button>
-                                    ))}
+                                    {suggestedSlots.map((slot) => {
+                                        const isPast = isTimeSlotPast(slot, form.scheduledDate);
+                                        const isSelected = form.timeSlot === slot;
+                                        return (
+                                            <button
+                                                key={slot}
+                                                type="button"
+                                                onClick={() => !isPast && update("timeSlot", slot)}
+                                                disabled={isPast}
+                                                style={{
+                                                    ...pill(isSelected),
+                                                    cursor: isPast ? "not-allowed" : "pointer",
+                                                    opacity: isPast ? 0.5 : 1,
+                                                    position: "relative",
+                                                    backgroundColor: isPast ? "#f3f4f6" : (isSelected ? "#eff6ff" : "#ffffff"),
+                                                    borderColor: isPast ? "#d1d5db" : (isSelected ? "#3b82f6" : "#e5e7eb"),
+                                                    color: isPast ? "#9ca3af" : (isSelected ? "#1e3a8a" : "#374151")
+                                                }}
+                                                title={isPast ? "This time slot has passed" : ""}
+                                            >
+                                                {slot}
+                                                {isPast && (
+                                                    <span style={{
+                                                        position: "absolute",
+                                                        top: "50%",
+                                                        left: "50%",
+                                                        transform: "translate(-50%, -50%)",
+                                                        fontSize: "12px",
+                                                        color: "#ef4444",
+                                                        fontWeight: "bold"
+                                                    }}>
+                                                        ✕
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
+                                    {form.scheduledDate === getTodayString() ? (
+                                        <span>⚠️ Past time slots are disabled and update in real-time</span>
+                                    ) : (
+                                        <span>📅 All time slots are available for future dates</span>
+                                    )}
                                 </div>
                             </div>
                         </div>

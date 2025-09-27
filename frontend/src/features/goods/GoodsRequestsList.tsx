@@ -13,9 +13,20 @@ export default function GoodsRequestsList({ mode }) {
         setIsLoading(true);
         setMsg({ text: "", type: "" });
         try {
+            console.log("Loading goods requests from:", path);
             const r = await http.get(path);
-            setRows(r.data?.requests || []);
-        } catch (e) {
+            console.log("Goods requests response:", r.data);
+            // Handle different property names returned by different endpoints
+            const requests = mode === "pending"
+                ? r.data?.pendingRequests || []
+                : r.data?.goodsRequests || [];
+            console.log("Setting goods requests:", requests);
+            setRows(requests);
+            if (requests.length === 0) {
+                console.log("No goods requests found");
+            }
+        } catch (e: any) {
+            console.error("Error loading goods requests:", e);
             setMsg({ text: e.message || "Failed to load goods requests", type: "error" });
         } finally {
             setIsLoading(false);
@@ -28,9 +39,19 @@ export default function GoodsRequestsList({ mode }) {
             setIsLoading(true);
             setMsg({ text: "", type: "" });
             try {
+                console.log("Initial loading goods requests from:", path);
                 const r = await http.get(path);
-                if (!cancelled) setRows(r.data?.requests || []);
-            } catch (e) {
+                console.log("Initial goods requests response:", r.data);
+                if (!cancelled) {
+                    // Handle different property names returned by different endpoints
+                    const requests = mode === "pending"
+                        ? r.data?.pendingRequests || []
+                        : r.data?.goodsRequests || [];
+                    console.log("Setting initial goods requests:", requests);
+                    setRows(requests);
+                }
+            } catch (e: any) {
+                console.error("Error in initial goods requests load:", e);
                 if (!cancelled) setMsg({ text: e.message || "Failed to load goods requests", type: "error" });
             } finally {
                 if (!cancelled) setIsLoading(false);
@@ -39,7 +60,7 @@ export default function GoodsRequestsList({ mode }) {
         return () => {
             cancelled = true;
         };
-    }, [path]); // Load on path change with a cancellation guard to avoid setState after unmount [web:69].
+    }, [path, mode]); // Load on path change with a cancellation guard to avoid setState after unmount [web:69].
 
     async function act(id, action) {
         const seg = action === "approve" ? "approve" : action === "reject" ? "reject" : "release";
@@ -199,65 +220,65 @@ export default function GoodsRequestsList({ mode }) {
                                 Goods requests
                             </caption>
                             <thead>
-                            <tr>
-                                <th scope="col" style={thStyle}>Request</th>
-                                <th scope="col" style={thStyle}>Job</th>
-                                <th scope="col" style={thStyle}>Created</th>
-                                <th scope="col" style={thStyle}>Status</th>
-                                {mode === "pending" && <th scope="col" style={thStyle}></th>}
-                            </tr>
+                                <tr>
+                                    <th scope="col" style={thStyle}>Request</th>
+                                    <th scope="col" style={thStyle}>Job</th>
+                                    <th scope="col" style={thStyle}>Created</th>
+                                    <th scope="col" style={thStyle}>Status</th>
+                                    {mode === "pending" && <th scope="col" style={thStyle}></th>}
+                                </tr>
                             </thead>
                             <tbody>
-                            {rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={mode === "pending" ? 5 : 4} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        No goods requests
-                                    </td>
-                                </tr>
-                            )}
-                            {rows.map((x) => {
-                                const s = String(x.status || "").toLowerCase();
-                                const badge =
-                                    s === "approved"
-                                        ? pill("#f0fdf4", "#166534", "#bbf7d0")
-                                        : s === "rejected"
-                                            ? pill("#fef2f2", "#991b1b", "#fecaca")
-                                            : s === "released"
-                                                ? pill("#eff6ff", "#1d4ed8", "#bfdbfe")
-                                                : pill("#fffbeb", "#92400e", "#fde68a");
-                                return (
-                                    <tr key={x._id}>
-                                        <td style={tdStyle}>
-                                            <div style={{ display: "flex", flexDirection: "column" }}>
-                                                <span style={{ fontWeight: 700, color: "#111827" }}>{x.requestId || x._id}</span>
-                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
-                            {Array.isArray(x.items) ? `${x.items.length} item${x.items.length === 1 ? "" : "s"}` : "—"}
-                          </span>
-                                            </div>
+                                {rows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={mode === "pending" ? 5 : 4} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                            No goods requests
                                         </td>
-                                        <td style={tdStyle}>{x.job?.jobId || x.job || "—"}</td>
-                                        <td style={tdStyle}>{x.createdAt ? new Date(x.createdAt).toLocaleDateString() : "—"}</td>
-                                        <td style={tdStyle}>
-                                            <span style={badge}>{x.status || "pending"}</span>
-                                        </td>
-                                        {mode === "pending" && (
-                                            <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                                                <button type="button" onClick={() => act(x._id, "approve")} style={approveBtn}>
-                                                    Approve
-                                                </button>
-                                                <span style={{ display: "inline-block", width: 8 }} />
-                                                <button type="button" onClick={() => act(x._id, "reject")} style={rejectBtn}>
-                                                    Reject
-                                                </button>
-                                                <span style={{ display: "inline-block", width: 8 }} />
-                                                <button type="button" onClick={() => act(x._id, "release")} style={releaseBtn}>
-                                                    Release
-                                                </button>
-                                            </td>
-                                        )}
                                     </tr>
-                                );
-                            })}
+                                )}
+                                {rows.map((x) => {
+                                    const s = String(x.status || "").toLowerCase();
+                                    const badge =
+                                        s === "approved"
+                                            ? pill("#f0fdf4", "#166534", "#bbf7d0")
+                                            : s === "rejected"
+                                                ? pill("#fef2f2", "#991b1b", "#fecaca")
+                                                : s === "released"
+                                                    ? pill("#eff6ff", "#1d4ed8", "#bfdbfe")
+                                                    : pill("#fffbeb", "#92400e", "#fde68a");
+                                    return (
+                                        <tr key={x._id}>
+                                            <td style={tdStyle}>
+                                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                                    <span style={{ fontWeight: 700, color: "#111827" }}>{x.requestId || x._id}</span>
+                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                        {Array.isArray(x.items) ? `${x.items.length} item${x.items.length === 1 ? "" : "s"}` : "—"}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td style={tdStyle}>{x.job?.jobId || x.job || "—"}</td>
+                                            <td style={tdStyle}>{x.createdAt ? new Date(x.createdAt).toLocaleDateString() : "—"}</td>
+                                            <td style={tdStyle}>
+                                                <span style={badge}>{x.status || "pending"}</span>
+                                            </td>
+                                            {mode === "pending" && (
+                                                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                                                    <button type="button" onClick={() => act(x._id, "approve")} style={approveBtn}>
+                                                        Approve
+                                                    </button>
+                                                    <span style={{ display: "inline-block", width: 8 }} />
+                                                    <button type="button" onClick={() => act(x._id, "reject")} style={rejectBtn}>
+                                                        Reject
+                                                    </button>
+                                                    <span style={{ display: "inline-block", width: 8 }} />
+                                                    <button type="button" onClick={() => act(x._id, "release")} style={releaseBtn}>
+                                                        Release
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
