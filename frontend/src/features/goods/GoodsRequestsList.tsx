@@ -257,7 +257,18 @@ export default function GoodsRequestsList({ mode }) {
                                                 </div>
                                             </td>
                                             <td style={tdStyle}>{x.job?.jobId || x.job || "—"}</td>
-                                            <td style={tdStyle}>{x.createdAt ? new Date(x.createdAt).toLocaleDateString() : "—"}</td>
+                                            <td style={tdStyle}>
+                                                {(() => {
+                                                    try {
+                                                        if (!x.createdAt) return "—";
+                                                        const date = new Date(x.createdAt);
+                                                        return isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+                                                    } catch (error) {
+                                                        console.error('Error formatting date:', error);
+                                                        return "—";
+                                                    }
+                                                })()}
+                                            </td>
                                             <td style={tdStyle}>
                                                 <span style={badge}>{x.status || "pending"}</span>
                                             </td>

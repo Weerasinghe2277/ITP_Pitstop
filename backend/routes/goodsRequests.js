@@ -11,6 +11,7 @@ import {
   releaseGoods,
   getGoodsRequestStats,
   getPendingGoodsRequests,
+  testEndpoint,
 } from "../controllers/goodsRequestController.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 
@@ -19,6 +20,9 @@ const router = express.Router();
 // Inspector routes - service advisors (inspectors) can create and manage their requests
 router.post("/", authenticate, authorize("service_advisor", "manager", "admin"), createGoodsRequest);
 router.get("/my-requests", authenticate, getMyGoodsRequests);
+
+// Test endpoint
+router.get("/test", authenticate, testEndpoint);
 
 // Inventory Manager routes for goods request management
 router.get("/", authenticate, authorize("admin", "manager"), getAllGoodsRequests);

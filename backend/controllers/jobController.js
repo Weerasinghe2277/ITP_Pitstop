@@ -1,6 +1,7 @@
 import Job from "../models/Job.js";
 import User from "../models/User.js";
 import { Booking } from "../models/Booking.js";
+import { GoodsRequest } from "../models/GoodsRequest.js";
 import { createCustomError } from "../errors/custom-error.js";
 import asyncWrapper from "../middleware/async.js";
 
@@ -8,6 +9,7 @@ import asyncWrapper from "../middleware/async.js";
 const createJob = asyncWrapper(async (req, res, next) => {
   const { bookingId } = req.params;
   const { userId, role } = req.user;
+  const { requestedItems, ...jobFields } = req.body;
 
   // Check if user is inspector or manager
   if (!["service_advisor", "manager", "admin"].includes(role)) {
@@ -26,7 +28,7 @@ const createJob = asyncWrapper(async (req, res, next) => {
 
   // Create job with inspector as creator
   const jobData = {
-    ...req.body,
+    ...jobFields,
     booking: bookingId,
     createdBy: userId,
   };
@@ -37,10 +39,41 @@ const createJob = asyncWrapper(async (req, res, next) => {
     { path: "createdBy", select: "userId profile.firstName profile.lastName" },
   ]);
 
+  // Create goods request if inventory items were requested
+  let goodsRequest = null;
+  if (requestedItems && Array.isArray(requestedItems) && requestedItems.length > 0) {
+    try {
+      // Transform requestedItems to match GoodsRequest schema
+      const items = requestedItems.map(item => ({
+        item: item.itemId,
+        quantity: item.requestedQuantity || 1,
+        purpose: `Required for job: ${job.title}`
+      }));
+
+      goodsRequest = await GoodsRequest.create({
+        job: job._id,
+        requestedBy: userId,
+        items,
+        notes: `Automatically created for job: ${job.title}`
+      });
+
+      // Populate the goods request
+      await goodsRequest.populate([
+        { path: "job", select: "jobId title" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
+        { path: "items.item", select: "name category currentStock unitPrice" }
+      ]);
+    } catch (error) {
+      console.error("Failed to create goods request:", error);
+      // Don't fail the job creation if goods request fails
+    }
+  }
+
   res.status(201).json({
     success: true,
     message: "Job created successfully",
     job,
+    goodsRequest: goodsRequest || undefined,
   });
 });
 

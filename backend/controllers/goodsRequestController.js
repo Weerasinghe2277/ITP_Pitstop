@@ -1,4 +1,5 @@
 import { GoodsRequest } from "../models/GoodsRequest.js";
+import { InventoryItem } from "../models/InventoryItem.js";
 import User from "../models/User.js";
 import asyncWrapper from "../middleware/async.js";
 import { StatusCodes } from "http-status-codes";
@@ -267,6 +268,8 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { userId, role } = req.user;
 
+  console.log(`Approving goods request ${id} by user ${userId} with role ${role}`);
+
   // Check authorization
   if (!["admin", "manager"].includes(role)) {
     const user = await User.findById(userId);
@@ -291,26 +294,45 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
   }
 
   // Check stock availability for all items
-  for (const requestItem of goodsRequest.items) {
-    if (requestItem.item.currentStock < requestItem.quantity) {
-      return next(createCustomError(`Insufficient stock for ${requestItem.item.name}. Available: ${requestItem.item.currentStock}, Requested: ${requestItem.quantity}`, 400));
+  try {
+    for (const requestItem of goodsRequest.items) {
+      console.log(`Checking item:`, requestItem);
+
+      if (!requestItem.item) {
+        console.error(`Item not found for request item:`, requestItem);
+        return next(createCustomError(`Inventory item not found in request`, 400));
+      }
+
+      if (requestItem.item.currentStock < requestItem.quantity) {
+        console.log(`Insufficient stock for ${requestItem.item.name}. Available: ${requestItem.item.currentStock}, Requested: ${requestItem.quantity}`);
+        return next(createCustomError(`Insufficient stock for ${requestItem.item.name}. Available: ${requestItem.item.currentStock}, Requested: ${requestItem.quantity}`, 400));
+      }
     }
+  } catch (error) {
+    console.error("Error checking stock availability:", error);
+    return next(createCustomError("Error validating stock availability", 500));
   }
 
-  goodsRequest.status = "approved";
-  goodsRequest.approvedBy = userId;
-  goodsRequest.approvedAt = new Date();
+  try {
+    goodsRequest.status = "approved";
+    goodsRequest.approvedBy = userId;
+    goodsRequest.approvedAt = new Date();
 
-  await goodsRequest.save();
+    await goodsRequest.save();
+    console.log(`Goods request ${id} approved successfully`);
 
-  // Populate approver details
-  await goodsRequest.populate("approvedBy", "userId profile.firstName profile.lastName");
+    // Populate approver details
+    await goodsRequest.populate("approvedBy", "userId profile.firstName profile.lastName");
 
-  res.status(StatusCodes.OK).json({
-    success: true,
-    message: "Goods request approved successfully",
-    goodsRequest,
-  });
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Goods request approved successfully",
+      goodsRequest,
+    });
+  } catch (error) {
+    console.error("Error saving approved goods request:", error);
+    return next(createCustomError("Failed to approve goods request", 500));
+  }
 });
 
 // Reject goods request (Inventory Manager, Admin, Manager)
@@ -367,6 +389,8 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { userId, role } = req.user;
 
+  console.log(`Releasing goods request ${id} by user ${userId} with role ${role}`);
+
   // Check authorization - only inventory managers
   if (!["admin", "manager"].includes(role)) {
     const user = await User.findById(userId);
@@ -386,16 +410,55 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Only approved goods requests can be released", 400));
   }
 
-  // Update inventory levels (this would typically be done through inventory service)
-  // For now, we'll just mark as released
-  // TODO: Implement inventory stock reduction
+  // Update inventory levels - reduce stock for each requested item
+  try {
+    for (const requestItem of goodsRequest.items) {
+      const inventoryItem = await InventoryItem.findById(requestItem.item._id);
+
+      if (!inventoryItem) {
+        return next(createCustomError(`Inventory item ${requestItem.item.name} not found`, 404));
+      }
+
+      // Check if there's enough stock
+      if (inventoryItem.currentStock < requestItem.quantity) {
+        return next(createCustomError(
+          `Insufficient stock for ${inventoryItem.name}. Available: ${inventoryItem.currentStock}, Requested: ${requestItem.quantity}`,
+          400
+        ));
+      }
+
+      // Reduce the stock
+      inventoryItem.currentStock -= requestItem.quantity;
+
+      // Update status based on stock levels
+      if (inventoryItem.currentStock === 0) {
+        inventoryItem.status = "out_of_stock";
+      } else if (inventoryItem.currentStock <= inventoryItem.reorderLevel) {
+        inventoryItem.status = "low_stock";
+      } else {
+        inventoryItem.status = "available";
+      }
+
+      await inventoryItem.save();
+    }
+  } catch (error) {
+    console.error("Failed to update inventory stock:", error);
+    return next(createCustomError("Failed to update inventory stock", 500));
+  }
 
   goodsRequest.status = "released";
   await goodsRequest.save();
 
+  // Populate the updated goods request for response
+  await goodsRequest.populate([
+    { path: "job", select: "jobId title" },
+    { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
+    { path: "items.item", select: "name category currentStock unitPrice" }
+  ]);
+
   res.status(StatusCodes.OK).json({
     success: true,
-    message: "Goods released successfully",
+    message: "Goods released successfully and inventory updated",
     goodsRequest,
   });
 });
@@ -492,41 +555,59 @@ const getGoodsRequestStats = asyncWrapper(async (req, res, next) => {
   });
 });
 
+// Simple test endpoint
+const testEndpoint = asyncWrapper(async (req, res, next) => {
+  console.log("Test endpoint called!");
+  res.status(200).json({ success: true, message: "Test endpoint working" });
+});
+
 // Get pending goods requests for approval (Inventory Manager)
 const getPendingGoodsRequests = asyncWrapper(async (req, res, next) => {
   const { userId, role } = req.user;
   const { page = 1, limit = 10 } = req.query;
 
+  console.log("getPendingGoodsRequests called by user:", userId, "with role:", role);
+
   // Check authorization
   if (!["admin", "manager"].includes(role)) {
     const user = await User.findById(userId);
     if (!user || !user.employeeDetails || user.employeeDetails.department !== "management") {
-      return next(createCustomError("Access denied", 403));
+      return next(createCustomError("Only inventory managers, admins, and managers can access pending goods requests", 403));
     }
   }
 
   const skip = (page - 1) * limit;
 
-  const pendingRequests = await GoodsRequest.find({ status: "pending" })
-    .populate([
-      { path: "job", select: "jobId description priority status booking" },
-      { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
-      { path: "items.item", select: "itemId name category currentStock unitPrice" }
-    ])
-    .limit(limit * 1)
-    .skip(skip)
-    .sort({ createdAt: 1 }); // Oldest first for processing
+  try {
+    console.log("Querying for pending goods requests...");
 
-  const total = await GoodsRequest.countDocuments({ status: "pending" });
+    const pendingRequests = await GoodsRequest.find({ status: "pending" })
+      .populate([
+        { path: "job", select: "jobId description priority status booking" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
+        { path: "items.item", select: "itemId name category currentStock unitPrice" }
+      ])
+      .limit(limit * 1)
+      .skip(skip)
+      .lean(); // Convert to plain JavaScript objects to avoid potential serialization issues
 
-  res.status(StatusCodes.OK).json({
-    success: true,
-    count: pendingRequests.length,
-    total,
-    totalPages: Math.ceil(total / limit),
-    currentPage: page * 1,
-    pendingRequests,
-  });
+    console.log(`Found ${pendingRequests.length} pending goods requests`);
+
+    const total = await GoodsRequest.countDocuments({ status: "pending" });
+    console.log(`Total pending requests: ${total}`);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      count: pendingRequests.length,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page * 1,
+      pendingRequests,
+    });
+  } catch (error) {
+    console.error("Error in getPendingGoodsRequests:", error);
+    return next(createCustomError(`Failed to fetch pending goods requests: ${error.message}`, 500));
+  }
 });
 
 export {
@@ -541,4 +622,5 @@ export {
   releaseGoods,
   getGoodsRequestStats,
   getPendingGoodsRequests,
+  testEndpoint,
 };
