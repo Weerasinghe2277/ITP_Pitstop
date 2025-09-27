@@ -43,15 +43,32 @@ export default function ManageLeave() {
     async function act(id, type) {
         if (!id || !type) return;
         const pretty = type === "approve" ? "Approve" : "Reject";
+
+        let requestBody = {};
+
+        if (type === "reject") {
+            const rejectionReason = window.prompt("Please provide a reason for rejection:");
+            if (!rejectionReason || !rejectionReason.trim()) {
+                setMsg({ text: "Rejection reason is required", type: "error" });
+                return;
+            }
+            requestBody = { rejectionReason: rejectionReason.trim() };
+        }
+
         const ok = window.confirm(`${pretty} this request?`);
         if (!ok) return;
+
         setActingId(id);
         setMsg({ text: "", type: "" });
         try {
-            await http.patch(`/leave-requests/${id}/${type}`);
+            if (type === "approve") {
+                await http.patch(`/leave-requests/${id}/${type}`);
+            } else {
+                await http.patch(`/leave-requests/${id}/${type}`, requestBody);
+            }
             setMsg({ text: `Request ${pretty.toLowerCase()}d successfully`, type: "success" });
             await load();
-        } catch (e) {
+        } catch (e: any) {
             setMsg({ text: e.message || `Failed to ${pretty.toLowerCase()} request`, type: "error" });
         } finally {
             setActingId(null);

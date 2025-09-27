@@ -285,11 +285,13 @@ export default function Layout() {
 
                         {user && (
                             <>
-                                <li>
-                                    <NavLink to="/leave" style={navLinkStyle}>
-                                        My Leave
-                                    </NavLink>
-                                </li>
+                                {!isAdmin && (
+                                    <li>
+                                        <NavLink to="/leave" style={navLinkStyle}>
+                                            My Leave
+                                        </NavLink>
+                                    </li>
+                                )}
                                 <li>
                                     <NavLink to="/vehicles" style={navLinkStyle}>
                                         Vehicles
