@@ -1,0 +1,47 @@
+/* src/styles/globals.css */
+:root {
+  --bg: #101217;
+  --fg: #eef2f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+a {
+  color: #7cc7ff;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  padding: 8px;
+  background: #0f1218;
+  color: var(--bg);
+  border: 1px solid #222;
+  border-radius: 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #222;
+  text-align: left;
+  padding: 8px;
+}
