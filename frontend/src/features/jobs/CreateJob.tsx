@@ -16,10 +16,13 @@ export default function CreateJob() {
         estimatedHours: 1,
         priority: "medium",
         scheduledDate: "",
+        assignedTechnician: "", // Add technician assignment field
     });
     const [message, setMessage] = useState({ text: "", type: "" });
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [technicians, setTechnicians] = useState([]);
+    const [isLoadingTechnicians, setIsLoadingTechnicians] = useState(false);
 
     // Inventory request state
     const [inventoryItems, setInventoryItems] = useState([]);
@@ -27,6 +30,19 @@ export default function CreateJob() {
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [inventorySearch, setInventorySearch] = useState("");
     const [inventoryFilter, setInventoryFilter] = useState({ category: "", status: "" });
+
+    // Load technicians
+    async function loadTechnicians() {
+        setIsLoadingTechnicians(true);
+        try {
+            const response = await http.get('/users/technicians/by-specialization');
+            setTechnicians(response.data?.technicians || []);
+        } catch (error: any) {
+            console.error('Failed to load technicians:', error);
+        } finally {
+            setIsLoadingTechnicians(false);
+        }
+    }
 
     useEffect(() => {
         let ignore = false;
@@ -43,6 +59,7 @@ export default function CreateJob() {
             }
         }
         load();
+        loadTechnicians(); // Load technicians when component mounts
         return () => { ignore = true; };
     }, [bookingId]);
 
@@ -117,9 +134,16 @@ export default function CreateJob() {
         setIsSubmitting(true);
         setMessage({ text: "", type: "" });
         try {
-            const { data } = await http.post(`/jobs/booking/${bookingId}`, form);
+            const jobData = {
+                ...form,
+                requestedItems: selectedItems.map((item: any) => ({
+                    itemId: item._id,
+                    requestedQuantity: item.requestedQuantity
+                }))
+            };
+            const { data } = await http.post(`/jobs/booking/${bookingId}`, jobData);
             nav(`/jobs/${data?.job?._id}`); // Programmatic navigation after success is a common useNavigate pattern [web:127][web:133]
-        } catch (e) {
+        } catch (e: any) {
             setMessage({ text: e.message || "Failed to create job", type: "error" });
         } finally {
             setIsSubmitting(false);
@@ -316,6 +340,28 @@ export default function CreateJob() {
                                 onChange={(e) => update("scheduledDate", e.target.value)}
                                 style={control}
                             />
+                        </div>
+
+                        <div>
+                            <label style={label}>Assign Technician</label>
+                            <select
+                                value={form.assignedTechnician}
+                                onChange={(e) => update("assignedTechnician", e.target.value)}
+                                style={control}
+                                disabled={isLoadingTechnicians}
+                            >
+                                <option value="">Select a technician (optional)</option>
+                                {technicians.map((tech: any) => (
+                                    <option key={tech._id} value={tech._id}>
+                                        {tech.profile?.firstName} {tech.profile?.lastName} - {tech.profile?.specialization}
+                                    </option>
+                                ))}
+                            </select>
+                            {isLoadingTechnicians && (
+                                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                                    Loading technicians...
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ gridColumn: "1 / -1" }}>
@@ -798,6 +844,7 @@ export default function CreateJob() {
                                     estimatedHours: 1,
                                     priority: "medium",
                                     scheduledDate: "",
+                                    assignedTechnician: ""
                                 });
                                 setSelectedItems([]);
                             }}
