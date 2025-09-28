@@ -226,7 +226,7 @@ export default function Layout() {
 
                         {isTechnician && (
                             <>
-                                <li style={sectionTitle as React.CSSProperties}>Technician</li>
+                                <li style={{ ...sectionTitle as React.CSSProperties, display: 'none' }}>Technician</li>
                                 <li>
                                     <NavLink to="/jobs/my" style={navLinkStyle}>
                                         My Jobs

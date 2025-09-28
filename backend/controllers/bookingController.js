@@ -128,10 +128,28 @@ const getAllBookings = asyncWrapper(async (req, res) => {
 
   // Build query based on filters
   if (status) query.status = status;
+
   if (serviceType) query.serviceType = serviceType;
   if (priority) query.priority = priority;
   if (customer) query.customer = customer;
   if (assignedInspector) query.assignedInspector = assignedInspector;
+
+  if (assignedInspector) {
+    // const [firstName = "", lastName = ""] = assignedInspector.split(" ");
+
+    // const nameFilter = {};
+    // if (firstName) nameFilter["profile.firstName"] = firstName;//new RegExp(`^${escapeRegex(firstName)}$`, "i");
+    // if (lastName) nameFilter["profile.lastName"] = lastName; //new RegExp(`^${escapeRegex(lastName)}$`,  "i");
+
+    // const inspectors = await User.find(nameFilter).select("_id").lean();
+    // const inspectorIds = inspectors.map(u => u._id);
+
+    query = {
+      ...query,
+      status: { $nin: ["cancelled", "completed", "pending"] },
+      // assignedInspector: { $in: inspectorIds },
+    };
+  }
 
   // Date range filter
   if (dateFrom || dateTo) {

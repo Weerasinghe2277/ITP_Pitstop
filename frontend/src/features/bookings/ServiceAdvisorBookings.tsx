@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../store/AuthContext";
 
 interface Customer {
   _id: string;
@@ -44,10 +45,11 @@ export default function ServiceAdvisorBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<FilterState>({
     serviceType: "",
-    priority: ""
+    priority: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const { user } = useAuth();
 
   useEffect(() => {
     loadConfirmedBookings();
@@ -59,7 +61,9 @@ export default function ServiceAdvisorBookings() {
       const params = new URLSearchParams();
       if (filter.serviceType) params.set("serviceType", filter.serviceType);
       if (filter.priority) params.set("priority", filter.priority);
+      params.set("assignedInspector", user?._id);
 
+      console.log(`/bookings?${params.toString()}`);
       const response = await http.get(`/bookings?${params.toString()}`);
       const allBookings = response.data?.bookings || [];
 

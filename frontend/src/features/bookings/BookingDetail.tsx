@@ -73,7 +73,7 @@ export default function BookingDetail() {
         setIsLoading(true);
         try {
             await http.patch(`/bookings/${id}/assign-inspector`, { inspector: inspectorId });
-            await http.patch(`/bookings/${id}/status`, { status: "inspecting" });
+            // await http.patch(`/bookings/${id}/status`, { status: "inspecting" });
             setMessage({ text: "Inspector assigned and status updated to inspecting", type: "success" });
             await loadBooking();
             setInspectorId("");
@@ -161,6 +161,7 @@ export default function BookingDetail() {
         mutedText: darkMode ? "#9ca3af" : "#6b7280",
     };
 
+    console.log(booking.assignedInspector.fullName);
     return (
         <div style={{
             maxWidth: '1200px',
@@ -329,8 +330,8 @@ export default function BookingDetail() {
                             Assign Inspector
                         </h2>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
+                        {booking.assignedInspector.fullName && (<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {<div>
                                 <label style={{
                                     display: 'block',
                                     fontSize: '14px',
@@ -360,7 +361,7 @@ export default function BookingDetail() {
                                         </option>
                                     ))}
                                 </select>
-                            </div>
+                            </div>}
 
                             <button
                                 onClick={assignInspector}
@@ -406,7 +407,7 @@ export default function BookingDetail() {
                                     </p>
                                 </div>
                             )}
-                        </div>
+                        </div>)}
                     </div>
                 )}
 
