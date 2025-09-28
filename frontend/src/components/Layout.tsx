@@ -116,11 +116,6 @@ export default function Layout() {
         overscrollBehavior: "contain",
     };
 
-    const mainStyle: React.CSSProperties = {
-        flex: 1,
-        padding: 20,
-    };
-
     const sectionTitle: React.CSSProperties = {
         fontSize: 12,
         letterSpacing: 0.6,
@@ -569,20 +564,17 @@ export default function Layout() {
                     </div>
                 </header>
 
-                <main id="main-content" style={mainStyle}>
-                    <div
-                        style={{
-                            background: theme.card,
-                            borderRadius: 12,
-                            padding: 20,
-                            boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-                            border: `1px solid ${theme.border}`,
-                            transition: "background-color 0.3s, border-color 0.3s",
-                        }}
-                    >
-                        <Outlet />
-                    </div>
-                </main>
+                <div
+                    style={{
+                        background: theme.card,
+                        borderRadius: 12,
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+                        border: `1px solid ${theme.border}`,
+                        transition: "background-color 0.3s, border-color 0.3s",
+                    }}
+                >
+                    <Outlet />
+                </div>
             </div>
         </div>
     );

@@ -24,7 +24,8 @@ export default function BookingDetail() {
     const isAdmin = user?.role === "admin";
     const isManager = user?.role === "manager";
     const isServiceAdvisor = user?.role === "service_advisor";
-    const canAssignInspector = isAdmin || isManager || isServiceAdvisor;
+    const isCashier = user?.role === "cashier";
+    const canAssignInspector = isAdmin || isManager || isServiceAdvisor || isCashier;
 
     async function loadBooking() {
         try {
