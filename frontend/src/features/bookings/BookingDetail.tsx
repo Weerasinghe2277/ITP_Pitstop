@@ -17,8 +17,8 @@ export default function BookingDetail() {
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
-    const [notes, setNotes] = useState("");
-    const [isAddingNote, setIsAddingNote] = useState(false);
+    // const [notes, setNotes] = useState("");
+    // const [isAddingNote, setIsAddingNote] = useState(false);
     const [timeline, setTimeline] = useState([]);
 
     const isAdmin = user?.role === "admin";
@@ -31,7 +31,7 @@ export default function BookingDetail() {
         try {
             const response = await http.get(`/bookings/${id}`);
             setBooking(response.data?.booking);
-            setNotes(response.data?.booking?.notes || "");
+            // setNotes(response.data?.booking?.notes[0].note || "");
 
             // Generate timeline from status history
             if (response.data?.booking?.statusHistory) {
@@ -43,6 +43,7 @@ export default function BookingDetail() {
                 setTimeline(timelineData);
             }
         } catch (error) {
+            console.log(error);
             setMessage({ text: "Failed to load booking details", type: "error" });
         }
     }
@@ -77,7 +78,7 @@ export default function BookingDetail() {
             await loadBooking();
             setInspectorId("");
         } catch (error) {
-            setMessage({ text: error.response?.data?.message || "Failed to assign inspector", type: "error" });
+            setMessage({ text: error.response?.data?.msg || "Failed to assign inspector", type: "error" });
         } finally {
             setIsLoading(false);
         }
@@ -116,17 +117,17 @@ export default function BookingDetail() {
         }
     }
 
-    async function updateNotes() {
-        setIsAddingNote(true);
-        try {
-            await http.patch(`/bookings/${id}/notes`, { notes });
-            setMessage({ text: "Notes updated successfully", type: "success" });
-        } catch (error) {
-            setMessage({ text: error.response?.data?.message || "Failed to update notes", type: "error" });
-        } finally {
-            setIsAddingNote(false);
-        }
-    }
+    // async function updateNotes() {
+    //     setIsAddingNote(true);
+    //     try {
+    //         await http.patch(`/bookings/${id}/notes`, { notes });
+    //         setMessage({ text: "Notes updated successfully", type: "success" });
+    //     } catch (error) {
+    //         setMessage({ text: error.response?.data?.message || "Failed to update notes", type: "error" });
+    //     } finally {
+    //         setIsAddingNote(false);
+    //     }
+    // }
 
     async function sendReminder() {
         try {
@@ -410,7 +411,7 @@ export default function BookingDetail() {
                 )}
 
                 {/* Notes Card */}
-                <div style={{
+                {/* <div style={{
                     background: theme.card,
                     borderRadius: '12px',
                     padding: '24px',
@@ -463,7 +464,7 @@ export default function BookingDetail() {
                     >
                         {isAddingNote ? 'Saving...' : 'Save Notes'}
                     </button>
-                </div>
+                </div> */}
             </div>
 
             {/* Actions Card */}

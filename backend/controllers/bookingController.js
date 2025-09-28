@@ -259,7 +259,7 @@ const cancelBooking = asyncWrapper(async (req, res, next) => {
 // Assign inspector to booking (cashier only)
 const assignInspector = asyncWrapper(async (req, res, next) => {
   const { id: bookingId } = req.params;
-  const { inspectorId } = req.body;
+  const inspectorId = req.body.inspector;
 
   if (!inspectorId) {
     return next(createCustomError("Inspector ID is required", 400));
@@ -339,8 +339,8 @@ const updateBookingStatus = asyncWrapper(async (req, res, next) => {
   const currentStatus = booking.status;
   const allowedTransitions = {
     pending: ["inspecting", "cancelled"],
-    inspecting: ["working", "cancelled"],
-    working: ["completed", "cancelled"],
+    inspecting: ["working"],
+    working: ["completed"],
     completed: [],
     cancelled: []
   };
