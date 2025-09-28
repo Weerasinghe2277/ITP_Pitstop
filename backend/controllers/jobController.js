@@ -16,15 +16,19 @@ const createJob = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Only inspectors can create jobs", 403));
   }
 
+  console.log("permitted to create job");
   // Verify booking exists and is in correct status
   const booking = await Booking.findById(bookingId);
   if (!booking) {
     return next(createCustomError("Booking not found", 404));
   }
 
+  console.log("Booking is found")
   if (booking.status !== "inspecting") {
     return next(createCustomError("Booking must be in 'inspecting' status to create jobs", 400));
   }
+
+  console.log("Booking is in inspecting state");
 
   // Create job with inspector as creator
   const jobData = {
@@ -38,6 +42,7 @@ const createJob = asyncWrapper(async (req, res, next) => {
     { path: "booking", select: "bookingId customer vehicle serviceType" },
     { path: "createdBy", select: "userId profile.firstName profile.lastName" },
   ]);
+  console.log("Job created");
 
   // Create goods request if inventory items were requested
   let goodsRequest = null;
@@ -69,6 +74,10 @@ const createJob = asyncWrapper(async (req, res, next) => {
     }
   }
 
+  console.log("Success");
+  console.log(job);
+  console.log("Good request");
+  console.log(goodsRequest);
   res.status(201).json({
     success: true,
     message: "Job created successfully",

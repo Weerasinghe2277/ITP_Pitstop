@@ -25,7 +25,7 @@ export default function BookingDetail() {
     const isManager = user?.role === "manager";
     const isServiceAdvisor = user?.role === "service_advisor";
     const isCashier = user?.role === "cashier";
-    const canAssignInspector = isAdmin || isManager || isServiceAdvisor || isCashier;
+    const canAssignInspector = isAdmin || isManager || isCashier;
 
     async function loadBooking() {
         try {
@@ -41,6 +41,8 @@ export default function BookingDetail() {
                     changedBy: item.changedBy?.name || 'System'
                 }));
                 setTimeline(timelineData);
+
+                return response.data;
             }
         } catch (error) {
             console.log(error);
@@ -60,6 +62,7 @@ export default function BookingDetail() {
     useEffect(() => {
         loadBooking();
         if (canAssignInspector) {
+            console.log("Loading inspectors...");
             loadInspectors();
         }
     }, [id]);
@@ -161,7 +164,6 @@ export default function BookingDetail() {
         mutedText: darkMode ? "#9ca3af" : "#6b7280",
     };
 
-    console.log(booking.assignedInspector.fullName);
     return (
         <div style={{
             maxWidth: '1200px',
@@ -311,105 +313,103 @@ export default function BookingDetail() {
                 </div>
 
                 {/* Assignment Card */}
-                {canAssignInspector && (
-                    <div style={{
-                        background: theme.card,
-                        borderRadius: '12px',
-                        padding: '24px',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                        border: `1px solid ${theme.border}`
+                <div style={{
+                    background: theme.card,
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+                    border: `1px solid ${theme.border}`
+                }}>
+                    <h2 style={{
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        color: theme.text,
+                        marginBottom: '20px',
+                        paddingBottom: '12px',
+                        borderBottom: `1px solid ${theme.border}`
                     }}>
-                        <h2 style={{
-                            fontSize: '18px',
-                            fontWeight: '600',
-                            color: theme.text,
-                            marginBottom: '20px',
-                            paddingBottom: '12px',
-                            borderBottom: `1px solid ${theme.border}`
-                        }}>
-                            Assign Inspector
-                        </h2>
+                        {canAssignInspector && !booking.assignedInspector ? 'Assign Inspector' : 'Assigned Inspector'}
+                    </h2>
 
-                        {booking.assignedInspector.fullName && (<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            {<div>
-                                <label style={{
-                                    display: 'block',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: theme.text,
-                                    marginBottom: '6px'
-                                }}>
-                                    Select Inspector
-                                </label>
-                                <select
-                                    value={inspectorId}
-                                    onChange={(e) => setInspectorId(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        backgroundColor: '#ffffff',
-                                        color: '#000000'
-                                    }}
-                                >
-                                    <option value="">Select an inspector</option>
-                                    {inspectors.map(inspector => (
-                                        <option key={inspector._id} value={inspector._id}>
-                                            {inspector.profile?.firstName} {inspector.profile?.lastName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>}
-
-                            <button
-                                onClick={assignInspector}
-                                disabled={isLoading || !inspectorId}
+                    {canAssignInspector && !booking.assignedInspector ? (<div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {<div>
+                            <label style={{
+                                display: 'block',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                color: theme.text,
+                                marginBottom: '6px'
+                            }}>
+                                Select Inspector
+                            </label>
+                            <select
+                                value={inspectorId}
+                                onChange={(e) => setInspectorId(e.target.value)}
                                 style={{
-                                    padding: '10px 16px',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    border: 'none',
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    border: '1px solid #e5e7eb',
                                     borderRadius: '8px',
                                     fontSize: '14px',
-                                    fontWeight: '500',
-                                    cursor: isLoading || !inspectorId ? 'not-allowed' : 'pointer',
-                                    opacity: isLoading || !inspectorId ? 0.6 : 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px'
+                                    backgroundColor: '#ffffff',
+                                    color: '#000000'
                                 }}
                             >
-                                {isLoading ? (
-                                    <>
-                                        <span>Processing...</span>
-                                        <div style={{ width: '14px', height: '14px', border: '2px solid transparent', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                                    </>
-                                ) : (
-                                    'Assign & Mark as Inspecting'
-                                )}
-                            </button>
+                                <option value="">Select an inspector</option>
+                                {inspectors.map(inspector => (
+                                    <option key={inspector._id} value={inspector._id}>
+                                        {inspector.profile?.firstName} {inspector.profile?.lastName}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>}
 
-                            {booking.inspector && (
-                                <div style={{
-                                    padding: '12px',
-                                    backgroundColor: darkMode ? '#1e3a8a' : '#dbeafe',
-                                    borderRadius: '8px',
-                                    border: `1px solid ${darkMode ? '#1e40af' : '#93c5fd'}`
-                                }}>
-                                    <p style={{ margin: 0, fontSize: '14px', color: darkMode ? '#dbeafe' : '#1e40af' }}>
-                                        Currently assigned to: <strong>{booking.inspector.profile?.firstName} {booking.inspector.profile?.lastName}</strong>
-                                    </p>
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: darkMode ? '#93c5fd' : '#3b82f6' }}>
-                                        Email: {booking.inspector.email}
-                                    </p>
-                                </div>
+                        <button
+                            onClick={assignInspector}
+                            disabled={isLoading || !inspectorId}
+                            style={{
+                                padding: '10px 16px',
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                cursor: isLoading || !inspectorId ? 'not-allowed' : 'pointer',
+                                opacity: isLoading || !inspectorId ? 0.6 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <span>Processing...</span>
+                                    <div style={{ width: '14px', height: '14px', border: '2px solid transparent', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                                </>
+                            ) : (
+                                'Assign & Mark as Inspecting'
                             )}
-                        </div>)}
-                    </div>
-                )}
+                        </button>
+
+                        {booking.inspector && (
+                            <div style={{
+                                padding: '12px',
+                                backgroundColor: darkMode ? '#1e3a8a' : '#dbeafe',
+                                borderRadius: '8px',
+                                border: `1px solid ${darkMode ? '#1e40af' : '#93c5fd'}`
+                            }}>
+                                <p style={{ margin: 0, fontSize: '14px', color: darkMode ? '#dbeafe' : '#1e40af' }}>
+                                    Currently assigned to: <strong>{booking.inspector.profile?.firstName} {booking.inspector.profile?.lastName}</strong>
+                                </p>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: darkMode ? '#93c5fd' : '#3b82f6' }}>
+                                    Email: {booking.inspector.email}
+                                </p>
+                            </div>
+                        )}
+                    </div>) : (<h1>{booking.assignedInspector.fullName}</h1>)}
+                </div>
 
                 {/* Notes Card */}
                 {/* <div style={{

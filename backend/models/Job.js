@@ -239,14 +239,15 @@ JobSchema.virtual('totalCost').get(function () {
 });
 
 // Virtual for overdue status
-JobSchema.virtual('isOverdue').get(function () {
-  if (this.status === 'completed' || this.status === 'cancelled') return false;
+// JobSchema.virtual('isOverdue').get(function () {
+//   if (this.status === 'completed' || this.status === 'cancelled') return false;
 
-  const now = new Date();
-  const estimatedCompletion = new Date(this.createdAt.getTime() + (this.estimatedHours * 60 * 60 * 1000));
+//   const now = new Date();
+//   console.log(this);
+//   const estimatedCompletion = new Date(this.createdAt.getTime() + (this.estimatedHours * 60 * 60 * 1000));
 
-  return now > estimatedCompletion;
-});
+//   return now > estimatedCompletion;
+// });
 
 // Method to add work log entry
 JobSchema.methods.addWorkLog = function (labourerId, startTime, endTime, description) {

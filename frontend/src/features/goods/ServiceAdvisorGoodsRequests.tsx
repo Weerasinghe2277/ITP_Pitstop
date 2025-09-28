@@ -29,6 +29,7 @@ export default function ServiceAdvisorGoodsRequests() {
 
       // Get all inventory items - we'll use existing inventory endpoint for now
       const response = await http.get(`/inventory?${params.toString()}`);
+      console.log(response.data);
       setRows(response.data?.items || response.data || []);
     } catch (error: any) {
       setMsg({ text: error.message || "Failed to load inventory items", type: "error" });
@@ -46,6 +47,7 @@ export default function ServiceAdvisorGoodsRequests() {
   }, [jobIdFilter]);
 
   const filteredRows = rows.filter((item: any) => {
+    // console.log(item);
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = (
@@ -341,6 +343,7 @@ export default function ServiceAdvisorGoodsRequests() {
               </thead>
               <tbody>
                 {filteredRows.map((item: any) => {
+                  // console.log(item);
                   const statusColor = getStatusColor(item.status);
 
                   return (
