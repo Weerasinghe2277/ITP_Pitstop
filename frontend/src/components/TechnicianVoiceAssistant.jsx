@@ -24,20 +24,25 @@ const TechnicianVoiceAssistant = () => {
 
   // Initialize VAPI event listeners
   useEffect(() => {
-    if (vapiInitialized.current) return;
+    // Prevent double initialization in React StrictMode
+    if (vapiInitialized.current) {
+      console.log('Technician VAPI already initialized, skipping...');
+      return;
+    }
     
+    console.log('Initializing Technician VAPI event listeners...');
     vapiInitialized.current = true;
     
-    // Set up VAPI event listeners
+    // Set up VAPI event listeners with technician-specific prefixes
     vapi.on("call-start", () => {
-      console.log("Voice assistant connected");
+      console.log("Technician voice assistant connected");
       setIsConnected(true);
       setIsLoading(false);
       addMessage('system', 'Voice assistant connected. How can I help you navigate Pitstop?');
     });
 
     vapi.on("call-end", () => {
-      console.log("Voice assistant disconnected");
+      console.log("Technician voice assistant disconnected");
       setIsConnected(false);
       setIsLoading(false); // Reset loading state
       setIsListening(false);
@@ -46,17 +51,17 @@ const TechnicianVoiceAssistant = () => {
     });
 
     vapi.on("speech-start", () => {
-      console.log("User started speaking");
+      console.log("Technician user started speaking");
       setIsListening(true);
     });
 
     vapi.on("speech-end", () => {
-      console.log("User stopped speaking");
+      console.log("Technician user stopped speaking");
       setIsListening(false);
     });
 
     vapi.on("message", (message) => {
-      console.log("VAPI Message:", message);
+      console.log("VAPI Technician Message:", message);
       
       // Handle status updates
       if (message.type === "status-update") {
@@ -80,8 +85,12 @@ const TechnicianVoiceAssistant = () => {
       
       // Handle transcripts
       if (message.type === "transcript") {
-        if (message.transcriptType === "final" && message.transcript && message.role === "user") {
-          addMessage('user', message.transcript);
+        if (message.transcriptType === "final" && message.transcript) {
+          if (message.role === "user") {
+            addMessage('user', message.transcript);
+          } else if (message.role === "assistant") {
+            addMessage('assistant', message.transcript);
+          }
         }
       } else if (message.type === "assistant-message") {
         if (message.message) {
@@ -91,7 +100,7 @@ const TechnicianVoiceAssistant = () => {
     });
 
     vapi.on("error", (error) => {
-      console.error("VAPI Error:", error);
+      console.error("VAPI Technician Error:", error);
       setIsConnected(false);
       setIsLoading(false);
       setIsListening(false);
@@ -102,19 +111,42 @@ const TechnicianVoiceAssistant = () => {
     });
 
     return () => {
-      vapi.removeAllListeners();
+      console.log('Cleaning up Technician VAPI event listeners...');
+      try {
+        vapi.removeAllListeners();
+        // Also try to stop any active calls
+        if (isConnected) {
+          vapi.stop();
+        }
+      } catch (error) {
+        console.error('Error during technician VAPI cleanup:', error);
+      }
       vapiInitialized.current = false;
     };
-  }, []);
+  }, [isConnected]); // Add isConnected as dependency to cleanup active calls
 
   const addMessage = (type, text) => {
     const message = {
-      id: `msg-${Date.now()}-${Math.random()}`,
+      id: `technician-msg-${Date.now()}-${Math.random()}`, // Add technician prefix to prevent duplicates
       type,
       text,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, message]);
+    setMessages(prev => {
+      // Check if this exact message already exists to prevent duplicates
+      const isDuplicate = prev.some(existingMsg => 
+        existingMsg.text === text && 
+        existingMsg.type === type && 
+        Math.abs(existingMsg.timestamp - message.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (isDuplicate) {
+        console.log('Preventing duplicate technician message:', text);
+        return prev;
+      }
+      
+      return [...prev, message];
+    });
   };
 
   const startVoiceAssistant = async () => {
@@ -178,12 +210,12 @@ If asked about areas outside technician scope, politely redirect to appropriate 
   };
 
   const stopVoiceAssistant = () => {
-    console.log("Stopping VAPI call...");
+    console.log("Stopping Technician VAPI call...");
     setIsLoading(true);
     try {
       vapi.stop();
     } catch (err) {
-      console.error("Error stopping call:", err);
+      console.error("Error stopping technician call:", err);
     }
     
     // Force state reset after a short delay to ensure cleanup

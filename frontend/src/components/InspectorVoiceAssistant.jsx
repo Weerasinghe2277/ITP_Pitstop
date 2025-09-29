@@ -24,11 +24,16 @@ const InspectorVoiceAssistant = () => {
 
   // Initialize VAPI event listeners
   useEffect(() => {
-    if (vapiInitialized.current) return;
+    // Prevent double initialization in React StrictMode
+    if (vapiInitialized.current) {
+      console.log('Inspector VAPI already initialized, skipping...');
+      return;
+    }
     
+    console.log('Initializing Inspector VAPI event listeners...');
     vapiInitialized.current = true;
     
-    // Set up VAPI event listeners
+    // Set up VAPI event listeners with inspector-specific prefixes
     vapi.on("call-start", () => {
       console.log("Inspector voice assistant connected");
       setIsConnected(true);
@@ -79,8 +84,12 @@ const InspectorVoiceAssistant = () => {
       
       // Handle transcripts
       if (message.type === "transcript") {
-        if (message.transcriptType === "final" && message.transcript && message.role === "user") {
-          addMessage('user', message.transcript);
+        if (message.transcriptType === "final" && message.transcript) {
+          if (message.role === "user") {
+            addMessage('user', message.transcript);
+          } else if (message.role === "assistant") {
+            addMessage('assistant', message.transcript);
+          }
         }
       } else if (message.type === "assistant-message") {
         if (message.message) {
@@ -101,19 +110,42 @@ const InspectorVoiceAssistant = () => {
     });
 
     return () => {
-      vapi.removeAllListeners();
+      console.log('Cleaning up Inspector VAPI event listeners...');
+      try {
+        vapi.removeAllListeners();
+        // Also try to stop any active calls
+        if (isConnected) {
+          vapi.stop();
+        }
+      } catch (error) {
+        console.error('Error during inspector VAPI cleanup:', error);
+      }
       vapiInitialized.current = false;
     };
-  }, []);
+  }, [isConnected]); // Add isConnected as dependency to cleanup active calls
 
   const addMessage = (type, text) => {
     const message = {
-      id: `msg-${Date.now()}-${Math.random()}`,
+      id: `inspector-msg-${Date.now()}-${Math.random()}`, // Add inspector prefix to prevent duplicates
       type,
       text,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, message]);
+    setMessages(prev => {
+      // Check if this exact message already exists to prevent duplicates
+      const isDuplicate = prev.some(existingMsg => 
+        existingMsg.text === text && 
+        existingMsg.type === type && 
+        Math.abs(existingMsg.timestamp - message.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (isDuplicate) {
+        console.log('Preventing duplicate message:', text);
+        return prev;
+      }
+      
+      return [...prev, message];
+    });
   };
 
   const startVoiceAssistant = async () => {
@@ -241,6 +273,14 @@ If asked about areas outside inspector responsibilities, politely redirect to ap
     
     if (lowerQuery.includes('goods') || lowerQuery.includes('parts') || lowerQuery.includes('inventory') || lowerQuery.includes('request')) {
       return "To request parts from inventory: 1) Open the job requiring parts, 2) Click 'Request Goods', 3) Select items and quantities needed, 4) Add justification and urgency level, 5) Submit to inventory manager. Track request status in 'Goods Requests' section.";
+    }
+    
+    if (lowerQuery.includes('stock') || lowerQuery.includes('check stock') || lowerQuery.includes('inventory level')) {
+      return "To check stock levels: 1) Go to 'Inventory' section in main menu, 2) View current stock levels and availability, 3) Check 'Low Stock' alerts for items needing reorder, 4) Use search to find specific parts. Note: As an inspector, you can view stock but ordering is handled by inventory manager.";
+    }
+    
+    if (lowerQuery.includes('invoice') || lowerQuery.includes('billing') || lowerQuery.includes('payment')) {
+      return "Invoice handling: As an inspector, you don't directly manage invoices - that's handled by cashiers. Your role is to: 1) Ensure all work is completed and documented, 2) Mark booking as 'Completed' when ready, 3) Provide detailed service reports, 4) Hand over to cashier for customer billing and vehicle release.";
     }
     
     if (lowerQuery.includes('status') && (lowerQuery.includes('update') || lowerQuery.includes('change') || lowerQuery.includes('booking'))) {
