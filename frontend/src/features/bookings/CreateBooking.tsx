@@ -784,7 +784,7 @@ export default function CreateBooking() {
                                         if (step === 3) return ['serviceType'].includes(key);
                                         if (step === 4) return ['scheduledDate', 'timeSlot'].includes(key);
                                         return false;
-                                    });
+                                    }).filter(key => errors[key as keyof BookingForm]); // Only include keys with actual error messages
                                     if (stepErrors.length > 0) {
                                         toast.error("Please fix the errors before proceeding");
                                         return;
