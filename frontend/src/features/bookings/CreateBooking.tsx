@@ -3,25 +3,24 @@ import { useMemo, useState, useEffect } from "react";
 import { http } from "../../lib/http";
 import { useNavigate } from "react-router-dom";
 import { Enums } from "../../lib/validators";
+import { ToastContainer, toast } from "react-toastify"; // Import react-toastify
+import "react-toastify/dist/ReactToastify.css"; // Import toast styles
 
 type BookingForm = {
-    // Customer details
     firstName: string;
     lastName: string;
     nic: string;
     phone: string;
     address: string;
     email: string;
-    // Vehicle details
     registrationNumber: string;
     vehicleMake: string;
     vehicleModel: string;
     fuelType: string;
     transmission: string;
-    // Booking details
-    customer: string; // backend expects userId
-    customerNic?: string; // UI entry
-    vehicle: string; // will store vehicle ID after creation/lookup
+    customer: string;
+    customerNic?: string;
+    vehicle: string;
     serviceType: string;
     scheduledDate: string;
     timeSlot: string;
@@ -37,23 +36,72 @@ type CustomerRegForm = {
     nic?: string;
 };
 
+// Validation rules
+const validators = {
+    firstName: (value: string) => {
+        if (!value.trim()) return "First name is required";
+        if (value.length < 2) return "First name must be at least 2 characters";
+        if (!/^[a-zA-Z\s]+$/.test(value)) return "First name can only contain letters and spaces";
+        return "";
+    },
+    lastName: (value: string) => {
+        if (!value.trim()) return "Last name is required";
+        if (value.length < 2) return "Last name must be at least 2 characters";
+        if (!/^[a-zA-Z\s]+$/.test(value)) return "Last name can only contain letters and spaces";
+        return "";
+    },
+    nic: (value: string) => {
+        if (!value.trim()) return "NIC is required";
+        // Sri Lankan NIC format: 9 digits + 'V' or 12 digits
+        if (!/^(?:\d{9}[Vv]|\d{12})$/.test(value)) return "Invalid NIC format (e.g., 123456789V or 123456789012)";
+        return "";
+    },
+    phone: (value: string) => {
+        if (!value.trim()) return "Phone number is required";
+        if (!/^\d{10}$/.test(value)) return "Phone number must be 10 digits (e.g., 0771234567)";
+        return "";
+    },
+    email: (value: string) => {
+        if (!value.trim()) return "Email is required";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Invalid email format";
+        return "";
+    },
+    address: (value: string) => {
+        if (!value.trim()) return "Address is required";
+        if (value.length < 5) return "Address must be at least 5 characters";
+        return "";
+    },
+    registrationNumber: (value: string) => {
+        if (!value.trim()) return "Registration number is required";
+        if (!/^[A-Z0-9-]{2,8}$/.test(value)) return "Invalid registration number (e.g., ABC-1234)";
+        return "";
+    },
+    vehicleMake: (value: string) => {
+        if (!value.trim()) return "Vehicle make is required";
+        if (value.length < 2) return "Vehicle make must be at least 2 characters";
+        return "";
+    },
+    vehicleModel: (value: string) => {
+        if (!value.trim()) return "Vehicle model is required";
+        if (value.length < 2) return "Vehicle model must be at least 2 characters";
+        return "";
+    },
+};
+
 export default function CreateBooking() {
     const nav = useNavigate();
     const [form, setForm] = useState<BookingForm>({
-        // Customer details
         firstName: "",
         lastName: "",
         nic: "",
         phone: "",
         address: "",
         email: "",
-        // Vehicle details
         registrationNumber: "",
         vehicleMake: "",
         vehicleModel: "",
         fuelType: "petrol",
         transmission: "manual",
-        // Booking details
         customer: "",
         customerNic: "",
         vehicle: "",
@@ -63,8 +111,8 @@ export default function CreateBooking() {
         description: "",
         priority: "medium",
     });
-    const [step, setStep] = useState(1); // 1..5
-    const [message, setMessage] = useState({ text: "", type: "" });
+    const [errors, setErrors] = useState<Partial<Record<keyof BookingForm, string>>>({}); // Store inline errors
+    const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [showCustomerForm, setShowCustomerForm] = useState(false);
     const [customerForm, setCustomerForm] = useState<CustomerRegForm>({
@@ -74,45 +122,47 @@ export default function CreateBooking() {
         address: "",
         nic: "",
     });
+    const [customerErrors, setCustomerErrors] = useState<Partial<Record<keyof CustomerRegForm, string>>>({}); // Customer form errors
     const [isRegisteringCustomer, setIsRegisteringCustomer] = useState(false);
     const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
     const [searchNicOrEmail, setSearchNicOrEmail] = useState("");
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    // Update current time every minute to check for past time slots
+    // Update current time every minute
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date());
-
-            // Clear selected time slot if it has become past
             if (form.timeSlot && form.scheduledDate && isTimeSlotPast(form.timeSlot, form.scheduledDate)) {
                 setForm(prev => ({ ...prev, timeSlot: "" }));
-                setMessage({
-                    text: "Selected time slot has passed and has been cleared. Please select a new time slot.",
-                    type: "error"
-                });
+                toast.error("Selected time slot has passed and has been cleared. Please select a new time slot.");
             }
-        }, 60000); // Update every minute
-
+        }, 60000);
         return () => clearInterval(timer);
-    }, [form.timeSlot, form.scheduledDate]); // Dependencies for clearing past slots
+    }, [form.timeSlot, form.scheduledDate]);
+
+    // Validate customer search input
+    const validateSearchNicOrEmail = (value: string) => {
+        if (!value.trim()) return "Please enter NIC or email to search";
+        if (!/^(?:\d{9}[Vv]|\d{12}|[^\s@]+@[^\s@]+\.[^\s@]+)$/.test(value)) {
+            return "Enter a valid NIC (e.g., 123456789V or 123456789012) or email";
+        }
+        return "";
+    };
 
     // Search for existing customer
     async function searchExistingCustomer() {
-        if (!searchNicOrEmail.trim()) {
-            setMessage({ text: "Please enter NIC or email to search", type: "error" });
+        const error = validateSearchNicOrEmail(searchNicOrEmail);
+        if (error) {
+            toast.error(error);
             return;
         }
 
         setIsSearchingCustomer(true);
-        setMessage({ text: "", type: "" });
-
         try {
             const response = await http.get(`/users/search?q=${encodeURIComponent(searchNicOrEmail.trim())}`);
             const customer = response.data?.user;
 
             if (customer) {
-                // Pre-fill form with customer data
                 setForm(f => ({
                     ...f,
                     firstName: customer.profile?.firstName || "",
@@ -120,47 +170,72 @@ export default function CreateBooking() {
                     nic: customer.profile?.nic || "",
                     phone: customer.profile?.phoneNumber || "",
                     address: customer.profile?.address?.street || "",
-                    email: customer.email || ""
+                    email: customer.email || "",
+                    customer: customer._id || customer.id || "",
                 }));
-                setMessage({ text: "Customer found and form pre-filled!", type: "success" });
+                setErrors({}); // Clear errors on successful customer load
+                toast.success("Customer found and form pre-filled!");
                 setSearchNicOrEmail("");
             } else {
-                setMessage({ text: "No customer found with that NIC or email", type: "error" });
+                toast.error("No customer found with that NIC or email");
             }
         } catch (e: any) {
-            setMessage({ text: "Customer not found", type: "error" });
+            toast.error(e?.message || "Failed to search customer");
         } finally {
             setIsSearchingCustomer(false);
         }
     }
 
+    // Inline validation for form fields
     function update<K extends keyof BookingForm>(key: K, value: BookingForm[K]) {
-        setForm((f) => ({ ...f, [key]: value }));
+        setForm(f => ({ ...f, [key]: value }));
+        const validator = validators[key];
+        if (validator) {
+            const error = validator(value as string);
+            setErrors(prev => ({ ...prev, [key]: error }));
+        }
     }
 
+    // Inline validation for customer registration form
     function updateCustomer<K extends keyof CustomerRegForm>(key: K, value: CustomerRegForm[K]) {
-        setCustomerForm((f) => ({ ...f, [key]: value }));
+        setCustomerForm(f => ({ ...f, [key]: value }));
+        const validator = validators[key];
+        if (validator) {
+            const error = validator(value as string);
+            setCustomerErrors(prev => ({ ...prev, [key]: error }));
+        }
     }
 
+    // Form submission validation
     function validate() {
-        if (!form.firstName?.trim()) return "First name is required";
-        if (!form.lastName?.trim()) return "Last name is required";
-        if (!form.nic?.trim()) return "NIC is required";
-        if (!form.phone?.trim()) return "Phone number is required";
-        if (!form.address?.trim()) return "Address is required";
-        if (!form.email?.trim()) return "Email is required";
-        if (!form.registrationNumber?.trim()) return "Vehicle registration number is required";
-        if (!form.vehicleMake?.trim()) return "Vehicle make is required";
-        if (!form.vehicleModel?.trim()) return "Vehicle model is required";
-        if (!form.fuelType?.trim()) return "Fuel type is required";
-        if (!form.transmission?.trim()) return "Transmission type is required";
-        if (!form.serviceType?.trim()) return "Service type is required";
-        if (!form.scheduledDate?.trim()) return "Scheduled date is required";
-        if (!form.timeSlot?.trim()) return "Time slot is required";
-        return "";
+        const newErrors: Partial<Record<keyof BookingForm, string>> = {};
+        Object.entries(validators).forEach(([key, validator]) => {
+            const value = form[key as keyof BookingForm];
+            const error = validator(value as string);
+            if (error) newErrors[key as keyof BookingForm] = error;
+        });
+        if (!form.serviceType?.trim()) newErrors.serviceType = "Service type is required";
+        if (!form.scheduledDate?.trim()) newErrors.scheduledDate = "Scheduled date is required";
+        if (!form.timeSlot?.trim()) newErrors.timeSlot = "Time slot is required";
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     }
 
-    // Helper functions for date constraints (today .. +30 days)
+    // Customer registration validation
+    function validateCustomer() {
+        const newErrors: Partial<Record<keyof CustomerRegForm, string>> = {};
+        Object.entries(validators).forEach(([key, validator]) => {
+            if (key in customerForm) {
+                const value = customerForm[key as keyof CustomerRegForm];
+                const error = validator(value as string);
+                if (error) newErrors[key as keyof CustomerRegForm] = error;
+            }
+        });
+        setCustomerErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    }
+
+    // Date and time utilities
     function toDateOnly(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
     function fmt(d: Date) {
         const y = d.getFullYear();
@@ -173,57 +248,33 @@ export default function CreateBooking() {
     function getTodayString() { return fmt(today); }
     function getMaxFromTodayString() { return fmt(maxDate); }
 
-    // Suggested slot list (2h windows) - matching backend enum values
-    const suggestedSlots = useMemo(
-        () => [
-            "09:00-11:00",
-            "11:00-13:00",
-            "13:00-15:00",
-            "15:00-17:00",
-        ],
-        []
-    );
+    const suggestedSlots = useMemo(() => [
+        "09:00-11:00",
+        "11:00-13:00",
+        "13:00-15:00",
+        "15:00-17:00",
+    ], []);
 
-    // Check if a time slot is in the past
     function isTimeSlotPast(timeSlot: string, selectedDate: string): boolean {
         if (!selectedDate) return false;
-
         const today = new Date();
         const selectedDateObj = new Date(selectedDate);
-
-        // If selected date is not today, then no slots are past
         if (selectedDateObj.toDateString() !== today.toDateString()) {
             return false;
         }
-
-        // Extract end time from slot (e.g., "09:00-11:00" -> "11:00")
         const endTime = timeSlot.split('-')[1];
         const [hours, minutes] = endTime.split(':').map(Number);
-
-        // Create a Date object for the slot end time today
         const slotEndTime = new Date();
         slotEndTime.setHours(hours, minutes, 0, 0);
-
-        // Check if current time is past the slot end time
         return currentTime >= slotEndTime;
     }
 
-    function validateCustomer() {
-        if (!customerForm.name?.trim()) return "Customer name is required";
-        if (!customerForm.email?.trim()) return "Email is required";
-        if (!customerForm.phone?.trim()) return "Phone is required";
-        if (!customerForm.nic?.trim()) return "NIC is required";
-        return "";
-    }
-
     async function registerCustomer() {
-        const v = validateCustomer();
-        if (v) {
-            setMessage({ text: v, type: "error" });
+        if (!validateCustomer()) {
+            toast.error("Please fix the errors in the customer form");
             return;
         }
         setIsRegisteringCustomer(true);
-        setMessage({ text: "", type: "" });
         try {
             const { data } = await http.post("/users", {
                 ...customerForm,
@@ -236,12 +287,13 @@ export default function CreateBooking() {
                     nic: customerForm.nic,
                 }
             });
-            setMessage({ text: "Customer registered successfully!", type: "success" });
+            toast.success("Customer registered successfully!");
             update("customer", data?.user?._id || data?.user?.id || "");
             setShowCustomerForm(false);
             setCustomerForm({ name: "", email: "", phone: "", address: "", nic: "" });
+            setCustomerErrors({});
         } catch (e: any) {
-            setMessage({ text: e?.message || "Failed to register customer", type: "error" });
+            toast.error(e?.message || "Failed to register customer");
         } finally {
             setIsRegisteringCustomer(false);
         }
@@ -249,15 +301,12 @@ export default function CreateBooking() {
 
     async function submit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        const v = validate();
-        if (v) {
-            setMessage({ text: v, type: "error" });
+        if (!validate()) {
+            toast.error("Please fix the errors in the form");
             return;
         }
         setIsLoading(true);
-        setMessage({ text: "", type: "" });
         try {
-            // First create/find the customer using the public endpoint
             const customerData = {
                 email: form.email,
                 firstName: form.firstName,
@@ -266,53 +315,42 @@ export default function CreateBooking() {
                 nic: form.nic,
                 address: form.address
             };
-
             const customerResponse = await http.post("/users/register-customer", customerData);
             const customerId = customerResponse.data?.user?._id;
 
-            // Show appropriate message based on whether customer was new or existing
             if (customerResponse.data?.isExisting) {
-                setMessage({ text: "Found existing customer, creating booking...", type: "success" });
+                toast.success("Found existing customer, creating booking...");
             } else {
-                setMessage({ text: "Customer registered successfully, creating booking...", type: "success" });
+                toast.success("Customer registered successfully, creating booking...");
             }
 
-            // Then create or find vehicle
             let vehicleId;
             try {
-                // First try to find existing vehicle by registration number
                 const vehResp = await http.get(`/vehicles`, { params: { search: form.registrationNumber, limit: 1 } });
                 const foundVehicle = (vehResp.data?.vehicles || [])[0];
 
                 if (foundVehicle?._id || foundVehicle?.id) {
-                    // Use existing vehicle
                     vehicleId = foundVehicle._id || foundVehicle.id;
                 } else {
-                    // Create new vehicle
                     const vehicleData = {
                         registrationNumber: form.registrationNumber,
                         make: form.vehicleMake,
                         model: form.vehicleModel,
-                        year: new Date().getFullYear(), // Default to current year
-                        owner: customerId, // Link to the customer
+                        year: new Date().getFullYear(),
+                        owner: customerId,
                         fuelType: form.fuelType,
                         transmission: form.transmission,
                         status: "active"
                     };
-
                     const vehicleResponse = await http.post("/vehicles", vehicleData);
                     vehicleId = vehicleResponse.data?.vehicle?._id || vehicleResponse.data?.vehicle?.id;
-
-                    if (!vehicleId) {
-                        throw new Error("Failed to create vehicle");
-                    }
+                    if (!vehicleId) throw new Error("Failed to create vehicle");
                 }
             } catch (vehicleError) {
                 console.error("Vehicle creation/lookup error:", vehicleError);
                 throw new Error("Failed to create or find vehicle. Please check the vehicle details.");
             }
 
-            // Finally create the booking
             const bookingPayload = {
                 customer: customerId,
                 vehicle: vehicleId,
@@ -323,9 +361,10 @@ export default function CreateBooking() {
                 priority: form.priority
             };
             const { data } = await http.post("/bookings/public", bookingPayload);
+            toast.success("Booking created successfully!");
             nav(`/bookings/${data?.booking?._id}`);
         } catch (e: any) {
-            setMessage({ text: e?.response?.data?.message || e?.message || "Failed to create booking", type: "error" });
+            toast.error(e?.response?.data?.message || e?.message || "Failed to create booking");
         } finally {
             setIsLoading(false);
         }
@@ -338,6 +377,8 @@ export default function CreateBooking() {
         borderRadius: "8px",
         fontSize: "14px",
         backgroundColor: "white",
+        borderColor: (key: keyof BookingForm | keyof CustomerRegForm) =>
+            (errors[key] || customerErrors[key]) ? "#ef4444" : "#d1d5db",
     };
 
     const labelStyle = {
@@ -371,29 +412,14 @@ export default function CreateBooking() {
                 maxWidth: "1200px",
                 margin: "0 auto",
                 padding: "20px",
-                fontFamily:
-                    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             }}
         >
+            <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover theme="light" />
+
             {/* Header */}
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "24px",
-                    flexWrap: "wrap",
-                    gap: "16px",
-                }}
-            >
-                <h1
-                    style={{
-                        fontSize: "28px",
-                        fontWeight: 700,
-                        color: "#1f2937",
-                        margin: 0,
-                    }}
-                >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
+                <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1f2937", margin: 0 }}>
                     New Booking
                 </h1>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -416,36 +442,10 @@ export default function CreateBooking() {
                 </div>
             </div>
 
-            {/* Message Alert */}
-            {message.text && (
-                <div
-                    style={{
-                        padding: "12px 16px",
-                        borderRadius: "8px",
-                        marginBottom: "24px",
-                        backgroundColor: message.type === "error" ? "#fef2f2" : "#f0fdf4",
-                        color: message.type === "error" ? "#991b1b" : "#166534",
-                        border: `1px solid ${message.type === "error" ? "#fecaca" : "#bbf7d0"
-                            }`,
-                    }}
-                >
-                    {message.text}
-                </div>
-            )}
-
             {/* Multi-step form */}
             <div style={{ maxWidth: "800px", margin: "0 auto" }}>
                 <form onSubmit={submit} style={sectionCard}>
-                    <h2
-                        style={{
-                            fontSize: "18px",
-                            fontWeight: 600,
-                            color: "#1f2937",
-                            marginBottom: "20px",
-                            paddingBottom: "12px",
-                            borderBottom: "1px solid #e5e7eb",
-                        }}
-                    >
+                    <h2 style={{ fontSize: "18px", fontWeight: 600, color: "#1f2937", marginBottom: "20px", paddingBottom: "12px", borderBottom: "1px solid #e5e7eb" }}>
                         {step === 1 && "Customer Details"}
                         {step === 2 && "Vehicle"}
                         {step === 3 && "Service"}
@@ -453,23 +453,10 @@ export default function CreateBooking() {
                         {step === 5 && "Review"}
                     </h2>
 
-                    {/* Step content */}
                     {step === 1 && (
                         <>
-                            {/* Customer Search Section */}
-                            <div style={{
-                                backgroundColor: "#f8fafc",
-                                padding: "16px",
-                                borderRadius: "8px",
-                                marginBottom: "24px",
-                                border: "1px solid #e2e8f0"
-                            }}>
-                                <h3 style={{
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                    color: "#475569",
-                                    marginBottom: "12px"
-                                }}>
+                            <div style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "8px", marginBottom: "24px", border: "1px solid #e2e8f0" }}>
+                                <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#475569", marginBottom: "12px" }}>
                                     Search Existing Customer (Optional)
                                 </h3>
                                 <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
@@ -478,40 +465,41 @@ export default function CreateBooking() {
                                         <input
                                             placeholder="Enter NIC number or email address"
                                             value={searchNicOrEmail}
-                                            onChange={(e) => setSearchNicOrEmail(e.target.value)}
-                                            style={inputStyle}
+                                            onChange={(e) => {
+                                                setSearchNicOrEmail(e.target.value);
+                                                const error = validateSearchNicOrEmail(e.target.value);
+                                                setErrors(prev => ({ ...prev, searchNicOrEmail: error }));
+                                            }}
+                                            style={{ ...inputStyle, borderColor: errors.searchNicOrEmail ? "#ef4444" : "#d1d5db" }}
                                         />
+                                        {errors.searchNicOrEmail && (
+                                            <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.searchNicOrEmail}</p>
+                                        )}
                                     </div>
                                     <button
                                         type="button"
                                         onClick={searchExistingCustomer}
-                                        disabled={isSearchingCustomer || !searchNicOrEmail.trim()}
+                                        disabled={isSearchingCustomer || !!errors.searchNicOrEmail}
                                         style={{
                                             padding: "11px 16px",
-                                            backgroundColor: isSearchingCustomer || !searchNicOrEmail.trim() ? "#9ca3af" : "#3b82f6",
+                                            backgroundColor: isSearchingCustomer || errors.searchNicOrEmail ? "#9ca3af" : "#3b82f6",
                                             color: "white",
                                             border: "none",
                                             borderRadius: "8px",
                                             fontSize: "14px",
                                             fontWeight: 500,
-                                            cursor: isSearchingCustomer || !searchNicOrEmail.trim() ? "not-allowed" : "pointer",
+                                            cursor: isSearchingCustomer || errors.searchNicOrEmail ? "not-allowed" : "pointer",
                                             whiteSpace: "nowrap"
                                         }}
                                     >
                                         {isSearchingCustomer ? "Searching..." : "Search"}
                                     </button>
                                 </div>
-                                <p style={{
-                                    fontSize: "12px",
-                                    color: "#64748b",
-                                    marginTop: "8px",
-                                    marginBottom: "0"
-                                }}>
+                                <p style={{ fontSize: "12px", color: "#64748b", marginTop: "8px", marginBottom: "0" }}>
                                     If found, customer details will be automatically filled in the form below.
                                 </p>
                             </div>
 
-                            {/* Customer Details Form */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
                                 <div>
                                     <label style={labelStyle}>First Name *</label>
@@ -519,9 +507,10 @@ export default function CreateBooking() {
                                         placeholder="Enter first name"
                                         value={form.firstName}
                                         onChange={(e) => update("firstName", e.target.value)}
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, borderColor: errors.firstName ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.firstName && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.firstName}</p>}
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Last Name *</label>
@@ -529,9 +518,10 @@ export default function CreateBooking() {
                                         placeholder="Enter last name"
                                         value={form.lastName}
                                         onChange={(e) => update("lastName", e.target.value)}
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, borderColor: errors.lastName ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.lastName && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.lastName}</p>}
                                 </div>
                                 <div>
                                     <label style={labelStyle}>NIC Number *</label>
@@ -539,9 +529,10 @@ export default function CreateBooking() {
                                         placeholder="Enter NIC number (e.g., 123456789V)"
                                         value={form.nic}
                                         onChange={(e) => update("nic", e.target.value)}
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, borderColor: errors.nic ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.nic && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.nic}</p>}
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Phone Number *</label>
@@ -549,9 +540,10 @@ export default function CreateBooking() {
                                         placeholder="Enter phone number (e.g., 0771234567)"
                                         value={form.phone}
                                         onChange={(e) => update("phone", e.target.value)}
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, borderColor: errors.phone ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.phone && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.phone}</p>}
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Email *</label>
@@ -560,9 +552,10 @@ export default function CreateBooking() {
                                         placeholder="Enter email address"
                                         value={form.email}
                                         onChange={(e) => update("email", e.target.value)}
-                                        style={inputStyle}
+                                        style={{ ...inputStyle, borderColor: errors.email ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.email && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.email}</p>}
                                 </div>
                                 <div style={{ gridColumn: "1 / -1" }}>
                                     <label style={labelStyle}>Address *</label>
@@ -570,9 +563,10 @@ export default function CreateBooking() {
                                         placeholder="Enter full address"
                                         value={form.address}
                                         onChange={(e) => update("address", e.target.value)}
-                                        style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+                                        style={{ ...inputStyle, minHeight: 80, resize: "vertical", borderColor: errors.address ? "#ef4444" : "#d1d5db" }}
                                         required
                                     />
+                                    {errors.address && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.address}</p>}
                                 </div>
                             </div>
                         </>
@@ -586,9 +580,10 @@ export default function CreateBooking() {
                                     placeholder="Enter registration number (e.g., ABC-1234)"
                                     value={form.registrationNumber}
                                     onChange={(e) => update("registrationNumber", e.target.value.toUpperCase())}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: errors.registrationNumber ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {errors.registrationNumber && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.registrationNumber}</p>}
                             </div>
                             <div>
                                 <label style={labelStyle}>Vehicle Make *</label>
@@ -596,9 +591,10 @@ export default function CreateBooking() {
                                     placeholder="Enter vehicle make (e.g., Toyota, Honda, BMW)"
                                     value={form.vehicleMake}
                                     onChange={(e) => update("vehicleMake", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: errors.vehicleMake ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {errors.vehicleMake && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleMake}</p>}
                             </div>
                             <div>
                                 <label style={labelStyle}>Vehicle Model *</label>
@@ -606,9 +602,10 @@ export default function CreateBooking() {
                                     placeholder="Enter vehicle model (e.g., Camry, Civic, X3)"
                                     value={form.vehicleModel}
                                     onChange={(e) => update("vehicleModel", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: errors.vehicleModel ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {errors.vehicleModel && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleModel}</p>}
                             </div>
                             <div>
                                 <label style={labelStyle}>Fuel Type *</label>
@@ -651,7 +648,10 @@ export default function CreateBooking() {
 
                     {step === 3 && (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                            <div style={{ gridColumn: "1 / -1", marginBottom: 8 }}><label style={labelStyle}>Service Type</label></div>
+                            <div style={{ gridColumn: "1 / -1", marginBottom: 8 }}>
+                                <label style={labelStyle}>Service Type</label>
+                                {errors.serviceType && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.serviceType}</p>}
+                            </div>
                             {Enums.ServiceType.map((x) => (
                                 <button key={x} type="button" onClick={() => update("serviceType", x)} style={{ ...pill(form.serviceType === x), textTransform: "capitalize", cursor: "pointer" }}>
                                     {x}
@@ -675,24 +675,22 @@ export default function CreateBooking() {
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                             <div>
                                 <label style={labelStyle}>Scheduled Date</label>
-                                <input type="date" value={form.scheduledDate} min={getTodayString()} max={getMaxFromTodayString()} onChange={(e) => update("scheduledDate", e.target.value)} style={inputStyle} />
+                                <input
+                                    type="date"
+                                    value={form.scheduledDate}
+                                    min={getTodayString()}
+                                    max={getMaxFromTodayString()}
+                                    onChange={(e) => update("scheduledDate", e.target.value)}
+                                    style={{ ...inputStyle, borderColor: errors.scheduledDate ? "#ef4444" : "#d1d5db" }}
+                                />
                                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>You can book up to 30 days from today.</div>
+                                {errors.scheduledDate && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.scheduledDate}</p>}
                             </div>
                             <div>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                                     <label style={labelStyle}>Time Slot</label>
-                                    <div style={{
-                                        fontSize: "12px",
-                                        color: "#6b7280",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "4px"
-                                    }}>
-                                        🕐 Current time: {currentTime.toLocaleTimeString('en-US', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            hour12: false
-                                        })}
+                                    <div style={{ fontSize: "12px", color: "#6b7280", display: "flex", alignItems: "center", gap: "4px" }}>
+                                        🕐 Current time: {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                     </div>
                                 </div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
@@ -734,6 +732,7 @@ export default function CreateBooking() {
                                         );
                                     })}
                                 </div>
+                                {errors.timeSlot && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.timeSlot}</p>}
                                 <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
                                     {form.scheduledDate === getTodayString() ? (
                                         <span>⚠️ Past time slots are disabled and update in real-time</span>
@@ -776,7 +775,24 @@ export default function CreateBooking() {
                             </button>
                         )}
                         {step < 5 && (
-                            <button type="button" onClick={() => setStep((s) => Math.min(5, s + 1))} style={{ padding: "10px 14px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const stepErrors = Object.keys(errors).filter(key => {
+                                        if (step === 1) return ['firstName', 'lastName', 'nic', 'phone', 'email', 'address'].includes(key);
+                                        if (step === 2) return ['registrationNumber', 'vehicleMake', 'vehicleModel'].includes(key);
+                                        if (step === 3) return ['serviceType'].includes(key);
+                                        if (step === 4) return ['scheduledDate', 'timeSlot'].includes(key);
+                                        return false;
+                                    });
+                                    if (stepErrors.length > 0) {
+                                        toast.error("Please fix the errors before proceeding");
+                                        return;
+                                    }
+                                    setStep((s) => Math.min(5, s + 1));
+                                }}
+                                style={{ padding: "10px 14px", backgroundColor: "#3b82f6", color: "white", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                            >
                                 Next
                             </button>
                         )}
@@ -792,7 +808,6 @@ export default function CreateBooking() {
                 </form>
             </div>
 
-            {/* Customer Registration Modal */}
             {showCustomerForm && (
                 <div
                     style={{
@@ -853,11 +868,11 @@ export default function CreateBooking() {
                                     placeholder="Enter customer full name"
                                     value={customerForm.name}
                                     onChange={(e) => updateCustomer("name", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: customerErrors.name ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {customerErrors.name && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{customerErrors.name}</p>}
                             </div>
-
                             <div>
                                 <label style={labelStyle}>Email *</label>
                                 <input
@@ -865,11 +880,11 @@ export default function CreateBooking() {
                                     placeholder="Enter email address"
                                     value={customerForm.email}
                                     onChange={(e) => updateCustomer("email", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: customerErrors.email ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {customerErrors.email && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{customerErrors.email}</p>}
                             </div>
-
                             <div>
                                 <label style={labelStyle}>Phone *</label>
                                 <input
@@ -877,11 +892,11 @@ export default function CreateBooking() {
                                     placeholder="Enter phone number"
                                     value={customerForm.phone}
                                     onChange={(e) => updateCustomer("phone", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: customerErrors.phone ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {customerErrors.phone && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{customerErrors.phone}</p>}
                             </div>
-
                             <div>
                                 <label style={labelStyle}>NIC *</label>
                                 <input
@@ -889,19 +904,20 @@ export default function CreateBooking() {
                                     placeholder="Enter NIC number (e.g., 123456789V or 123456789012)"
                                     value={customerForm.nic}
                                     onChange={(e) => updateCustomer("nic", e.target.value)}
-                                    style={inputStyle}
+                                    style={{ ...inputStyle, borderColor: customerErrors.nic ? "#ef4444" : "#d1d5db" }}
                                     required
                                 />
+                                {customerErrors.nic && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{customerErrors.nic}</p>}
                             </div>
-
                             <div>
                                 <label style={labelStyle}>Address</label>
                                 <textarea
                                     placeholder="Enter customer address"
                                     value={customerForm.address}
                                     onChange={(e) => updateCustomer("address", e.target.value)}
-                                    style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+                                    style={{ ...inputStyle, minHeight: 80, resize: "vertical", borderColor: customerErrors.address ? "#ef4444" : "#d1d5db" }}
                                 />
+                                {customerErrors.address && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{customerErrors.address}</p>}
                             </div>
 
                             <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
