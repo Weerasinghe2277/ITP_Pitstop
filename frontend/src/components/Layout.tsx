@@ -36,12 +36,14 @@ export default function Layout() {
         // Always available
         sections.push({ path: "/", label: "Dashboard", icon: "📊" });
 
-        // Bookings & Invoices
+        // Bookings
         if (isCashier || isAdmin || isManager || isServiceAdvisor) {
-            sections.push(
-                { path: "/bookings", label: "Bookings", icon: "📅" },
-                { path: "/invoices", label: "Invoices", icon: "🧾" }
-            );
+            sections.push({ path: "/bookings", label: "Bookings", icon: "📅" });
+        }
+
+        // Invoices - Only for cashier, admin, and manager
+        if (isCashier || isAdmin || isManager) {
+            sections.push({ path: "/invoices", label: "Invoices", icon: "🧾" });
         }
 
         // Jobs - Remove general jobs for technicians, keep for others
@@ -69,8 +71,8 @@ export default function Layout() {
             );
         }
 
-        // Inventory - Remove for technicians
-        if (isAdmin || isManager || isServiceAdvisor) {
+        // Inventory - Remove for technicians and service advisors
+        if (isAdmin || isManager) {
             sections.push(
                 { path: "/inventory", label: "Inventory", icon: "📦" }
             );
@@ -647,10 +649,10 @@ export default function Layout() {
                         <Outlet />
                     </div>
                 </main>
-                
+
                 {/* Voice Assistant for Technicians */}
                 {isTechnician && <TechnicianVoiceAssistant />}
-                
+
                 {/* Voice Assistant for Inspectors/Service Advisors */}
                 {isServiceAdvisor && <InspectorVoiceAssistant />}
             </div>
