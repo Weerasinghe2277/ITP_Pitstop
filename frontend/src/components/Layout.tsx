@@ -1,22 +1,24 @@
 // src/components/Layout.tsx
 import { useState, useEffect } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 
 export default function Layout() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [darkMode, setDarkMode] = useState(() => {
-        // Check if user has a dark mode preference in localStorage
         const savedMode = localStorage.getItem("darkMode");
         return savedMode ? JSON.parse(savedMode) : false;
     });
     const [notifications, setNotifications] = useState([
-        { id: 1, message: "New booking received", read: false, time: "2 min ago" },
-        { id: 2, message: "Inventory low on brake pads", read: false, time: "1 hour ago" },
+        { id: 1, message: "New booking received", read: false, time: "2 min ago", type: "booking" },
+        { id: 2, message: "Inventory low on brake pads", read: false, time: "1 hour ago", type: "inventory" },
     ]);
     const [showNotifications, setShowNotifications] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
 
     const userRole = user?.role;
     const isAdmin = userRole === "admin";
@@ -25,17 +27,77 @@ export default function Layout() {
     const isServiceAdvisor = userRole === "service_advisor";
     const isTechnician = userRole === "technician";
 
-    const isAdminOrManager = isAdmin || isManager;
-    const canViewBookings = isCashier || isAdmin || isManager || isServiceAdvisor;
-    const canViewJobs = isServiceAdvisor || isAdmin || isManager || isTechnician;
-    const canViewInventory = isAdmin || isManager || isServiceAdvisor || isTechnician;
+    // Permission-based navigation
+    const getAvailableSections = () => {
+        const sections = [];
+
+        // Always available
+        sections.push({ path: "/", label: "Dashboard", icon: "📊" });
+
+        // Bookings & Invoices
+        if (isCashier || isAdmin || isManager || isServiceAdvisor) {
+            sections.push(
+                { path: "/bookings", label: "Bookings", icon: "📅" },
+                { path: "/invoices", label: "Invoices", icon: "🧾" }
+            );
+        }
+
+        // Jobs - Remove general jobs for technicians, keep for others
+        if (isServiceAdvisor || isAdmin || isManager) {
+            sections.push({ path: "/jobs", label: "Jobs", icon: "🔧" });
+        }
+
+        // Technician specific - My Jobs only
+        if (isTechnician) {
+            sections.push({ path: "/jobs/my", label: "My Jobs", icon: "👨‍🔧" });
+        }
+
+        // Goods Requests
+        if (isServiceAdvisor || isAdmin || isManager) {
+            sections.push({ path: "/goods", label: "Goods Requests", icon: "📦" });
+        }
+
+        // Admin sections
+        if (isAdmin || isManager) {
+            sections.push(
+                { type: "divider", label: "Administration" },
+                { path: "/users", label: "Users", icon: "👥" },
+                { path: "/leave/manage", label: "Manage Leave", icon: "📋" },
+                { path: "/reports", label: "Reports", icon: "📈" }
+            );
+        }
+
+        // Inventory - Remove for technicians
+        if (isAdmin || isManager || isServiceAdvisor) {
+            sections.push(
+                { path: "/inventory", label: "Inventory", icon: "📦" }
+            );
+            sections.push({ path: "/inventory/low", label: "Low Stock", icon: "⚠️" });
+        }
+
+        // User sections
+        if (user) {
+            if (!isAdmin) {
+                sections.push({ path: "/leave", label: "My Leave", icon: "🏖️" });
+            }
+            // Vehicles - Remove for technicians
+            if (!isTechnician) {
+                sections.push({ path: "/vehicles", label: "Vehicles", icon: "🚗" });
+            }
+            sections.push({ path: "/profile", label: "My Profile", icon: "👤" });
+        }
+
+        return sections;
+    };
+
+    const availableSections = getAvailableSections();
 
     // Toggle dark mode
     const toggleDarkMode = () => {
         setDarkMode(!darkMode);
     };
 
-    // Save dark mode preference to localStorage
+    // Save dark mode preference
     useEffect(() => {
         localStorage.setItem("darkMode", JSON.stringify(darkMode));
         if (darkMode) {
@@ -56,300 +118,249 @@ export default function Layout() {
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
-            // Navigate to search results page or filter content
-            alert(`Searching for: ${searchQuery}`);
+            navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
             setSearchQuery("");
         }
     };
 
-    // Theme variables
+    // Clear all notifications
+    const clearAllNotifications = () => {
+        setNotifications([]);
+    };
+
+    // Mark all as read
+    const markAllAsRead = () => {
+        setNotifications(notifications.map(n => ({ ...n, read: true })));
+    };
+
+    // Theme configuration
     const theme = {
-        background: darkMode ? "#1f2937" : "#f9fafb",
-        text: darkMode ? "#f3f4f6" : "#111827",
-        sidebar: darkMode ? "#111827" : "#1f2937",
-        card: darkMode ? "#374151" : "#ffffff",
-        border: darkMode ? "#4b5563" : "#e5e7eb",
-        accent: darkMode ? "#3b82f6" : "#2563eb",
-        mutedText: darkMode ? "#9ca3af" : "#6b7280",
+        background: darkMode ? "hsl(220, 15%, 16%)" : "hsl(0, 0%, 98%)",
+        surface: darkMode ? "hsl(220, 15%, 20%)" : "hsl(0, 0%, 100%)",
+        surfaceElevated: darkMode ? "hsl(220, 15%, 24%)" : "hsl(0, 0%, 100%)",
+        primary: darkMode ? "hsl(210, 100%, 60%)" : "hsl(210, 100%, 50%)",
+        primaryHover: darkMode ? "hsl(210, 100%, 55%)" : "hsl(210, 100%, 45%)",
+        text: darkMode ? "hsl(0, 0%, 95%)" : "hsl(220, 15%, 20%)",
+        textMuted: darkMode ? "hsl(0, 0%, 70%)" : "hsl(220, 10%, 50%)",
+        border: darkMode ? "hsl(220, 15%, 30%)" : "hsl(220, 15%, 90%)",
+        accent: darkMode ? "hsl(160, 70%, 50%)" : "hsl(160, 70%, 40%)",
+        danger: darkMode ? "hsl(0, 70%, 60%)" : "hsl(0, 70%, 50%)",
     };
 
-    const shellStyle: React.CSSProperties = {
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: theme.background,
-        color: theme.text,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        transition: "background-color 0.3s, color 0.3s",
+    // Styles
+    const styles = {
+        layout: {
+            display: "flex",
+            minHeight: "100vh",
+            backgroundColor: theme.background,
+            color: theme.text,
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+            transition: "all 0.3s ease",
+        } as React.CSSProperties,
+        sidebar: {
+            width: sidebarOpen ? 280 : 80,
+            backgroundColor: theme.surface,
+            borderRight: `1px solid ${theme.border}`,
+            transition: "all 0.3s ease",
+            display: "flex",
+            flexDirection: "column",
+            position: "sticky",
+            top: 0,
+            height: "100vh",
+            overflow: "hidden",
+        } as React.CSSProperties,
+        header: {
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            backgroundColor: theme.surface,
+            borderBottom: `1px solid ${theme.border}`,
+            padding: "1rem 1.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backdropFilter: "blur(8px)",
+        } as React.CSSProperties,
+        main: {
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            padding: "1.5rem",
+            gap: "1.5rem",
+        } as React.CSSProperties,
+        navItem: (isActive: boolean) => ({
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "0.75rem 1rem",
+            borderRadius: "12px",
+            textDecoration: "none",
+            color: isActive ? theme.primary : theme.textMuted,
+            backgroundColor: isActive ?
+                (darkMode ? "hsla(210, 100%, 60%, 0.15)" : "hsla(210, 100%, 50%, 0.1)") : "transparent",
+            border: isActive ? `1px solid ${theme.primary}33` : "1px solid transparent",
+            transition: "all 0.2s ease",
+            margin: "0.25rem 0.75rem",
+            fontSize: "0.875rem",
+            fontWeight: isActive ? 600 : 500,
+        }) as React.CSSProperties,
+        button: {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0.5rem",
+            borderRadius: "10px",
+            border: "none",
+            backgroundColor: "transparent",
+            color: theme.text,
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+        } as React.CSSProperties,
     };
-
-    const topbarStyle: React.CSSProperties = {
-        position: "sticky",
-        top: 0,
-        zIndex: 40,
-        backgroundColor: darkMode ? "#111827" : "white",
-        borderBottom: `1px solid ${theme.border}`,
-        padding: "12px 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-    };
-
-    const brandStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        color: theme.text,
-    };
-
-    const sidebarStyle: React.CSSProperties = {
-        width: 260,
-        backgroundColor: theme.sidebar,
-        color: "#e5e7eb",
-        padding: "20px 12px",
-        borderRight: `1px solid ${darkMode ? "#0b1220" : theme.border}`,
-        transition: "background-color 0.3s, border-color 0.3s",
-        position: "sticky",
-        top: 0,
-        height: "100vh",
-        overflowY: "auto",
-        overscrollBehavior: "contain",
-    };
-
-    const sectionTitle: React.CSSProperties = {
-        fontSize: 12,
-        letterSpacing: 0.6,
-        textTransform: "uppercase",
-        color: theme.mutedText,
-        padding: "8px 10px",
-        marginTop: 8,
-        marginBottom: 6,
-    };
-
-    const linkBase: React.CSSProperties = {
-        display: "block",
-        padding: "10px 12px",
-        color: "#e5e7eb",
-        borderRadius: 8,
-        textDecoration: "none",
-        fontSize: 14,
-        fontWeight: 500,
-        transition: "background-color 0.2s",
-    };
-
-    function navLinkStyle({ isActive }: { isActive: boolean }): React.CSSProperties {
-        return {
-            ...linkBase,
-            backgroundColor: isActive ? (darkMode ? "#374151" : "#e5e7eb") : "transparent",
-            color: isActive ? (darkMode ? "#ffffff" : "#111827") : "#e5e7eb",
-            border: isActive ? `1px solid ${theme.border}` : "1px solid transparent",
-            boxShadow: isActive ? `inset 2px 0 0 0 ${theme.accent}` : "none",
-        };
-    }
 
     return (
-        <div style={shellStyle}>
-            {/* Skip to content for accessibility */}
-            <a
-                href="#main-content"
-                style={{
-                    position: "absolute",
-                    left: -10000,
-                    top: "auto",
-                    width: 1,
-                    height: 1,
-                    overflow: "hidden",
-                }}
-            >
-                Skip to content
-            </a>
-
-            <aside style={sidebarStyle} aria-label="Primary">
-                <div style={{ padding: "6px 10px", marginBottom: 8 }}>
-                    <span
-                        style={{
-                            display: "inline-block",
-                            padding: "6px 10px",
-                            background: darkMode ? "#0b1220" : "#1e40af",
-                            border: `1px solid ${darkMode ? "#1f2937" : "#3730a3"}`,
-                            borderRadius: 8,
-                            fontSize: 12,
-                            color: "#9ca3af",
-                        }}
-                    >
-                        Menu
-                    </span>
+        <div style={styles.layout}>
+            {/* Sidebar */}
+            <aside style={styles.sidebar}>
+                {/* Logo */}
+                <div style={{
+                    padding: sidebarOpen ? "1.5rem 1rem 1rem" : "1.5rem 0.5rem 1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: sidebarOpen ? "flex-start" : "center",
+                    gap: "0.75rem",
+                    borderBottom: `1px solid ${theme.border}`,
+                    marginBottom: "1rem"
+                }}>
+                    <div style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "10px",
+                        background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "bold",
+                        color: "white",
+                        fontSize: "14px"
+                    }}>
+                        P
+                    </div>
+                    {sidebarOpen && (
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700 }}>
+                                Pitstop
+                            </h1>
+                            <div style={{
+                                fontSize: "0.75rem",
+                                color: theme.textMuted,
+                                background: theme.background,
+                                padding: "0.125rem 0.5rem",
+                                borderRadius: "6px",
+                                marginTop: "0.25rem"
+                            }}>
+                                {userRole}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <nav aria-label="Main navigation">
+                {/* Navigation */}
+                <nav style={{ flex: 1, overflowY: "auto" }}>
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        <li>
-                            <NavLink to="/" style={navLinkStyle}>
-                                Dashboard
-                            </NavLink>
-                        </li>
-
-                        {canViewBookings && (
-                            <>
-                                <li>
-                                    <NavLink to="/bookings" style={navLinkStyle}>
-                                        Bookings
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink to="/invoices" style={navLinkStyle}>
-                                        Invoices
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
-
-                        {canViewJobs && (
-                            <>
-                                <li>
-                                    <NavLink to="/jobs" style={navLinkStyle}>
-                                        Jobs
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
-
-                        {(isServiceAdvisor || isAdminOrManager) && (
-                            <>
-                                <li>
-                                    <NavLink to="/goods" style={navLinkStyle}>
-                                        Goods Requests
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
-
-                        {isTechnician && (
-                            <>
-                                <li style={{ ...sectionTitle as React.CSSProperties, display: 'none' }}>Technician</li>
-                                <li>
-                                    <NavLink to="/jobs/my" style={navLinkStyle}>
-                                        My Jobs
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
-
-                        {isAdminOrManager && (
-                            <>
-                                <li style={sectionTitle as React.CSSProperties}>Admin</li>
-                                {/* <li>
-                                    <NavLink to="/goods/pending" style={navLinkStyle}>
-                                        Approve Goods
-                                    </NavLink>
-                                </li> */}
-                                <li>
-                                    <NavLink to="/users" style={navLinkStyle}>
-                                        Users
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink to="/leave/manage" style={navLinkStyle}>
-                                        Manage Leave
-                                    </NavLink>
-                                </li>
-                                <li>
-                                    <NavLink to="/reports" style={navLinkStyle}>
-                                        Reports
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
-
-                        {canViewInventory && (
-                            <>
-                                <li>
-                                    <NavLink to="/inventory" style={navLinkStyle}>
-                                        Inventory
-                                    </NavLink>
-                                </li>
-                                {(isAdmin || isManager || isServiceAdvisor) && (
-                                    <li>
-                                        <NavLink to="/inventory/low" style={navLinkStyle}>
-                                            Low Stock
-                                        </NavLink>
+                        {availableSections.map((section, index) => {
+                            if (section.type === "divider") {
+                                return sidebarOpen ? (
+                                    <li key={`divider-${index}`} style={{
+                                        padding: "1rem 1rem 0.5rem",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 600,
+                                        color: theme.textMuted,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.05em"
+                                    }}>
+                                        {section.label}
                                     </li>
-                                )}
-                            </>
-                        )}
-
-                        {user && (
-                            <>
-                                {!isAdmin && (
-                                    <li>
-                                        <NavLink to="/leave" style={navLinkStyle}>
-                                            My Leave
-                                        </NavLink>
-                                    </li>
-                                )}
-                                <li>
-                                    <NavLink to="/vehicles" style={navLinkStyle}>
-                                        Vehicles
+                                ) : null;
+                            }
+                            return (
+                                <li key={section.path}>
+                                    <NavLink
+                                        to={section.path}
+                                        style={({ isActive }) => styles.navItem(isActive)}
+                                        title={sidebarOpen ? "" : section.label}
+                                    >
+                                        <span style={{ fontSize: "1.125rem" }}>{section.icon}</span>
+                                        {sidebarOpen && section.label}
                                     </NavLink>
                                 </li>
-                                <li>
-                                    <NavLink to="/profile" style={navLinkStyle}>
-                                        My Profile
-                                    </NavLink>
-                                </li>
-                            </>
-                        )}
+                            );
+                        })}
                     </ul>
                 </nav>
+
+                {/* Sidebar toggle */}
+                <div style={{
+                    padding: "1rem",
+                    borderTop: `1px solid ${theme.border}`,
+                    display: "flex",
+                    justifyContent: sidebarOpen ? "flex-end" : "center"
+                }}>
+                    <button
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        style={styles.button}
+                        title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+                    >
+                        {sidebarOpen ? "←" : "→"}
+                    </button>
+                </div>
             </aside>
 
-            <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-                <header style={topbarStyle}>
-                    <div style={brandStyle}>
-                        <div
-                            style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: "50%",
-                                background: "#10b981",
-                                boxShadow: "0 0 0 3px rgba(16,185,129,0.2)",
-                            }}
-                        />
-                        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Pitstop</h1>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        {/* Search Bar */}
-                        <form onSubmit={handleSearch} style={{ position: "relative" }}>
+            {/* Main content */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+                {/* Header */}
+                <header style={styles.header}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1 }}>
+                        {/* Search */}
+                        <form onSubmit={handleSearch} style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
                             <input
                                 type="text"
-                                placeholder="Search..."
+                                placeholder="Search bookings, inventory, users..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 style={{
-                                    padding: "8px 12px 8px 36px",
-                                    borderRadius: 8,
+                                    width: "100%",
+                                    padding: "0.75rem 1rem 0.75rem 2.5rem",
+                                    borderRadius: "12px",
                                     border: `1px solid ${theme.border}`,
-                                    backgroundColor: darkMode ? "#374151" : "#f9fafb",
+                                    backgroundColor: theme.background,
                                     color: theme.text,
-                                    width: 200,
-                                    fontSize: 14,
+                                    fontSize: "0.875rem",
+                                    outline: "none",
+                                    transition: "all 0.2s ease",
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.borderColor = theme.primary;
+                                    e.target.style.boxShadow = `0 0 0 3px ${theme.primary}20`;
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.borderColor = theme.border;
+                                    e.target.style.boxShadow = "none";
                                 }}
                             />
                             <svg
                                 style={{
                                     position: "absolute",
-                                    left: 12,
+                                    left: "0.75rem",
                                     top: "50%",
                                     transform: "translateY(-50%)",
-                                    width: 16,
-                                    height: 16,
-                                    color: theme.mutedText,
+                                    width: "1.25rem",
+                                    height: "1.25rem",
+                                    color: theme.textMuted,
                                 }}
                                 fill="none"
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
                             >
                                 <path
                                     strokeLinecap="round"
@@ -359,222 +370,281 @@ export default function Layout() {
                                 />
                             </svg>
                         </form>
+                    </div>
 
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                         {/* Dark Mode Toggle */}
                         <button
                             onClick={toggleDarkMode}
-                            type="button"
-                            style={{
-                                padding: "8px",
-                                backgroundColor: "transparent",
-                                border: "none",
-                                borderRadius: 8,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+                            style={styles.button}
+                            title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
                         >
-                            {darkMode ? (
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <circle cx="12" cy="12" r="5" />
-                                    <line x1="12" y1="1" x2="12" y2="3" />
-                                    <line x1="12" y1="21" x2="12" y2="23" />
-                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                                    <line x1="1" y1="12" x2="3" y2="12" />
-                                    <line x1="21" y1="12" x2="23" y2="12" />
-                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                                </svg>
-                            ) : (
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                                </svg>
-                            )}
+                            {darkMode ? "☀️" : "🌙"}
                         </button>
 
                         {/* Notifications */}
                         <div style={{ position: "relative" }}>
                             <button
                                 onClick={() => setShowNotifications(!showNotifications)}
-                                type="button"
-                                style={{
-                                    padding: "8px",
-                                    backgroundColor: "transparent",
-                                    border: "none",
-                                    borderRadius: 8,
-                                    cursor: "pointer",
-                                    position: "relative",
-                                }}
-                                aria-label="Notifications"
+                                style={styles.button}
+                                title="Notifications"
                             >
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                                </svg>
+                                🔔
                                 {notifications.filter(n => !n.read).length > 0 && (
-                                    <span
-                                        style={{
-                                            position: "absolute",
-                                            top: 0,
-                                            right: 0,
-                                            backgroundColor: "#ef4444",
-                                            color: "white",
-                                            borderRadius: "50%",
-                                            width: 16,
-                                            height: 16,
-                                            fontSize: 10,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                        }}
-                                    >
+                                    <span style={{
+                                        position: "absolute",
+                                        top: "0.25rem",
+                                        right: "0.25rem",
+                                        backgroundColor: theme.danger,
+                                        color: "white",
+                                        borderRadius: "50%",
+                                        width: "1rem",
+                                        height: "1rem",
+                                        fontSize: "0.625rem",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontWeight: "bold",
+                                    }}>
                                         {notifications.filter(n => !n.read).length}
                                     </span>
                                 )}
                             </button>
 
                             {showNotifications && (
-                                <div
-                                    style={{
-                                        position: "absolute",
-                                        top: "100%",
-                                        right: 0,
-                                        backgroundColor: darkMode ? "#374151" : "white",
-                                        border: `1px solid ${theme.border}`,
-                                        borderRadius: 8,
-                                        padding: "8px 0",
-                                        width: 320,
-                                        maxHeight: 400,
-                                        overflowY: "auto",
-                                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                                        zIndex: 50,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            padding: "8px 12px",
-                                            borderBottom: `1px solid ${theme.border}`,
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                        }}
-                                    >
+                                <div style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    right: 0,
+                                    backgroundColor: theme.surfaceElevated,
+                                    border: `1px solid ${theme.border}`,
+                                    borderRadius: "12px",
+                                    padding: "0.5rem 0",
+                                    width: "320px",
+                                    maxHeight: "400px",
+                                    overflowY: "auto",
+                                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                    zIndex: 100,
+                                }}>
+                                    <div style={{
+                                        padding: "0.75rem 1rem",
+                                        borderBottom: `1px solid ${theme.border}`,
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}>
                                         <strong>Notifications</strong>
-                                        <button
-                                            onClick={() => setShowNotifications(false)}
-                                            style={{
-                                                background: "none",
-                                                border: "none",
-                                                cursor: "pointer",
-                                                color: theme.text,
-                                            }}
-                                            aria-label="Close notifications"
-                                        >
-                                            ✕
-                                        </button>
+                                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                                            <button
+                                                onClick={markAllAsRead}
+                                                style={{
+                                                    ...styles.button,
+                                                    fontSize: "0.75rem",
+                                                    padding: "0.25rem 0.5rem",
+                                                }}
+                                            >
+                                                Mark all read
+                                            </button>
+                                            <button
+                                                onClick={() => setShowNotifications(false)}
+                                                style={styles.button}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
                                     </div>
+
                                     {notifications.length === 0 ? (
-                                        <div style={{ padding: "16px", textAlign: "center", color: theme.mutedText }}>
+                                        <div style={{ padding: "2rem", textAlign: "center", color: theme.textMuted }}>
                                             No notifications
                                         </div>
                                     ) : (
-                                        notifications.map(notification => (
-                                            <div
-                                                key={notification.id}
-                                                style={{
-                                                    padding: "12px",
-                                                    borderBottom: `1px solid ${theme.border}`,
-                                                    backgroundColor: notification.read ? "transparent" : (darkMode ? "rgba(59, 130, 246, 0.1)" : "#eff6ff"),
-                                                    cursor: "pointer",
-                                                }}
-                                                onClick={() => markAsRead(notification.id)}
-                                            >
-                                                <div style={{ fontSize: 14, fontWeight: notification.read ? 400 : 600 }}>
-                                                    {notification.message}
+                                        <>
+                                            {notifications.map(notification => (
+                                                <div
+                                                    key={notification.id}
+                                                    style={{
+                                                        padding: "0.75rem 1rem",
+                                                        borderBottom: `1px solid ${theme.border}`,
+                                                        backgroundColor: notification.read ? "transparent" :
+                                                            (darkMode ? "hsla(210, 100%, 60%, 0.1)" : "hsla(210, 100%, 50%, 0.05)"),
+                                                        cursor: "pointer",
+                                                        transition: "background-color 0.2s ease",
+                                                    }}
+                                                    onClick={() => markAsRead(notification.id)}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor =
+                                                            darkMode ? "hsla(220, 15%, 25%, 1)" : "hsla(220, 15%, 97%, 1)";
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor =
+                                                            notification.read ? "transparent" :
+                                                                (darkMode ? "hsla(210, 100%, 60%, 0.1)" : "hsla(210, 100%, 50%, 0.05)");
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        fontSize: "0.875rem",
+                                                        fontWeight: notification.read ? 400 : 600,
+                                                        marginBottom: "0.25rem",
+                                                    }}>
+                                                        {notification.message}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: "0.75rem",
+                                                        color: theme.textMuted,
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                    }}>
+                                                        <span>{notification.time}</span>
+                                                        <span style={{
+                                                            padding: "0.125rem 0.5rem",
+                                                            borderRadius: "6px",
+                                                            backgroundColor: theme.background,
+                                                            fontSize: "0.625rem",
+                                                            textTransform: "uppercase",
+                                                        }}>
+                                                            {notification.type}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: 12, color: theme.mutedText, marginTop: 4 }}>
-                                                    {notification.time}
-                                                </div>
+                                            ))}
+                                            <div style={{ padding: "0.75rem 1rem" }}>
+                                                <button
+                                                    onClick={clearAllNotifications}
+                                                    style={{
+                                                        ...styles.button,
+                                                        width: "100%",
+                                                        padding: "0.5rem",
+                                                        backgroundColor: theme.background,
+                                                        fontSize: "0.875rem",
+                                                    }}
+                                                >
+                                                    Clear all notifications
+                                                </button>
                                             </div>
-                                        ))
+                                        </>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        <span
-                            style={{
-                                fontSize: 14,
-                                color: darkMode ? "#e5e7eb" : "#374151",
-                                padding: "6px 10px",
-                                background: darkMode ? "#374151" : "#f3f4f6",
-                                border: `1px solid ${theme.border}`,
-                                borderRadius: 8,
-                            }}
-                            title={user?.email || ""}
-                        >
-                            {String(user?.name || user?.email || "User")}
-                        </span>
-                        <button
-                            onClick={logout}
-                            type="button"
-                            style={{
-                                padding: "8px 12px",
-                                backgroundColor: "#ef4444",
-                                color: "white",
-                                border: "none",
-                                borderRadius: 8,
-                                fontSize: 14,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                            }}
-                        >
-                            Logout
-                        </button>
+                        {/* User menu */}
+                        <div style={{ position: "relative" }}>
+                            <button
+                                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                style={{
+                                    ...styles.button,
+                                    padding: "0.5rem 0.75rem",
+                                    gap: "0.5rem",
+                                    backgroundColor: theme.background,
+                                    borderRadius: "10px",
+                                }}
+                            >
+                                <div style={{
+                                    width: "2rem",
+                                    height: "2rem",
+                                    borderRadius: "8px",
+                                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "white",
+                                    fontWeight: "bold",
+                                    fontSize: "0.875rem",
+                                }}>
+                                    {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
+                                </div>
+                                <div style={{ textAlign: "left" }}>
+                                    <div style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                                        {user?.name || "User"}
+                                    </div>
+                                    <div style={{ fontSize: "0.75rem", color: theme.textMuted }}>
+                                        {userRole}
+                                    </div>
+                                </div>
+                            </button>
+
+                            {userMenuOpen && (
+                                <div style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    right: 0,
+                                    backgroundColor: theme.surfaceElevated,
+                                    border: `1px solid ${theme.border}`,
+                                    borderRadius: "12px",
+                                    padding: "0.5rem",
+                                    width: "200px",
+                                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                    zIndex: 100,
+                                }}>
+                                    <div style={{ padding: "0.5rem", fontSize: "0.875rem", color: theme.textMuted }}>
+                                        {user?.email}
+                                    </div>
+                                    <NavLink
+                                        to="/profile"
+                                        style={{
+                                            display: "block",
+                                            padding: "0.5rem",
+                                            borderRadius: "8px",
+                                            textDecoration: "none",
+                                            color: theme.text,
+                                            fontSize: "0.875rem",
+                                            transition: "background-color 0.2s ease",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = theme.background;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = "transparent";
+                                        }}
+                                    >
+                                        👤 My Profile
+                                    </NavLink>
+                                    <button
+                                        onClick={logout}
+                                        style={{
+                                            width: "100%",
+                                            padding: "0.5rem",
+                                            borderRadius: "8px",
+                                            border: "none",
+                                            backgroundColor: "transparent",
+                                            color: theme.danger,
+                                            fontSize: "0.875rem",
+                                            textAlign: "left",
+                                            cursor: "pointer",
+                                            transition: "background-color 0.2s ease",
+                                            marginTop: "0.25rem",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor =
+                                                darkMode ? "hsla(0, 70%, 60%, 0.1)" : "hsla(0, 70%, 50%, 0.1)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = "transparent";
+                                        }}
+                                    >
+                                        🚪 Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 
-                <div
-                    style={{
-                        background: theme.card,
-                        borderRadius: 12,
-                        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+                {/* Main content area */}
+                <main style={styles.main}>
+                    <div style={{
+                        backgroundColor: theme.surface,
+                        borderRadius: "16px",
                         border: `1px solid ${theme.border}`,
-                        transition: "background-color 0.3s, border-color 0.3s",
-                    }}
-                >
-                    <Outlet />
-                </div>
+                        padding: "1.5rem",
+                        flex: 1,
+                        minHeight: 0,
+                    }}>
+                        <Outlet />
+                    </div>
+                </main>
             </div>
         </div>
     );

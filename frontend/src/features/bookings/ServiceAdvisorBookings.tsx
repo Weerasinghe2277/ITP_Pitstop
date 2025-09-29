@@ -1,5 +1,5 @@
 // src/features/bookings/ServiceAdvisorBookings.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { http } from "../../lib/http";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../store/AuthContext";
@@ -34,11 +34,13 @@ interface Booking {
   createdAt: string;
   description?: string;
   timeSlot?: string;
+  assignedInspector?: string | { _id: string };
 }
 
 interface FilterState {
   serviceType: string;
   priority: string;
+  status: string;
 }
 
 export default function ServiceAdvisorBookings() {
@@ -46,373 +48,277 @@ export default function ServiceAdvisorBookings() {
   const [filter, setFilter] = useState<FilterState>({
     serviceType: "",
     priority: "",
+    status: ""
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const { user } = useAuth();
 
+  // Debounce search
   useEffect(() => {
-    loadConfirmedBookings();
-  }, [filter]);
+    const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  useEffect(() => {
+    if (user?._id) {
+      loadConfirmedBookings();
+    }
+  }, [user?._id]);
+
+  const getAssignedInspectorId = (booking: Booking): string | undefined => {
+    if (!booking.assignedInspector) return undefined;
+    if (typeof booking.assignedInspector === 'string') return booking.assignedInspector;
+    if (typeof booking.assignedInspector === 'object' && booking.assignedInspector._id) {
+      return booking.assignedInspector._id;
+    }
+    return undefined;
+  };
 
   async function loadConfirmedBookings() {
+    if (!user?._id) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (filter.serviceType) params.set("serviceType", filter.serviceType);
-      if (filter.priority) params.set("priority", filter.priority);
-      params.set("assignedInspector", user?._id);
-
-      console.log(`/bookings?${params.toString()}`);
-      const response = await http.get(`/bookings?${params.toString()}`);
+      const response = await http.get(`/bookings?assignedInspector=${user._id}`);
       const allBookings = response.data?.bookings || [];
 
-      // Filter for pending and inspecting bookings
-      const filteredBookings = allBookings.filter((booking: any) =>
-        booking.status === "pending" || booking.status === "inspecting"
-      );
+      const filteredBookings = allBookings.filter((booking: Booking) => {
+        const isPendingOrInspecting = booking.status === "pending" || booking.status === "inspecting";
+        const assignedId = getAssignedInspectorId(booking);
+        const isAssignedToCurrentUser = assignedId && String(assignedId) === String(user._id);
+        return isPendingOrInspecting && isAssignedToCurrentUser;
+      });
 
       setBookings(filteredBookings);
     } catch (error) {
-      console.error("Failed to load pending and inspecting bookings:", error);
+      console.error("Failed to load bookings:", error);
+      setBookings([]);
     } finally {
       setIsLoading(false);
     }
   }
 
-  const filteredBookings = bookings.filter(booking => {
-    // General search term filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = (
-        booking.bookingId?.toLowerCase().includes(searchLower) ||
-        booking.customer?.profile?.firstName?.toLowerCase().includes(searchLower) ||
-        booking.customer?.profile?.lastName?.toLowerCase().includes(searchLower) ||
-        booking.vehicle?.registrationNumber?.toLowerCase().includes(searchLower) ||
-        booking.vehicle?.make?.toLowerCase().includes(searchLower) ||
-        booking.vehicle?.model?.toLowerCase().includes(searchLower) ||
-        booking.serviceType?.toLowerCase().includes(searchLower)
-      );
-      if (!matchesSearch) return false;
-    }
+  const stats = useMemo(() => {
+    const total = bookings.length;
+    const pending = bookings.filter(b => b.status === 'pending').length;
+    const inspecting = bookings.filter(b => b.status === 'inspecting').length;
+    const urgent = bookings.filter(b => b.priority === 'urgent').length;
+    return { total, pending, inspecting, urgent };
+  }, [bookings]);
 
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const needle = debouncedQ.toLowerCase();
+    return bookings.filter(booking => {
+      if (filter.status && booking.status !== filter.status) return false;
+      if (filter.serviceType && booking.serviceType !== filter.serviceType) return false;
+      if (filter.priority && booking.priority !== filter.priority) return false;
+
+      if (needle) {
+        const id = String(booking.bookingId || "").toLowerCase();
+        const firstName = String(booking.customer?.profile?.firstName || "").toLowerCase();
+        const lastName = String(booking.customer?.profile?.lastName || "").toLowerCase();
+        const customer = firstName + " " + lastName;
+        const vehicle = String(booking.vehicle?.registrationNumber || "").toLowerCase();
+        const make = String(booking.vehicle?.make || "").toLowerCase();
+        const model = String(booking.vehicle?.model || "").toLowerCase();
+        const service = String(booking.serviceType || "").toLowerCase();
+
+        return id.includes(needle) || customer.includes(needle) ||
+            vehicle.includes(needle) || make.includes(needle) ||
+            model.includes(needle) || service.includes(needle);
+      }
+
+      return true;
+    });
+  }, [bookings, filter, debouncedQ]);
 
   const serviceTypeOptions = ["inspection", "repair", "maintenance", "bodywork", "detailing"];
   const priorityOptions = ["low", "medium", "high", "urgent"];
 
+  const wrap = { maxWidth: "1200px", margin: "0 auto", padding: "20px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' };
+  const title = { fontSize: "28px", fontWeight: 700, color: "#1f2937", margin: 0 };
+  const card = { background: "white", borderRadius: "12px", padding: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: "1px solid #e5e7eb", marginBottom: "24px" };
+  const control = { padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px", backgroundColor: "white" };
+  const tableWrap = { overflowX: "auto" };
+  const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
+  const thStyle = { textAlign: "left" as const, padding: "12px", fontSize: "12px", color: "#596274", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" };
+  const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px" };
+  const openBtn = { padding: "8px 12px", backgroundColor: "#3b82f6", color: "white", borderRadius: "8px", fontSize: "13px", fontWeight: 600, textDecoration: "none", border: "1px solid #2563eb" };
+  const statCard = { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", borderRadius: "12px", padding: "20px", marginBottom: "24px" };
+  const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" };
+  const statItem = { backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: "8px", padding: "16px", backdropFilter: "blur(10px)" };
+
+  if (!user?._id) {
+    return (
+        <div style={wrap}>
+          <div style={{ ...card, textAlign: "center", padding: "60px" }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600', color: '#dc2626' }}>Authentication Required</h3>
+            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Please log in to view your assigned bookings.</p>
+          </div>
+        </div>
+    );
+  }
+
   return (
-    <div style={{
-      maxWidth: '1400px',
-      margin: '0 auto',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      {/* Header Section */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '24px',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <h1 style={{
-          fontSize: '28px',
-          fontWeight: '700',
-          color: '#1f2937',
-          margin: 0
-        }}>
-          Pending & Inspecting Bookings
-        </h1>
-
-        <div style={{
-          padding: '8px 16px',
-          backgroundColor: '#f59e0b',
-          color: 'white',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          {filteredBookings.length} Bookings Need Attention
+      <div style={wrap}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+          <h1 style={title}>My Assigned Bookings</h1>
         </div>
-      </div>
 
-      {/* Filters Card */}
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-        marginBottom: '24px'
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
-        }}>
-          {/* Quick Search */}
-          <div>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '6px'
-            }}>
-              Quick Search
-            </label>
-            <input
-              type="text"
-              placeholder="Search bookings..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
-            />
+        {/* Statistics Card */}
+        <div style={statCard}>
+          <h2 style={{ fontSize: "20px", fontWeight: 600, margin: "0 0 16px 0" }}>📊 Booking Statistics</h2>
+          <div style={statGrid}>
+            <div style={statItem}>
+              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.total}</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Assigned Bookings</div>
+            </div>
+            <div style={statItem}>
+              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.pending}</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>Pending Bookings</div>
+            </div>
+            <div style={statItem}>
+              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.inspecting}</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>Currently Inspecting</div>
+            </div>
+            <div style={statItem}>
+              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.urgent}</div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>Urgent Priority</div>
+            </div>
           </div>
+        </div>
 
-          {/* Service Type Filter */}
-          <div>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '6px'
-            }}>
-              Service Type
-            </label>
-            <select
-              value={filter.serviceType}
-              onChange={(e) => setFilter(prev => ({ ...prev, serviceType: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
-            >
+        {/* Filters */}
+        <div style={card}>
+          <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "#1f2937" }}>🔍 Filters & Search</h3>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <select value={filter.status} onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))} style={control}>
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="inspecting">Inspecting</option>
+            </select>
+            <select value={filter.serviceType} onChange={(e) => setFilter(prev => ({ ...prev, serviceType: e.target.value }))} style={control}>
               <option value="">All Services</option>
-              {serviceTypeOptions.map(option => (
-                <option key={option} value={option}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </option>
-              ))}
+              {serviceTypeOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
             </select>
-          </div>
-
-          {/* Priority Filter */}
-          <div>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '6px'
-            }}>
-              Priority
-            </label>
-            <select
-              value={filter.priority}
-              onChange={(e) => setFilter(prev => ({ ...prev, priority: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
-            >
+            <select value={filter.priority} onChange={(e) => setFilter(prev => ({ ...prev, priority: e.target.value }))} style={control}>
               <option value="">All Priorities</option>
-              {priorityOptions.map(option => (
-                <option key={option} value={option}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </option>
-              ))}
+              {priorityOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
             </select>
+            <input placeholder="Search by ID, Customer, Vehicle..." value={q} onChange={(e) => setQ(e.target.value)} style={{ ...control, minWidth: 300 }} />
           </div>
         </div>
-      </div>
 
-      {/* Bookings Table */}
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-        overflow: 'hidden'
-      }}>
-        {isLoading ? (
-          <div style={{
-            padding: '60px',
-            textAlign: 'center',
-            color: '#6b7280'
-          }}>
-            Loading confirmed bookings...
-          </div>
-        ) : filteredBookings.length === 0 ? (
-          <div style={{
-            padding: '60px',
-            textAlign: 'center',
-            color: '#6b7280'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600' }}>
-              No Bookings Need Attention
-            </h3>
-            <p style={{ margin: 0, fontSize: '14px' }}>
-              There are no pending or inspecting bookings at the moment.
-            </p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse'
-            }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f9fafb' }}>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Booking ID
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Customer
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Vehicle
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Service
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Status
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Priority
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Scheduled Date
-                  </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151', fontSize: '14px' }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBookings.map(booking => (
-                  <tr key={booking._id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '12px', fontSize: '14px', fontWeight: '500' }}>
-                      {booking.bookingId}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      {booking.customer?.profile?.firstName && booking.customer?.profile?.lastName
-                        ? `${booking.customer.profile.firstName} ${booking.customer.profile.lastName}`
-                        : 'N/A'
-                      }
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      {booking.vehicle?.registrationNumber || 'N/A'}
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {booking.vehicle?.make && booking.vehicle?.model
-                          ? `${booking.vehicle.make} ${booking.vehicle.model}`
-                          : ''
-                        }
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      {booking.serviceType?.charAt(0).toUpperCase() + booking.serviceType?.slice(1) || 'N/A'}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        backgroundColor: booking.status === 'pending' ? '#fef3c7' :
-                          booking.status === 'inspecting' ? '#dbeafe' : '#f3f4f6',
-                        color: booking.status === 'pending' ? '#d97706' :
-                          booking.status === 'inspecting' ? '#2563eb' : '#6b7280'
-                      }}>
-                        {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Unknown'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      <span style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        backgroundColor: booking.priority === 'urgent' ? '#fef2f2' :
-                          booking.priority === 'high' ? '#fff7ed' :
-                            booking.priority === 'medium' ? '#fffbeb' : '#f0fdf4',
-                        color: booking.priority === 'urgent' ? '#dc2626' :
-                          booking.priority === 'high' ? '#ea580c' :
-                            booking.priority === 'medium' ? '#d97706' : '#16a34a'
-                      }}>
-                        {booking.priority
-                          ? booking.priority.charAt(0).toUpperCase() + booking.priority.slice(1)
-                          : 'Medium'
-                        }
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      {booking.scheduledDate
-                        ? new Date(booking.scheduledDate).toLocaleDateString()
-                        : 'N/A'
-                      }
-                      {booking.timeSlot && (
-                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                          {booking.timeSlot}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px', fontSize: '14px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <Link
-                          to={`/bookings/${booking._id}`}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            borderRadius: '6px',
-                            textDecoration: 'none',
-                            fontSize: '12px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          View Details
-                        </Link>
-                        <Link
-                          to={`/jobs/new/${booking._id}`}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            borderRadius: '6px',
-                            textDecoration: 'none',
-                            fontSize: '12px',
-                            fontWeight: '500'
-                          }}
-                        >
-                          Create Job
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {/* Loading */}
+        {isLoading && (
+            <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
+              <span>Loading bookings…</span>
+              <div style={{ width: 14, height: 14, border: "2px solid transparent", borderTop: "2px solid #6b7280", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+            </div>
         )}
+
+        {/* Table */}
+        {!isLoading && (
+            <div style={{ ...card, padding: 0 }}>
+              <div style={tableWrap}>
+                <table style={tableStyle}>
+                  <thead>
+                  <tr>
+                    <th style={thStyle}>Booking ID</th>
+                    <th style={thStyle}>Customer</th>
+                    <th style={thStyle}>Vehicle</th>
+                    <th style={thStyle}>Service</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Priority</th>
+                    <th style={thStyle}>Scheduled</th>
+                    <th style={thStyle}>Actions</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  {filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                          {bookings.length === 0 ? "No assigned bookings yet" : "No bookings match your search"}
+                        </td>
+                      </tr>
+                  )}
+                  {filtered.map((b) => (
+                      <tr key={b._id}>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 600, color: "#111827" }}>{b.bookingId}</span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : ""}</span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: 500 }}>
+                          {b.customer?.profile?.firstName || ""} {b.customer?.profile?.lastName || ""}
+                        </span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>{b.customer?.profile?.phone || ""}</span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 500 }}>{b.vehicle?.registrationNumber || "—"}</span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                          {b.vehicle?.make && b.vehicle?.model ? `${b.vehicle.make} ${b.vehicle.model}` : ""}
+                        </span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                      <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                        {b.serviceType ? b.serviceType.charAt(0).toUpperCase() + b.serviceType.slice(1) : "—"}
+                      </span>
+                        </td>
+                        <td style={tdStyle}>
+                      <span style={{
+                        padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
+                        backgroundColor: b.status === 'pending' ? '#fef3c7' : b.status === 'inspecting' ? '#dbeafe' : '#f3f4f6',
+                        color: b.status === 'pending' ? '#92400e' : b.status === 'inspecting' ? '#1e40af' : '#374151'
+                      }}>
+                        {b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}
+                      </span>
+                        </td>
+                        <td style={tdStyle}>
+                      <span style={{
+                        padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
+                        backgroundColor: b.priority === 'urgent' ? '#fee2e2' : b.priority === 'high' ? '#fef3c7' : b.priority === 'medium' ? '#dbeafe' : '#f3f4f6',
+                        color: b.priority === 'urgent' ? '#991b1b' : b.priority === 'high' ? '#92400e' : b.priority === 'medium' ? '#1e40af' : '#374151'
+                      }}>
+                        {b.priority || "—"}
+                      </span>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span>{b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString() : "—"}</span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>{b.timeSlot || ""}</span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <Link to={`/bookings/${b._id}`} style={openBtn}>View</Link>
+                            <Link to={`/jobs/new/${b._id}`} style={{ ...openBtn, backgroundColor: "#10b981", borderColor: "#059669" }}>Create Job</Link>
+                          </div>
+                        </td>
+                      </tr>
+                  ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
+                <span style={{ color: "#6b7280", fontSize: 14 }}>Showing {filtered.length} of {bookings.length} bookings</span>
+              </div>
+            </div>
+        )}
+
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
-    </div>
   );
 }

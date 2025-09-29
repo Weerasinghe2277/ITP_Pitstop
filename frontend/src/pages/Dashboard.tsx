@@ -132,11 +132,75 @@ const getGreeting = () => {
     return "Good evening";
 };
 
+// Helper function to get display name
+const getUserDisplayName = (user) => {
+    // Check if user has profile with firstName and lastName
+    if (user.profile && user.profile.firstName && user.profile.lastName) {
+        return `${user.profile.firstName} ${user.profile.lastName}`;
+    }
+
+    // Check if user has profile with firstName only
+    if (user.profile && user.profile.firstName && user.profile.firstName.trim() !== '') {
+        return user.profile.firstName;
+    }
+
+    // Check if user has profile with lastName only
+    if (user.profile && user.profile.lastName && user.profile.lastName.trim() !== '') {
+        return user.profile.lastName;
+    }
+
+    // If user has a name property and it's not empty, use it
+    if (user.name && user.name.trim() !== '') {
+        return user.name;
+    }
+
+    // If user has a username property and it's not empty, use it
+    if (user.username && user.username.trim() !== '') {
+        return user.username;
+    }
+
+    // If user has an email property and it's not empty, extract name from email
+    if (user.email && user.email.trim() !== '') {
+        return user.email.split('@')[0];
+    }
+
+    // Fallback to role-based name
+    return user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ');
+};
+
+// Helper function to get initials for avatar
+const getUserInitials = (user) => {
+    // Check for profile firstName and lastName first
+    if (user.profile && user.profile.firstName && user.profile.lastName) {
+        return (user.profile.firstName.charAt(0) + user.profile.lastName.charAt(0)).toUpperCase();
+    }
+
+    // Check for profile firstName only
+    if (user.profile && user.profile.firstName) {
+        return user.profile.firstName.substring(0, 2).toUpperCase();
+    }
+
+    const displayName = getUserDisplayName(user);
+
+    // If display name has spaces, take first letter of each word
+    const nameParts = displayName.split(' ');
+    if (nameParts.length > 1) {
+        return (nameParts[0].charAt(0) + nameParts[1].charAt(0)).toUpperCase();
+    }
+
+    // Otherwise, take first two letters of the name
+    return displayName.substring(0, 2).toUpperCase();
+};
+
 export default function Dashboard() {
     const { user } = useAuth();
     const [currentTime, setCurrentTime] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState("");
     const [activeCategory, setActiveCategory] = useState("all");
+    const [darkMode, setDarkMode] = useState(() => {
+        const savedMode = localStorage.getItem("darkMode");
+        return savedMode ? JSON.parse(savedMode) : false;
+    });
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -145,6 +209,14 @@ export default function Dashboard() {
 
         return () => clearInterval(timer);
     }, []);
+
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add("dark");
+        } else {
+            document.documentElement.classList.remove("dark");
+        }
+    }, [darkMode]);
 
     if (!user) {
         return (
@@ -162,10 +234,23 @@ export default function Dashboard() {
         );
     }
 
-    const permissions = rolePermissions[user.role as keyof typeof rolePermissions] || [];
+    const permissions = rolePermissions[user.role] || [];
     const stats = getRoleStats(user.role);
     const recentActivity = getRecentActivity(user.role);
     const greeting = getGreeting();
+    const displayName = getUserDisplayName(user);
+    const userInitials = getUserInitials(user);
+
+    // Theme configuration
+    const theme = {
+        background: darkMode ? "hsl(220, 15%, 16%)" : "hsl(0, 0%, 98%)",
+        surface: darkMode ? "hsl(220, 15%, 20%)" : "hsl(0, 0%, 100%)",
+        surfaceElevated: darkMode ? "hsl(220, 15%, 24%)" : "hsl(0, 0%, 100%)",
+        text: darkMode ? "hsl(0, 0%, 95%)" : "hsl(220, 15%, 20%)",
+        textMuted: darkMode ? "hsl(0, 0%, 70%)" : "hsl(220, 10%, 50%)",
+        border: darkMode ? "hsl(220, 15%, 30%)" : "hsl(220, 15%, 90%)",
+        primary: darkMode ? "hsl(210, 100%, 60%)" : "hsl(210, 100%, 50%)",
+    };
 
     // Filter permissions based on search and category
     const filteredPermissions = permissions.filter(permission => {
@@ -186,9 +271,10 @@ export default function Dashboard() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-            padding: '20px',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            background: theme.background,
+            padding: '24px',
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+            transition: 'background 0.3s ease',
         }}>
             <div style={{
                 maxWidth: '1400px',
@@ -198,7 +284,7 @@ export default function Dashboard() {
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     marginBottom: '32px',
                     flexWrap: 'wrap',
                     gap: '16px',
@@ -207,57 +293,72 @@ export default function Dashboard() {
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '12px',
-                            marginBottom: '8px',
+                            gap: '16px',
+                            marginBottom: '12px',
                         }}>
                             <div style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '12px',
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                width: '56px',
+                                height: '56px',
+                                borderRadius: '16px',
+                                background: `linear-gradient(135deg, ${theme.primary}, #8B5CF6)`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 color: 'white',
                                 fontSize: '20px',
                                 fontWeight: '600',
+                                boxShadow: `0 4px 12px ${theme.primary}40`,
                             }}>
-                                {user.name?.charAt(0) || user.role.charAt(0).toUpperCase()}
+                                {userInitials}
                             </div>
                             <div>
                                 <p style={{
                                     fontSize: '14px',
-                                    color: '#6b7280',
+                                    color: theme.textMuted,
                                     margin: '0 0 4px 0',
                                     fontWeight: '500',
                                 }}>
                                     {greeting}
                                 </p>
                                 <h1 style={{
-                                    fontSize: '28px',
+                                    fontSize: '32px',
                                     fontWeight: '700',
-                                    color: '#1f2937',
+                                    color: theme.text,
                                     margin: 0,
+                                    background: `linear-gradient(135deg, ${theme.text}, ${theme.primary})`,
+                                    backgroundClip: 'text',
+                                    WebkitBackgroundClip: 'text',
+                                    color: 'transparent',
                                 }}>
-                                    {user.name || user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                    Welcome back, {displayName}
                                 </h1>
                             </div>
                         </div>
                         <p style={{
                             fontSize: '14px',
-                            color: '#6b7280',
+                            color: theme.textMuted,
                             margin: 0,
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
                         }}>
-                            <span>📅</span>
-                            {currentTime.toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric'
-                            })}
+                            <span style={{
+                                padding: '4px 8px',
+                                background: theme.surface,
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                            }}>
+                                {user.role.replace('_', ' ').toUpperCase()}
+                            </span>
+                            <span>•</span>
+                            <span>
+                                {currentTime.toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                })}
+                            </span>
                         </p>
                     </div>
 
@@ -268,19 +369,24 @@ export default function Dashboard() {
                     }}>
                         <div style={{
                             padding: '12px 20px',
-                            background: 'rgba(255, 255, 255, 0.9)',
+                            background: theme.surface,
                             backdropFilter: 'blur(10px)',
                             borderRadius: '12px',
                             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                            fontSize: '18px',
+                            fontSize: '16px',
                             fontWeight: '600',
-                            color: '#3b82f6',
+                            color: theme.primary,
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
+                            border: `1px solid ${theme.border}`,
                         }}>
                             <span>🕒</span>
-                            {currentTime.toLocaleTimeString('en-US')}
+                            {currentTime.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            })}
                         </div>
                     </div>
                 </div>
@@ -288,57 +394,60 @@ export default function Dashboard() {
                 {/* Enhanced Stats Overview Section */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
                     gap: '24px',
                     marginBottom: '32px',
                 }}>
                     {stats.map((stat, index) => (
                         <div key={index} style={{
-                            background: 'white',
+                            background: theme.surface,
                             borderRadius: '20px',
                             padding: '24px',
                             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '16px',
-                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                            transition: 'all 0.3s ease',
                             cursor: 'pointer',
+                            border: `1px solid ${theme.border}`,
                         }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-4px)';
-                                e.currentTarget.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.12)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
-                            }}>
+                             onMouseEnter={(e) => {
+                                 e.currentTarget.style.transform = 'translateY(-4px)';
+                                 e.currentTarget.style.boxShadow = '0 8px 40px rgba(0, 0, 0, 0.15)';
+                             }}
+                             onMouseLeave={(e) => {
+                                 e.currentTarget.style.transform = 'translateY(0)';
+                                 e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+                             }}>
                             <div style={{
-                                width: '60px',
-                                height: '60px',
+                                width: '64px',
+                                height: '64px',
                                 borderRadius: '16px',
                                 background: `linear-gradient(135deg, ${stat.trend === 'up' ? '#10B981' : stat.trend === 'down' ? '#EF4444' : '#6B7280'}20, ${stat.trend === 'up' ? '#10B981' : stat.trend === 'down' ? '#EF4444' : '#6B7280'}40)`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '24px',
+                                fontSize: '28px',
+                                border: `1px solid ${theme.border}`,
                             }}>
                                 {stat.icon}
                             </div>
                             <div style={{ flex: 1 }}>
                                 <span style={{
                                     fontSize: '14px',
-                                    color: '#6b7280',
+                                    color: theme.textMuted,
                                     display: 'block',
-                                    marginBottom: '4px',
+                                    marginBottom: '8px',
+                                    fontWeight: '500',
                                 }}>
                                     {stat.title}
                                 </span>
                                 <span style={{
-                                    fontSize: '28px',
+                                    fontSize: '32px',
                                     fontWeight: '700',
-                                    color: '#1f2937',
+                                    color: theme.text,
                                     display: 'block',
-                                    marginBottom: '4px',
+                                    marginBottom: '8px',
                                 }}>
                                     {stat.value}
                                 </span>
@@ -347,9 +456,10 @@ export default function Dashboard() {
                                     color: stat.change >= 0 ? '#10b981' : '#ef4444',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px',
+                                    gap: '6px',
+                                    fontWeight: '500',
                                 }}>
-                                    {stat.change >= 0 ? '📈' : '📉'}
+                                    {stat.change >= 0 ? '↗' : '↘'}
                                     {Math.abs(stat.change)}% from yesterday
                                 </span>
                             </div>
@@ -362,27 +472,36 @@ export default function Dashboard() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginBottom: '24px',
+                    marginBottom: '32px',
                     gap: '16px',
                     flexWrap: 'wrap',
                 }}>
-                    <h2 style={{
-                        fontSize: '24px',
-                        fontWeight: '700',
-                        color: '#1f2937',
-                        margin: 0,
-                    }}>
-                        Quick Access
-                    </h2>
+                    <div>
+                        <h2 style={{
+                            fontSize: '24px',
+                            fontWeight: '700',
+                            color: theme.text,
+                            margin: '0 0 8px 0',
+                        }}>
+                            Quick Access
+                        </h2>
+                        <p style={{
+                            fontSize: '14px',
+                            color: theme.textMuted,
+                            margin: 0,
+                        }}>
+                            Quickly navigate to your most used features
+                        </p>
+                    </div>
 
                     <div style={{
                         display: 'flex',
-                        gap: '12px',
+                        gap: '16px',
                         flexWrap: 'wrap',
                     }}>
                         <div style={{
                             position: 'relative',
-                            minWidth: '250px',
+                            minWidth: '280px',
                         }}>
                             <input
                                 type="text"
@@ -390,21 +509,32 @@ export default function Dashboard() {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{
-                                    padding: '12px 16px 12px 40px',
-                                    border: '1px solid #e5e7eb',
+                                    padding: '12px 16px 12px 44px',
+                                    border: `1px solid ${theme.border}`,
                                     borderRadius: '12px',
                                     fontSize: '14px',
                                     width: '100%',
-                                    background: 'white',
+                                    background: theme.surface,
+                                    color: theme.text,
                                     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                                    transition: 'all 0.2s ease',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.borderColor = theme.primary;
+                                    e.target.style.boxShadow = `0 0 0 3px ${theme.primary}20`;
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.borderColor = theme.border;
+                                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
                                 }}
                             />
                             <span style={{
                                 position: 'absolute',
-                                left: '12px',
+                                left: '16px',
                                 top: '50%',
                                 transform: 'translateY(-50%)',
-                                color: '#9ca3af',
+                                color: theme.textMuted,
+                                fontSize: '16px',
                             }}>
                                 🔍
                             </span>
@@ -420,16 +550,17 @@ export default function Dashboard() {
                                     key={category}
                                     onClick={() => setActiveCategory(category)}
                                     style={{
-                                        padding: '8px 16px',
+                                        padding: '10px 16px',
                                         border: 'none',
-                                        borderRadius: '8px',
-                                        background: activeCategory === category ? '#3b82f6' : 'white',
-                                        color: activeCategory === category ? 'white' : '#6b7280',
+                                        borderRadius: '10px',
+                                        background: activeCategory === category ? theme.primary : theme.surface,
+                                        color: activeCategory === category ? 'white' : theme.text,
                                         fontSize: '14px',
                                         fontWeight: '500',
                                         cursor: 'pointer',
                                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
                                         transition: 'all 0.2s ease',
+                                        border: `1px solid ${theme.border}`,
                                     }}
                                 >
                                     {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -441,15 +572,16 @@ export default function Dashboard() {
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: '1fr 350px',
+                    gridTemplateColumns: '1fr 380px',
                     gap: '32px',
+                    alignItems: 'flex-start',
                 }}>
                     {/* Enhanced Main Content - Permissions Cards */}
                     <div>
                         {filteredPermissions.length > 0 ? (
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                                 gap: '24px',
                             }}>
                                 {filteredPermissions.map((permission, index) => (
@@ -458,7 +590,7 @@ export default function Dashboard() {
                                         to={permission.path.replace(":bookingId", "1")}
                                         style={{
                                             padding: '24px',
-                                            background: 'white',
+                                            background: theme.surface,
                                             borderRadius: '20px',
                                             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                                             transition: 'all 0.3s ease',
@@ -466,19 +598,20 @@ export default function Dashboard() {
                                             color: 'inherit',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            border: `2px solid ${permission.color}20`,
+                                            border: `1px solid ${theme.border}`,
                                             position: 'relative',
                                             overflow: 'hidden',
+                                            height: '140px',
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.transform = 'translateY(-4px)';
                                             e.currentTarget.style.boxShadow = '0 8px 40px rgba(0, 0, 0, 0.15)';
-                                            e.currentTarget.style.borderColor = `${permission.color}40`;
+                                            e.currentTarget.style.borderColor = permission.color;
                                         }}
                                         onMouseLeave={(e) => {
                                             e.currentTarget.style.transform = 'translateY(0)';
                                             e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
-                                            e.currentTarget.style.borderColor = `${permission.color}20`;
+                                            e.currentTarget.style.borderColor = theme.border;
                                         }}
                                     >
                                         <div style={{
@@ -486,7 +619,7 @@ export default function Dashboard() {
                                             top: 0,
                                             left: 0,
                                             right: 0,
-                                            height: '4px',
+                                            height: '3px',
                                             background: `linear-gradient(90deg, ${permission.color}, ${permission.color}80)`,
                                         }} />
 
@@ -494,32 +627,34 @@ export default function Dashboard() {
                                             display: 'flex',
                                             alignItems: 'flex-start',
                                             marginBottom: '16px',
+                                            flex: 1,
                                         }}>
                                             <div style={{
                                                 width: '48px',
                                                 height: '48px',
                                                 borderRadius: '12px',
-                                                background: `${permission.color}20`,
+                                                background: `${permission.color}15`,
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 marginRight: '16px',
                                                 fontSize: '20px',
+                                                border: `1px solid ${permission.color}30`,
                                             }}>
                                                 {permission.icon}
                                             </div>
                                             <div style={{ flex: 1 }}>
                                                 <h3 style={{
-                                                    fontSize: '18px',
+                                                    fontSize: '16px',
                                                     fontWeight: '600',
-                                                    color: '#1f2937',
-                                                    margin: '0 0 4px 0',
+                                                    color: theme.text,
+                                                    margin: '0 0 8px 0',
                                                 }}>
                                                     {permission.name}
                                                 </h3>
                                                 <p style={{
                                                     fontSize: '14px',
-                                                    color: '#6b7280',
+                                                    color: theme.textMuted,
                                                     margin: 0,
                                                     lineHeight: '1.5',
                                                 }}>
@@ -532,7 +667,6 @@ export default function Dashboard() {
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            marginTop: 'auto',
                                         }}>
                                             <span style={{
                                                 fontSize: '14px',
@@ -548,6 +682,7 @@ export default function Dashboard() {
                                                 borderRadius: '20px',
                                                 fontSize: '12px',
                                                 fontWeight: '500',
+                                                border: `1px solid ${permission.color}20`,
                                             }}>
                                                 {permission.name.includes("Management") ? "Management" :
                                                     permission.name.includes("Report") ? "Analytics" : "Action"}
@@ -559,28 +694,30 @@ export default function Dashboard() {
                         ) : (
                             <div style={{
                                 textAlign: 'center',
-                                padding: '60px 20px',
-                                background: 'white',
+                                padding: '80px 20px',
+                                background: theme.surface,
                                 borderRadius: '20px',
                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                                border: `1px solid ${theme.border}`,
                             }}>
                                 <div style={{
-                                    fontSize: '48px',
+                                    fontSize: '64px',
                                     marginBottom: '16px',
+                                    opacity: 0.5,
                                 }}>
                                     🔍
                                 </div>
                                 <h3 style={{
-                                    fontSize: '18px',
+                                    fontSize: '20px',
                                     fontWeight: '600',
-                                    color: '#1f2937',
+                                    color: theme.text,
                                     marginBottom: '8px',
                                 }}>
                                     No features found
                                 </h3>
                                 <p style={{
                                     fontSize: '14px',
-                                    color: '#6b7280',
+                                    color: theme.textMuted,
                                 }}>
                                     Try adjusting your search or filter criteria
                                 </p>
@@ -589,14 +726,15 @@ export default function Dashboard() {
                     </div>
 
                     {/* Enhanced Sidebar */}
-                    <div>
+                    <div style={{ position: 'sticky', top: '24px' }}>
                         {/* Enhanced Recent Activity */}
                         <div style={{
-                            background: 'white',
+                            background: theme.surface,
                             borderRadius: '20px',
                             padding: '24px',
                             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                             marginBottom: '24px',
+                            border: `1px solid ${theme.border}`,
                         }}>
                             <div style={{
                                 display: 'flex',
@@ -607,17 +745,26 @@ export default function Dashboard() {
                                 <h2 style={{
                                     fontSize: '18px',
                                     fontWeight: '600',
-                                    color: '#1f2937',
+                                    color: theme.text,
                                     margin: 0,
                                 }}>
                                     Recent Activity
                                 </h2>
                                 <span style={{
                                     fontSize: '12px',
-                                    color: '#3b82f6',
+                                    color: theme.primary,
                                     fontWeight: '500',
                                     cursor: 'pointer',
-                                }}>
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    transition: 'background 0.2s ease',
+                                }}
+                                      onMouseEnter={(e) => {
+                                          e.currentTarget.style.background = `${theme.primary}10`;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                          e.currentTarget.style.background = 'transparent';
+                                      }}>
                                     View All
                                 </span>
                             </div>
@@ -631,18 +778,21 @@ export default function Dashboard() {
                                     <div key={index} style={{
                                         display: 'flex',
                                         alignItems: 'flex-start',
-                                        padding: '12px',
+                                        padding: '16px',
                                         borderRadius: '12px',
-                                        background: '#f8fafc',
-                                        transition: 'background 0.2s ease',
+                                        background: theme.background,
+                                        transition: 'all 0.2s ease',
                                         cursor: 'pointer',
+                                        border: `1px solid ${theme.border}`,
                                     }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = '#f1f5f9';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = '#f8fafc';
-                                        }}>
+                                         onMouseEnter={(e) => {
+                                             e.currentTarget.style.background = theme.surfaceElevated;
+                                             e.currentTarget.style.transform = 'translateX(4px)';
+                                         }}
+                                         onMouseLeave={(e) => {
+                                             e.currentTarget.style.background = theme.background;
+                                             e.currentTarget.style.transform = 'translateX(0)';
+                                         }}>
                                         <div style={{
                                             width: '32px',
                                             height: '32px',
@@ -654,6 +804,8 @@ export default function Dashboard() {
                                             justifyContent: 'center',
                                             marginRight: '12px',
                                             flexShrink: 0,
+                                            border: `1px solid ${activity.type === 'success' ? '#10b98130' :
+                                                activity.type === 'warning' ? '#f59e0b30' : '#3b82f630'}`,
                                         }}>
                                             <span style={{
                                                 color: activity.type === 'success' ? '#10b981' :
@@ -667,14 +819,14 @@ export default function Dashboard() {
                                             <p style={{
                                                 fontSize: '14px',
                                                 fontWeight: '500',
-                                                color: '#1f2937',
+                                                color: theme.text,
                                                 margin: '0 0 4px 0',
                                             }}>
-                                                {activity.action} <span style={{ color: '#3b82f6', fontWeight: '600' }}>{activity.target}</span>
+                                                {activity.action} <span style={{ color: theme.primary, fontWeight: '600' }}>{activity.target}</span>
                                             </p>
                                             <p style={{
                                                 fontSize: '12px',
-                                                color: '#9ca3af',
+                                                color: theme.textMuted,
                                                 margin: 0,
                                             }}>
                                                 {activity.time}
@@ -687,11 +839,12 @@ export default function Dashboard() {
 
                         {/* Enhanced Quick Help Section */}
                         <div style={{
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            background: `linear-gradient(135deg, ${theme.primary}, #8B5CF6)`,
                             borderRadius: '20px',
                             padding: '24px',
                             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                             color: 'white',
+                            border: `1px solid ${theme.border}`,
                         }}>
                             <h2 style={{
                                 fontSize: '18px',
@@ -718,16 +871,16 @@ export default function Dashboard() {
                                     alignItems: 'center',
                                     padding: '12px',
                                     background: 'rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '8px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                    }}>
+                                     onMouseEnter={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                     }}
+                                     onMouseLeave={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                     }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>📞</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Call Support</span>
                                 </div>
@@ -736,16 +889,16 @@ export default function Dashboard() {
                                     alignItems: 'center',
                                     padding: '12px',
                                     background: 'rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '8px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                    }}>
+                                     onMouseEnter={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                     }}
+                                     onMouseLeave={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                     }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>✉️</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Email Support</span>
                                 </div>
@@ -754,16 +907,16 @@ export default function Dashboard() {
                                     alignItems: 'center',
                                     padding: '12px',
                                     background: 'rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '8px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                    }}>
+                                     onMouseEnter={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                     }}
+                                     onMouseLeave={(e) => {
+                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                     }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>📚</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>View Documentation</span>
                                 </div>

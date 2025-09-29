@@ -9,7 +9,7 @@ import asyncWrapper from "../middleware/async.js";
 const createJob = asyncWrapper(async (req, res, next) => {
   const { bookingId } = req.params;
   const { userId, role } = req.user;
-  const { requestedItems, ...jobFields } = req.body;
+  const { requestedItems, assignedTechnician, assignedLabourers, ...jobFields } = req.body;
 
   // Check if user is inspector or manager
   if (!["service_advisor", "manager", "admin"].includes(role)) {
@@ -17,32 +17,110 @@ const createJob = asyncWrapper(async (req, res, next) => {
   }
 
   console.log("permitted to create job");
+
   // Verify booking exists and is in correct status
   const booking = await Booking.findById(bookingId);
   if (!booking) {
     return next(createCustomError("Booking not found", 404));
   }
 
-  console.log("Booking is found")
+  console.log("Booking is found");
+
   if (booking.status !== "inspecting") {
     return next(createCustomError("Booking must be in 'inspecting' status to create jobs", 400));
   }
 
   console.log("Booking is in inspecting state");
 
-  // Create job with inspector as creator
+  // Prepare assigned labourers array
+  let assignedLabourersData = [];
+
+  // Handle both assignedTechnician (single) and assignedLabourers (array)
+  if (assignedTechnician) {
+    // Verify the technician exists and is active
+    const technician = await User.findOne({
+      _id: assignedTechnician,
+      role: "technician",
+      status: "active"
+    });
+
+    if (!technician) {
+      return next(createCustomError("Selected technician not found or not active", 400));
+    }
+
+    assignedLabourersData.push({
+      labourer: assignedTechnician,
+      assignedAt: new Date(),
+      hoursWorked: 0,
+    });
+
+    console.log(`Technician ${assignedTechnician} assigned to job`);
+  } else if (assignedLabourers && Array.isArray(assignedLabourers) && assignedLabourers.length > 0) {
+    // Verify all labourers exist and are active technicians
+    const labourers = await User.find({
+      _id: { $in: assignedLabourers },
+      role: "technician",
+      status: "active"
+    });
+
+    if (labourers.length !== assignedLabourers.length) {
+      return next(createCustomError("Some labourers not found or not active technicians", 400));
+    }
+
+    assignedLabourersData = assignedLabourers.map(labourerId => ({
+      labourer: labourerId,
+      assignedAt: new Date(),
+      hoursWorked: 0,
+    }));
+
+    console.log(`${assignedLabourers.length} labourers assigned to job`);
+  }
+
+  // Generate job ID
+  const jobCount = await Job.countDocuments();
+  const jobId = `JOB${String(jobCount + 1).padStart(5, '0')}`;
+
+  // Create job with inspector as creator and assigned labourers
   const jobData = {
     ...jobFields,
     booking: bookingId,
     createdBy: userId,
+    assignedLabourers: assignedLabourersData,
+    jobId,
+    status: jobFields.status || "pending",
+    estimatedHours: jobFields.estimatedHours || 0,
+    actualHours: 0,
+    estimatedCost: jobFields.estimatedCost || 0,
+    actualCost: 0,
+    partsCost: 0,
+    labourCost: 0,
+    requirements: {
+      skills: jobFields.requirements?.skills || [],
+      tools: jobFields.requirements?.tools || [],
+      materials: jobFields.requirements?.materials || []
+    },
+    inspectionReport: {
+      preWorkInspection: {
+        issues: [],
+        photos: [],
+        approved: false
+      },
+      postWorkInspection: {
+        issues: [],
+        photos: []
+      }
+    },
+    workLog: []
   };
 
   const job = await Job.create(jobData);
   await job.populate([
     { path: "booking", select: "bookingId customer vehicle serviceType" },
     { path: "createdBy", select: "userId profile.firstName profile.lastName" },
+    { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.department employeeDetails.employeeId" },
   ]);
-  console.log("Job created");
+
+  console.log("Job created with assigned labourers:", job.assignedLabourers);
 
   // Create goods request if inventory items were requested
   let goodsRequest = null;
@@ -68,16 +146,16 @@ const createJob = asyncWrapper(async (req, res, next) => {
         { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
         { path: "items.item", select: "name category currentStock unitPrice" }
       ]);
+
+      console.log("Goods request created");
     } catch (error) {
       console.error("Failed to create goods request:", error);
       // Don't fail the job creation if goods request fails
     }
   }
 
-  console.log("Success");
-  console.log(job);
-  console.log("Good request");
-  console.log(goodsRequest);
+  console.log("Success - Job created with assigned technicians");
+
   res.status(201).json({
     success: true,
     message: "Job created successfully",
@@ -124,8 +202,20 @@ const getAllJobs = asyncWrapper(async (req, res) => {
   // Role-based filtering
   const { role, userId } = req.user;
   if (role === "technician") {
-    // Technicians can only see jobs assigned to them
-    query["assignedLabourers.labourer"] = userId;
+    // For technicians, we need to find their actual ObjectId
+    const currentUser = await User.findOne({
+      $or: [
+        { _id: userId },
+        { userId: userId }
+      ]
+    });
+
+    if (currentUser) {
+      query["assignedLabourers.labourer"] = currentUser._id;
+    } else {
+      // If user not found, return empty results
+      query["assignedLabourers.labourer"] = null;
+    }
   }
 
   // Calculate pagination
@@ -134,22 +224,22 @@ const getAllJobs = asyncWrapper(async (req, res) => {
   sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
   const jobs = await Job.find(query)
-    .populate([
-      {
-        path: "booking",
-        select: "bookingId customer vehicle serviceType scheduledDate",
-        populate: [
-          { path: "customer", select: "userId profile.firstName profile.lastName" },
-          { path: "vehicle", select: "registrationNumber make model" }
-        ]
-      },
-      { path: "createdBy", select: "userId profile.firstName profile.lastName" },
-      { path: "inspectedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.specializations" },
-    ])
-    .limit(limit * 1)
-    .skip(skip)
-    .sort(sortOptions);
+      .populate([
+        {
+          path: "booking",
+          select: "bookingId customer vehicle serviceType scheduledDate",
+          populate: [
+            { path: "customer", select: "userId profile.firstName profile.lastName" },
+            { path: "vehicle", select: "registrationNumber make model" }
+          ]
+        },
+        { path: "createdBy", select: "userId profile.firstName profile.lastName" },
+        { path: "inspectedBy", select: "userId profile.firstName profile.lastName" },
+        { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.specializations employeeDetails.department employeeDetails.employeeId" },
+      ])
+      .limit(limit * 1)
+      .skip(skip)
+      .sort(sortOptions);
 
   const total = await Job.countDocuments(query);
 
@@ -168,6 +258,8 @@ const getJobById = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { role, userId } = req.user;
 
+  console.log(`🔍 getJobById called by user: ${userId}, role: ${role}, jobId: ${id}`);
+
   const job = await Job.findById(id).populate([
     {
       path: "booking",
@@ -177,27 +269,62 @@ const getJobById = asyncWrapper(async (req, res, next) => {
         { path: "vehicle", select: "registrationNumber make model year color" }
       ]
     },
-    { path: "createdBy", select: "userId profile.firstName profile.lastName" },
+    { path: "createdBy", select: "userId profile.firstName profile.lastName role" },
     { path: "inspectedBy", select: "userId profile.firstName profile.lastName" },
     {
       path: "assignedLabourers.labourer",
-      select: "userId profile.firstName profile.lastName employeeDetails.specializations employeeDetails.department"
+      select: "userId profile.firstName profile.lastName employeeDetails.specializations employeeDetails.department employeeDetails.employeeId"
     },
     { path: "workLog.labourer", select: "userId profile.firstName profile.lastName" },
   ]);
 
   if (!job) {
+    console.log(`❌ Job not found: ${id}`);
     return next(createCustomError("Job not found", 404));
   }
 
+  console.log(`✅ Job found: ${job.jobId}`);
+  console.log(`📋 Assigned labourers:`, job.assignedLabourers.map(al => ({
+    id: al.labourer._id.toString(),
+    userId: al.labourer.userId,
+    name: `${al.labourer.profile.firstName} ${al.labourer.profile.lastName}`
+  })));
+
   // Role-based access control
   if (role === "technician") {
-    const isAssigned = job.assignedLabourers.some(
-      assignment => assignment.labourer._id.toString() === userId
-    );
+    console.log(`🔧 Checking technician access for user: ${userId}`);
+
+    // Get the current user's ObjectId
+    const currentUser = await User.findOne({
+      $or: [
+        { _id: userId },
+        { userId: userId }
+      ]
+    });
+
+    if (!currentUser) {
+      console.log(`❌ Current user not found: ${userId}`);
+      return next(createCustomError("User not found", 404));
+    }
+
+    console.log(`👤 Current user ObjectId: ${currentUser._id}`);
+
+    // Check if technician is assigned to this job
+    const isAssigned = job.assignedLabourers.some(assignment => {
+      const labourerId = assignment.labourer._id.toString();
+      const currentUserId = currentUser._id.toString();
+      console.log(`🔍 Comparing: ${labourerId} === ${currentUserId}`);
+      return labourerId === currentUserId;
+    });
+
+    console.log(`🎯 Is technician assigned: ${isAssigned}`);
+
     if (!isAssigned) {
+      console.log(`❌ Access denied for technician ${userId}`);
       return next(createCustomError("Access denied. Job not assigned to you", 403));
     }
+
+    console.log(`✅ Access granted for technician ${userId}`);
   }
 
   res.status(200).json({
@@ -206,23 +333,38 @@ const getJobById = asyncWrapper(async (req, res, next) => {
   });
 });
 
-// Update job status (Labourers and Inspectors)
+// Update job status (Labourers and Inspectors) - WITH BOOKING STATUS SYNC
 const updateJobStatus = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { status, notes } = req.body;
   const { userId, role } = req.user;
 
-  const job = await Job.findById(id);
+  console.log(`🔄 updateJobStatus called by user: ${userId}, role: ${role}, new status: ${status}`);
+
+  const job = await Job.findById(id).populate('booking');
   if (!job) {
     return next(createCustomError("Job not found", 404));
   }
 
   // Role-based access control for status updates
   if (role === "technician") {
+    // Get the current user's ObjectId
+    const currentUser = await User.findOne({
+      $or: [
+        { _id: userId },
+        { userId: userId }
+      ]
+    });
+
+    if (!currentUser) {
+      return next(createCustomError("User not found", 404));
+    }
+
     // Technicians can only update jobs assigned to them
-    const isAssigned = job.assignedLabourers.some(
-      assignment => assignment.labourer.toString() === userId
-    );
+    const isAssigned = job.assignedLabourers.some(assignment => {
+      return assignment.labourer.toString() === currentUser._id.toString();
+    });
+
     if (!isAssigned) {
       return next(createCustomError("Access denied. Job not assigned to you", 403));
     }
@@ -239,19 +381,84 @@ const updateJobStatus = asyncWrapper(async (req, res, next) => {
     }
   }
 
+  // Store old status for comparison
+  const oldStatus = job.status;
+
   // Update job
   job.status = status;
+
+  // Set timestamps based on status changes
+  if (status === "working" && oldStatus !== "working") {
+    job.startedAt = new Date();
+  } else if (status === "completed" && oldStatus !== "completed") {
+    job.completedAt = new Date();
+  }
+
   if (notes) job.notes = notes;
 
   await job.save();
+
+  // NEW: SYNC BOOKING STATUS
+  if (job.booking && job.booking._id) {
+    try {
+      console.log(`🔄 Syncing booking status for booking: ${job.booking._id}`);
+
+      // Define job status to booking status mapping
+      const statusMapping = {
+        'working': 'working',
+        'completed': 'completed',
+        'on_hold': 'on_hold',
+        'cancelled': 'cancelled'
+      };
+
+      const bookingStatus = statusMapping[status];
+
+      if (bookingStatus) {
+        console.log(`📋 Mapping job status "${status}" to booking status "${bookingStatus}"`);
+
+        // Update the booking status
+        const updatedBooking = await Booking.findByIdAndUpdate(
+            job.booking._id,
+            {
+              status: bookingStatus,
+              $push: {
+                notes: {
+                  note: `Status updated to ${bookingStatus} via job ${job.jobId} status change`,
+                  createdBy: userId,
+                  createdAt: new Date()
+                }
+              }
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (updatedBooking) {
+          console.log(`✅ Booking status synced successfully to: ${bookingStatus}`);
+        } else {
+          console.log(`❌ Failed to update booking status`);
+        }
+      } else {
+        console.log(`ℹ️ No booking status mapping for job status: ${status}`);
+      }
+    } catch (bookingError) {
+      console.error(`❌ Error syncing booking status:`, bookingError);
+      // Don't fail the job update if booking sync fails
+    }
+  } else {
+    console.log(`ℹ️ No booking associated with this job, skipping sync`);
+  }
+
+  // Populate job data for response
   await job.populate([
-    { path: "booking", select: "bookingId" },
+    { path: "booking", select: "bookingId status" },
     { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName" },
   ]);
 
+  console.log(`✅ Job status updated to: ${status}`);
+
   res.status(200).json({
     success: true,
-    message: "Job status updated successfully",
+    message: "Job status updated successfully" + (job.booking ? " and booking status synced" : ""),
     job,
   });
 });
@@ -291,9 +498,9 @@ const assignLabourers = asyncWrapper(async (req, res, next) => {
   const requiredSkills = job.requirements?.skills || [];
   if (requiredSkills.length > 0) {
     const skilledLabourers = labourers.filter(labourer =>
-      labourer.employeeDetails?.specializations?.some(skill =>
-        requiredSkills.includes(skill)
-      )
+        labourer.employeeDetails?.specializations?.some(skill =>
+            requiredSkills.includes(skill)
+        )
     );
 
     if (skilledLabourers.length === 0) {
@@ -327,6 +534,8 @@ const addWorkLog = asyncWrapper(async (req, res, next) => {
   const { startTime, endTime, description } = req.body;
   const { userId, role } = req.user;
 
+  console.log(`📝 addWorkLog called by user: ${userId}, role: ${role}`);
+
   if (role !== "technician") {
     return next(createCustomError("Only technicians can add work logs", 403));
   }
@@ -336,10 +545,23 @@ const addWorkLog = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Job not found", 404));
   }
 
+  // Get the current user's ObjectId
+  const currentUser = await User.findOne({
+    $or: [
+      { _id: userId },
+      { userId: userId }
+    ]
+  });
+
+  if (!currentUser) {
+    return next(createCustomError("User not found", 404));
+  }
+
   // Check if user is assigned to this job
-  const isAssigned = job.assignedLabourers.some(
-    assignment => assignment.labourer.toString() === userId
-  );
+  const isAssigned = job.assignedLabourers.some(assignment => {
+    return assignment.labourer.toString() === currentUser._id.toString();
+  });
+
   if (!isAssigned) {
     return next(createCustomError("Access denied. Job not assigned to you", 403));
   }
@@ -351,13 +573,40 @@ const addWorkLog = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("End time must be after start time", 400));
   }
 
+  // Calculate hours worked
+  const hoursWorked = (end - start) / (1000 * 60 * 60);
+
   // Add work log entry
-  job.addWorkLog(userId, start, end, description);
+  const workLogEntry = {
+    labourer: currentUser._id,
+    startTime: start,
+    endTime: end,
+    hoursWorked: hoursWorked,
+    description: description || "Work logged",
+    loggedAt: new Date()
+  };
+
+  job.workLog.push(workLogEntry);
+
+  // Update actual hours and assigned labourer hours
+  job.actualHours = (job.actualHours || 0) + hoursWorked;
+
+  // Update hours worked for this specific labourer
+  const labourerAssignment = job.assignedLabourers.find(assignment =>
+      assignment.labourer.toString() === currentUser._id.toString()
+  );
+  if (labourerAssignment) {
+    labourerAssignment.hoursWorked = (labourerAssignment.hoursWorked || 0) + hoursWorked;
+  }
+
   await job.save();
 
   await job.populate([
     { path: "workLog.labourer", select: "userId profile.firstName profile.lastName" },
+    { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName" },
   ]);
+
+  console.log(`✅ Work log added: ${hoursWorked.toFixed(2)} hours`);
 
   res.status(200).json({
     success: true,
@@ -435,12 +684,24 @@ const getJobsByBooking = asyncWrapper(async (req, res, next) => {
 
   // Role-based filtering
   if (role === "technician") {
-    query["assignedLabourers.labourer"] = userId;
+    // Get the current user's ObjectId
+    const currentUser = await User.findOne({
+      $or: [
+        { _id: userId },
+        { userId: userId }
+      ]
+    });
+
+    if (currentUser) {
+      query["assignedLabourers.labourer"] = currentUser._id;
+    } else {
+      query["assignedLabourers.labourer"] = null;
+    }
   }
 
   const jobs = await Job.find(query).populate([
     { path: "createdBy", select: "userId profile.firstName profile.lastName" },
-    { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName" },
+    { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.department employeeDetails.employeeId" },
   ]);
 
   res.status(200).json({
@@ -467,8 +728,27 @@ const getMyJobs = asyncWrapper(async (req, res) => {
     });
   }
 
-  // Build query for jobs assigned to this technician
-  let query = { "assignedLabourers.labourer": userId };
+  // Get the current user's ObjectId
+  const currentUser = await User.findOne({
+    $or: [
+      { _id: userId },
+      { userId: userId }
+    ]
+  });
+
+  if (!currentUser) {
+    console.log(`❌ Current user not found: ${userId}`);
+    return res.status(404).json({
+      success: false,
+      message: "User not found"
+    });
+  }
+
+  console.log(`👤 Current user found: ${currentUser._id} (${currentUser.userId})`);
+  console.log(`👤 User profile: ${currentUser.profile.firstName} ${currentUser.profile.lastName}`);
+
+  // Build query for jobs assigned to this technician using their ObjectId
+  let query = { "assignedLabourers.labourer": currentUser._id };
 
   if (status) {
     const statusArray = status.split(",").map(s => s.trim());
@@ -485,37 +765,50 @@ const getMyJobs = asyncWrapper(async (req, res) => {
   try {
     // Get jobs assigned to this technician
     const jobs = await Job.find(query)
-      .populate([
-        {
-          path: "booking",
-          select: "bookingId customer vehicle serviceType scheduledDate status",
-          populate: [
-            { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
-            { path: "vehicle", select: "registrationNumber make model year" }
-          ]
-        },
-        {
-          path: "createdBy",
-          select: "userId profile.firstName profile.lastName role"
-        },
-        {
-          path: "assignedLabourers.labourer",
-          select: "userId profile.firstName profile.lastName role"
-        }
-      ])
-      .limit(limitNum)
-      .skip(skip)
-      .sort({ createdAt: -1 });
+        .populate([
+          {
+            path: "booking",
+            select: "bookingId customer vehicle serviceType scheduledDate status",
+            populate: [
+              { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
+              { path: "vehicle", select: "registrationNumber make model year" }
+            ]
+          },
+          {
+            path: "createdBy",
+            select: "userId profile.firstName profile.lastName role"
+          },
+          {
+            path: "assignedLabourers.labourer",
+            select: "userId profile.firstName profile.lastName role employeeDetails.department employeeDetails.employeeId"
+          }
+        ])
+        .limit(limitNum)
+        .skip(skip)
+        .sort({ createdAt: -1 });
 
     const total = await Job.countDocuments(query);
 
-    console.log(`✅ Found ${jobs.length} jobs for technician ${userId} (${total} total)`);
+    console.log(`✅ Found ${jobs.length} jobs for technician ${currentUser.userId} (${total} total)`);
 
     // Log some details about the jobs found
     if (jobs.length > 0) {
       console.log(`📋 Job details:`);
       jobs.forEach(job => {
-        console.log(`  - Job ${job.jobId || job._id}: ${job.title} (${job.status})`);
+        const assignedLabourers = job.assignedLabourers.map(al =>
+            `${al.labourer.profile.firstName} ${al.labourer.profile.lastName} (${al.labourer.userId})`
+        ).join(", ");
+        console.log(`  - Job ${job.jobId || job._id}: ${job.title} (${job.status}) - Assigned: ${assignedLabourers}`);
+      });
+    } else {
+      console.log(`📋 No jobs found for technician ${currentUser.userId}`);
+
+      // Debug: Let's check if there are any jobs with this user in assignedLabourers
+      const allJobs = await Job.find({}).populate('assignedLabourers.labourer', 'userId profile.firstName profile.lastName');
+      console.log(`🔍 Debug: Total jobs in system: ${allJobs.length}`);
+      allJobs.forEach(job => {
+        const assignedIds = job.assignedLabourers.map(al => al.labourer._id.toString());
+        console.log(`  - Job ${job.jobId}: assigned to ${assignedIds.join(", ")}`);
       });
     }
 
@@ -584,27 +877,27 @@ const getMyCreatedJobs = asyncWrapper(async (req, res) => {
   try {
     // Get jobs created by this service advisor
     const jobs = await Job.find(query)
-      .populate([
-        {
-          path: "booking",
-          select: "bookingId customer vehicle serviceType scheduledDate status estimatedCost",
-          populate: [
-            { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
-            { path: "vehicle", select: "registrationNumber make model year color" }
-          ]
-        },
-        {
-          path: "assignedLabourers.labourer",
-          select: "userId profile.firstName profile.lastName role employeeDetails.specializations"
-        },
-        {
-          path: "inspectedBy",
-          select: "userId profile.firstName profile.lastName role"
-        }
-      ])
-      .limit(limitNum)
-      .skip(skip)
-      .sort({ createdAt: -1 });
+        .populate([
+          {
+            path: "booking",
+            select: "bookingId customer vehicle serviceType scheduledDate status estimatedCost",
+            populate: [
+              { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
+              { path: "vehicle", select: "registrationNumber make model year color" }
+            ]
+          },
+          {
+            path: "assignedLabourers.labourer",
+            select: "userId profile.firstName profile.lastName role employeeDetails.specializations employeeDetails.department employeeDetails.employeeId"
+          },
+          {
+            path: "inspectedBy",
+            select: "userId profile.firstName profile.lastName role"
+          }
+        ])
+        .limit(limitNum)
+        .skip(skip)
+        .sort({ createdAt: -1 });
 
     const total = await Job.countDocuments(query);
 

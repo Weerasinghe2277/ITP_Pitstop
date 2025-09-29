@@ -25,7 +25,7 @@ router.get("/available-inspectors", authenticate, authorize("cashier", "admin", 
 // Booking CRUD operations
 router.route("/")
   .get(authenticate, authorize("cashier", "admin", "manager", "service_advisor"), getAllBookings)
-  .post(authenticate, authorize("cashier"), createBooking);
+  .post(authenticate, authorize("cashier", "admin", "manager"), createBooking);
 
 // Booking management by ID
 router.route("/:id")

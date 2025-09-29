@@ -1,4 +1,3 @@
-// src/features/jobs/CreateJob.jsx
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
@@ -7,24 +6,21 @@ import { Enums } from "../../lib/validators";
 export default function CreateJob() {
     const { bookingId } = useParams();
     const nav = useNavigate();
-
     const [booking, setBooking] = useState(null);
     const [form, setForm] = useState({
         title: "",
         description: "",
-        category: Enums.JobCategory[0],
+        category: Enums.JobCategory[0] || "general",
         estimatedHours: 1,
         priority: "medium",
         scheduledDate: "",
-        assignedTechnician: "", // Add technician assignment field
+        assignedTechnician: "",
     });
     const [message, setMessage] = useState({ text: "", type: "" });
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [technicians, setTechnicians] = useState([]);
     const [isLoadingTechnicians, setIsLoadingTechnicians] = useState(false);
-
-    // Inventory request state
     const [inventoryItems, setInventoryItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -37,163 +33,327 @@ export default function CreateJob() {
         try {
             const response = await http.get('/users/technicians/by-specialization');
             setTechnicians(response.data?.technicians || []);
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to load technicians:', error);
+            setMessage({ text: 'Failed to load technicians', type: 'error' });
         } finally {
             setIsLoadingTechnicians(false);
         }
     }
 
+    // Enhanced function to update booking status with job creation
+    async function updateBookingStatusToWorking() {
+        try {
+            console.log(`Updating booking ${bookingId} status to working...`);
+            const response = await http.patch(`/bookings/${bookingId}/status`, {
+                status: "working",
+                updatedBy: "job_creation",
+                updatedAt: new Date().toISOString()
+            });
+
+            if (response.data?.booking) {
+                console.log('Booking status updated successfully:', response.data.booking);
+                setBooking(prevBooking => ({
+                    ...prevBooking,
+                    status: "working",
+                    lastStatusUpdate: new Date().toISOString()
+                }));
+                return true;
+            }
+        } catch (error) {
+            console.error('Failed to update booking status:', error);
+            throw new Error('Failed to update booking status');
+        }
+    }
+
+    // Load booking details
     useEffect(() => {
         let ignore = false;
-        async function load() {
+        async function loadBooking() {
             setIsLoading(true);
             setMessage({ text: "", type: "" });
             try {
-                const r = await http.get(`/bookings/${bookingId}`);
-                if (!ignore) setBooking(r.data?.booking || null);
-            } catch (e: any) {
-                if (!ignore) setMessage({ text: e.message || "Failed to load booking", type: "error" });
+                const response = await http.get(`/bookings/${bookingId}`);
+                if (!ignore) {
+                    setBooking(response.data?.booking || null);
+
+                    // Pre-fill scheduled date with booking date if available
+                    if (response.data?.booking?.scheduledDate && !form.scheduledDate) {
+                        setForm(prev => ({
+                            ...prev,
+                            scheduledDate: response.data.booking.scheduledDate.split('T')[0]
+                        }));
+                    }
+                }
+            } catch (error) {
+                if (!ignore) {
+                    setMessage({
+                        text: error.message || "Failed to load booking",
+                        type: "error"
+                    });
+                }
             } finally {
                 if (!ignore) setIsLoading(false);
             }
         }
-        load();
-        loadTechnicians(); // Load technicians when component mounts
+
+        if (bookingId) {
+            loadBooking();
+            loadTechnicians();
+        } else {
+            setMessage({ text: "No booking ID provided", type: "error" });
+            setIsLoading(false);
+        }
+
         return () => { ignore = true; };
     }, [bookingId]);
 
-    // Load inventory items when modal is opened
+    // Load inventory items when modal opens
     useEffect(() => {
         if (showInventoryModal) {
             loadInventoryItems();
         }
     }, [showInventoryModal, inventoryFilter]);
 
+    // Load inventory items
     async function loadInventoryItems() {
         try {
             const params = new URLSearchParams();
             if (inventoryFilter.category) params.set("category", inventoryFilter.category);
             if (inventoryFilter.status) params.set("status", inventoryFilter.status);
-
             const response = await http.get(`/inventory?${params.toString()}`);
             setInventoryItems(response.data?.items || []);
-        } catch (error: any) {
-            setMessage({ text: error.message || "Failed to load inventory items", type: "error" });
+        } catch (error) {
+            setMessage({
+                text: error.message || "Failed to load inventory items",
+                type: "error"
+            });
         }
     }
 
-    function addItemToRequest(item: any) {
-        const exists = selectedItems.find((selected: any) => selected._id === item._id);
+    // Add item to request
+    function addItemToRequest(item) {
+        const exists = selectedItems.find(selected => selected._id === item._id);
         if (!exists) {
-            setSelectedItems([...selectedItems, { ...item, requestedQuantity: 1 }]);
+            setSelectedItems([...selectedItems, {
+                ...item,
+                requestedQuantity: 1,
+                availableStock: item.currentStock || item.stock || 0
+            }]);
         }
     }
 
-    function removeItemFromRequest(itemId: string) {
-        setSelectedItems(selectedItems.filter((item: any) => item._id !== itemId));
+    // Remove item from request
+    function removeItemFromRequest(itemId) {
+        setSelectedItems(selectedItems.filter(item => item._id !== itemId));
     }
 
-    function updateRequestedQuantity(itemId: string, quantity: number) {
-        setSelectedItems(selectedItems.map((item: any) =>
-            item._id === itemId ? { ...item, requestedQuantity: Math.max(1, quantity) } : item
-        ));
+    // Update requested quantity
+    function updateRequestedQuantity(itemId, quantity) {
+        setSelectedItems(selectedItems.map(item => {
+            if (item._id === itemId) {
+                const availableStock = item.availableStock || item.currentStock || item.stock || 0;
+                const newQuantity = Math.max(1, Math.min(quantity, availableStock));
+                return { ...item, requestedQuantity: newQuantity };
+            }
+            return item;
+        }));
     }
 
+    // Update form field
     function update(key, value) {
-        setForm((f) => ({ ...f, [key]: value })); // Controlled inputs keep state as single source of truth [web:1]
+        setForm(prevForm => ({ ...prevForm, [key]: value }));
     }
 
+    // Form validation
     function validate() {
         if (!form.title.trim()) return "Title is required";
         if (!form.category?.trim()) return "Category is required";
-        if ((form.estimatedHours ?? 0) < 0) return "Estimated hours must be >= 0";
+        if ((form.estimatedHours ?? 0) <= 0) return "Estimated hours must be greater than 0";
         if (!form.priority?.trim()) return "Priority is required";
         if (!form.scheduledDate) return "Scheduled date is required";
+        if (!form.assignedTechnician) return "Technician assignment is required";
+
+        // Validate scheduled date is not in the past
+        const today = new Date().toISOString().split('T')[0];
+        if (form.scheduledDate < today) {
+            return "Scheduled date cannot be in the past";
+        }
+
         return "";
     }
 
-    // Helper functions for date constraints
+    // Get today's date in YYYY-MM-DD format
     function getTodayString() {
         return new Date().toISOString().split('T')[0];
     }
 
+    // Get date two weeks from today
     function getTwoWeeksFromTodayString() {
         const today = new Date();
         const twoWeeksLater = new Date(today.getTime() + (14 * 24 * 60 * 60 * 1000));
         return twoWeeksLater.toISOString().split('T')[0];
     }
 
+    // Form submission
     async function submit(e) {
         e.preventDefault();
-        const v = validate();
-        if (v) {
-            setMessage({ text: v, type: "error" });
+        const validationError = validate();
+        if (validationError) {
+            setMessage({ text: validationError, type: "error" });
             return;
         }
+
         setIsSubmitting(true);
         setMessage({ text: "", type: "" });
+
         try {
+            // Prepare job data with initial status as "working"
             const jobData = {
-                ...form,
-                requestedItems: selectedItems.map((item: any) => ({
-                    itemId: item._id,
-                    requestedQuantity: item.requestedQuantity
-                }))
+                title: form.title.trim(),
+                description: form.description.trim(),
+                category: form.category,
+                estimatedHours: form.estimatedHours,
+                priority: form.priority,
+                scheduledDate: form.scheduledDate,
+                assignedTechnician: form.assignedTechnician,
+                assignedLabourers: [form.assignedTechnician],
+                status: "working",
+                requirements: {
+                    materials: selectedItems.map(item => ({
+                        itemId: item._id,
+                        name: item.name,
+                        quantity: item.requestedQuantity,
+                        unitPrice: item.unitPrice || item.price || 0,
+                        category: item.category || 'N/A'
+                    })),
+                    tools: [],
+                    skills: []
+                },
+                statusSync: {
+                    autoSyncWithBooking: true,
+                    initialBookingStatus: booking?.status || "pending",
+                    createdAt: new Date().toISOString()
+                }
             };
-            const { data } = await http.post(`/jobs/booking/${bookingId}`, jobData);
-            nav(`/jobs/${data?.job?._id}`); // Programmatic navigation after success is a common useNavigate pattern [web:127][web:133]
-        } catch (e: any) {
-            setMessage({ text: e.message || "Failed to create job", type: "error" });
+
+            console.log('Submitting job data:', jobData);
+
+            // Step 1: Create the job
+            const response = await http.post(`/jobs/booking/${bookingId}`, jobData);
+
+            if (response.data?.job?._id) {
+                console.log('Job created successfully:', response.data.job);
+
+                // Step 2: Update booking status to "working"
+                try {
+                    await updateBookingStatusToWorking();
+                } catch (statusError) {
+                    console.warn('Job created but booking status update failed:', statusError);
+                    // Continue even if status update fails
+                }
+
+                // Step 3: Show success message and navigate
+                setMessage({
+                    text: "Job created successfully! Redirecting to job details...",
+                    type: "success"
+                });
+
+                setTimeout(() => {
+                    nav(`/jobs/${response.data.job._id}`);
+                }, 1500);
+            } else {
+                throw new Error("Job created but no ID returned from server");
+            }
+        } catch (error) {
+            console.error('Job creation error:', error);
+            setMessage({
+                text: error.response?.data?.message || error.message || "Failed to create job",
+                type: "error"
+            });
         } finally {
             setIsSubmitting(false);
         }
     }
+
+    // Reset form
+    function resetForm() {
+        setForm({
+            title: "",
+            description: "",
+            category: Enums.JobCategory[0] || "general",
+            estimatedHours: 1,
+            priority: "medium",
+            scheduledDate: booking?.scheduledDate ? booking.scheduledDate.split('T')[0] : "",
+            assignedTechnician: "",
+        });
+        setSelectedItems([]);
+        setMessage({ text: "", type: "" });
+    }
+
+    // Filter inventory items based on search and filters
+    const filteredInventoryItems = inventoryItems.filter(item => {
+        const matchesSearch = inventorySearch === "" ||
+            item.name?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
+            item.description?.toLowerCase().includes(inventorySearch.toLowerCase());
+
+        const matchesCategory = !inventoryFilter.category ||
+            item.category === inventoryFilter.category;
+
+        const matchesStatus = !inventoryFilter.status ||
+            (inventoryFilter.status === "available" && (item.currentStock || item.stock) > 0) ||
+            (inventoryFilter.status === "low_stock" && (item.currentStock || item.stock) <= 10);
+
+        return matchesSearch && matchesCategory && matchesStatus;
+    });
 
     // Styles
     const wrap = {
         maxWidth: "1200px",
         margin: "0 auto",
         padding: "20px",
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     };
-    const headerRow = {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "24px",
-        flexWrap: "wrap",
-        gap: "12px",
+
+    const title = {
+        fontSize: "28px",
+        fontWeight: 700,
+        color: "#1f2937",
+        margin: 0
     };
-    const title = { fontSize: "28px", fontWeight: 700, color: "#1f2937", margin: 0 };
+
     const card = {
         background: "white",
         borderRadius: "12px",
         padding: "24px",
         boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
         border: "1px solid #e5e7eb",
-        marginBottom: "24px",
+        marginBottom: "24px"
     };
+
     const sectionTitle = {
         fontSize: "18px",
         fontWeight: 600,
         color: "#1f2937",
         marginBottom: "16px",
         paddingBottom: "12px",
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: "1px solid #e5e7eb"
     };
+
     const grid = {
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: "24px",
+        gap: "24px"
     };
+
     const label = {
         display: "block",
         fontSize: "14px",
         fontWeight: 500,
         color: "#374151",
-        marginBottom: "6px",
+        marginBottom: "6px"
     };
+
     const control = {
         width: "100%",
         padding: "10px 12px",
@@ -201,266 +361,299 @@ export default function CreateJob() {
         borderRadius: "8px",
         fontSize: "14px",
         backgroundColor: "white",
+        boxSizing: "border-box"
+    };
+
+    const backBtn = {
+        padding: "10px 14px",
+        backgroundColor: "#6b7280",
+        color: "white",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "14px",
+        fontWeight: 600,
+        textDecoration: "none",
+        display: "inline-block"
     };
 
     return (
         <div style={wrap}>
-            {/* Header */}
-            <div style={headerRow}>
-                <h1 style={title}>New Job</h1>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <Link
-                        to={booking ? `/bookings/${booking._id}` : "/bookings"}
-                        style={{
-                            padding: "10px 14px",
-                            backgroundColor: "#3b82f6",
-                            color: "white",
-                            border: "1px solid #2563eb",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 600,
-                            textDecoration: "none",
-                        }}
-                    >
-                        Back
-                    </Link>
-                </div>
+            <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+                flexWrap: "wrap",
+                gap: "12px"
+            }}>
+                <h1 style={title}>Create New Job</h1>
+                <Link
+                    to={booking ? `/bookings/${booking._id}` : "/bookings"}
+                    style={backBtn}
+                >
+                    ← Back to Booking
+                </Link>
             </div>
 
-            {/* Message */}
             {message.text && (
-                <div
-                    style={{
-                        padding: "12px 16px",
-                        borderRadius: "8px",
-                        marginBottom: "16px",
-                        backgroundColor: message.type === "error" ? "#fef2f2" : "#f0fdf4",
-                        color: message.type === "error" ? "#991b1b" : "#166534",
-                        border: `1px solid ${message.type === "error" ? "#fecaca" : "#bbf7d0"}`,
-                    }}
-                >
+                <div style={{
+                    padding: "12px 16px",
+                    borderRadius: "8px",
+                    marginBottom: "16px",
+                    backgroundColor: message.type === "error" ? "#fef2f2" : "#f0fdf4",
+                    color: message.type === "error" ? "#991b1b" : "#166534",
+                    border: `1px solid ${message.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                }}>
                     {message.text}
                 </div>
             )}
 
-            {/* Loading */}
             {isLoading && (
-                <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
-                    <span>Loading booking…</span>
-                    <div
-                        style={{
-                            width: 14,
-                            height: 14,
-                            border: "2px solid transparent",
-                            borderTop: "2px solid #6b7280",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                        }}
-                    />
+                <div style={{
+                    ...card,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    color: "#6b7280"
+                }}>
+                    <span>Loading booking details…</span>
+                    <div style={{
+                        width: 14,
+                        height: 14,
+                        border: "2px solid transparent",
+                        borderTop: "2px solid #6b7280",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite"
+                    }} />
                 </div>
             )}
 
-            {/* Booking Summary */}
             {!isLoading && booking && (
-                <div style={card}>
-                    <h2 style={sectionTitle}>Booking</h2>
-                    <div style={grid}>
-                        <Field label="Booking ID" value={booking.bookingId || "—"} />
-                        <Field label="Customer" value={booking.customer?.profile?.firstName || booking.customer?.name || "—"} />
-                        <Field label="Service Type" value={booking.serviceType || "—"} />
-                        <Field
-                            label="Scheduled Date"
-                            value={booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : "—"}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Form */}
-            {!isLoading && (
-                <form onSubmit={submit} style={card}>
-                    <h2 style={sectionTitle}>Job Details</h2>
-
-                    <div style={grid}>
-                        <div>
-                            <label style={label}>Title</label>
-                            <input
-                                placeholder="e.g., Brake Inspection"
-                                value={form.title}
-                                onChange={(e) => update("title", e.target.value)}
-                                style={control}
+                <>
+                    <div style={card}>
+                        <h2 style={sectionTitle}>📋 Booking Information</h2>
+                        <div style={grid}>
+                            <Field label="Booking ID" value={booking.bookingId || booking._id || "—"} />
+                            <Field
+                                label="Customer"
+                                value={
+                                    booking.customer?.profile ?
+                                        `${booking.customer.profile.firstName || ""} ${booking.customer.profile.lastName || ""}`.trim()
+                                        : booking.customer?.name || "—"
+                                }
+                            />
+                            <Field label="Service Type" value={booking.serviceType || "—"} />
+                            <Field label="Current Status" value={booking.status ? booking.status.charAt(0).toUpperCase() + booking.status.slice(1) : "—"} />
+                            <Field
+                                label="Scheduled Date"
+                                value={booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : "—"}
                             />
                         </div>
-
-                        <div>
-                            <label style={label}>Category</label>
-                            <select
-                                value={form.category}
-                                onChange={(e) => update("category", e.target.value)}
-                                style={control}
-                            >
-                                {Enums.JobCategory.map((x) => (
-                                    <option key={x} value={x}>{x}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label style={label}>Estimated Hours</label>
-                            <input
-                                type="number"
-                                min={0}
-                                step="0.5"
-                                value={form.estimatedHours}
-                                onChange={(e) => update("estimatedHours", +e.target.value)}
-                                style={control}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={label}>Priority</label>
-                            <select
-                                value={form.priority}
-                                onChange={(e) => update("priority", e.target.value)}
-                                style={control}
-                            >
-                                <option value="low">low</option>
-                                <option value="medium">medium</option>
-                                <option value="high">high</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label style={label}>Scheduled Date</label>
-                            <input
-                                type="date"
-                                value={form.scheduledDate}
-                                min={getTodayString()}
-                                max={getTwoWeeksFromTodayString()}
-                                onChange={(e) => update("scheduledDate", e.target.value)}
-                                style={control}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={label}>Assign Technician</label>
-                            <select
-                                value={form.assignedTechnician}
-                                onChange={(e) => update("assignedTechnician", e.target.value)}
-                                style={control}
-                                disabled={isLoadingTechnicians}
-                            >
-                                <option value="">Select a technician (optional)</option>
-                                {technicians.map((tech: any) => (
-                                    <option key={tech._id} value={tech._id}>
-                                        {tech.profile?.firstName} {tech.profile?.lastName} - {tech.profile?.specialization}
-                                    </option>
-                                ))}
-                            </select>
-                            {isLoadingTechnicians && (
-                                <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
-                                    Loading technicians...
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={label}>Description</label>
-                            <textarea
-                                placeholder="Add details for the job"
-                                value={form.description}
-                                onChange={(e) => update("description", e.target.value)}
-                                style={{ ...control, minHeight: 120, resize: "vertical" }}
-                            />
+                        <div style={{
+                            marginTop: "16px",
+                            padding: "12px 16px",
+                            backgroundColor: "#e0f2fe",
+                            border: "1px solid #0284c7",
+                            borderRadius: "8px",
+                            fontSize: "14px",
+                            color: "#0369a1"
+                        }}>
+                            🔄 <strong>Auto Status Sync:</strong> Creating this job will automatically update both job and booking status to "working". Future status changes will be synchronized between job and booking.
                         </div>
                     </div>
-                </form>
-            )}
 
-            {/* Inventory Request Section - Show only when booking is loaded */}
-            {!isLoading && booking && (
-                <div style={card}>
-                    <h2 style={sectionTitle}>Request Inventory Items</h2>
-                    <p style={{ color: "#6b7280", marginBottom: "16px", fontSize: "14px" }}>
-                        Add inventory items needed for this job. These will be requested from the inventory.
-                    </p>
+                    <form onSubmit={submit} style={card}>
+                        <h2 style={sectionTitle}>🔧 Job Details</h2>
+                        <div style={grid}>
+                            <div>
+                                <label style={label}>
+                                    Title <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <input
+                                    placeholder="e.g., Brake Inspection"
+                                    value={form.title}
+                                    onChange={(e) => update("title", e.target.value)}
+                                    style={control}
+                                    required
+                                />
+                            </div>
 
-                    {/* Selected Items */}
-                    {selectedItems.length > 0 && (
-                        <div style={{ marginBottom: "20px" }}>
-                            <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px", color: "#1f2937" }}>
-                                Selected Items ({selectedItems.length})
-                            </h3>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                {selectedItems.map((item: any) => (
-                                    <div key={item._id} style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        padding: "16px",
-                                        backgroundColor: "#f8fafc",
-                                        borderRadius: "12px",
-                                        border: "1px solid #e2e8f0",
-                                        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
-                                    }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{
-                                                fontWeight: 600,
-                                                color: "#1f2937",
-                                                fontSize: "16px",
-                                                marginBottom: "6px"
-                                            }}>
-                                                {item.name}
-                                            </div>
-                                            <div style={{
-                                                display: "flex",
-                                                gap: "16px",
-                                                fontSize: "14px",
-                                                color: "#6b7280"
-                                            }}>
-                                                <span>Category: <strong>{item.category || 'N/A'}</strong></span>
-                                                <span style={{
-                                                    color: (item.currentStock || item.stock) > 0 ? "#059669" : "#dc2626"
+                            <div>
+                                <label style={label}>
+                                    Category <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <select
+                                    value={form.category}
+                                    onChange={(e) => update("category", e.target.value)}
+                                    style={control}
+                                    required
+                                >
+                                    {Enums.JobCategory?.map(x =>
+                                        <option key={x} value={x}>{x}</option>
+                                    ) || <option value="general">General</option>}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={label}>
+                                    Estimated Hours <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0.5"
+                                    step="0.5"
+                                    value={form.estimatedHours}
+                                    onChange={(e) => update("estimatedHours", parseFloat(e.target.value) || 0)}
+                                    style={control}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label style={label}>
+                                    Priority <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <select
+                                    value={form.priority}
+                                    onChange={(e) => update("priority", e.target.value)}
+                                    style={control}
+                                    required
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={label}>
+                                    Scheduled Date <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={form.scheduledDate}
+                                    min={getTodayString()}
+                                    max={getTwoWeeksFromTodayString()}
+                                    onChange={(e) => update("scheduledDate", e.target.value)}
+                                    style={control}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label style={label}>
+                                    Assign Technician <span style={{ color: "#ef4444" }}>*</span>
+                                </label>
+                                <select
+                                    value={form.assignedTechnician}
+                                    onChange={(e) => update("assignedTechnician", e.target.value)}
+                                    style={{
+                                        ...control,
+                                        borderColor: !form.assignedTechnician ? "#f87171" : "#d1d5db"
+                                    }}
+                                    disabled={isLoadingTechnicians}
+                                    required
+                                >
+                                    <option value="">-- Select a technician --</option>
+                                    {technicians.map(tech => (
+                                        <option key={tech._id} value={tech._id}>
+                                            {tech.profile?.firstName} {tech.profile?.lastName}
+                                            {tech.employeeDetails?.employeeId ? ` (${tech.employeeDetails.employeeId})` : ''}
+                                            {tech.employeeDetails?.department ? ` - ${tech.employeeDetails.department}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {isLoadingTechnicians && (
+                                    <div style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                                        Loading technicians...
+                                    </div>
+                                )}
+                                {!form.assignedTechnician && !isLoadingTechnicians && (
+                                    <div style={{ fontSize: "12px", color: "#ef4444", marginTop: "4px" }}>
+                                        Please select a technician to proceed
+                                    </div>
+                                )}
+                                {form.assignedTechnician && (
+                                    <div style={{ fontSize: "12px", color: "#10b981", marginTop: "4px" }}>
+                                        ✓ Technician selected
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ gridColumn: "1 / -1" }}>
+                                <label style={label}>Description</label>
+                                <textarea
+                                    placeholder="Add detailed job description..."
+                                    value={form.description}
+                                    onChange={(e) => update("description", e.target.value)}
+                                    style={{ ...control, minHeight: 120, resize: "vertical" }}
+                                />
+                            </div>
+                        </div>
+                    </form>
+
+                    <div style={card}>
+                        <h2 style={sectionTitle}>📦 Request Inventory Items</h2>
+                        <p style={{ color: "#6b7280", marginBottom: "16px", fontSize: "14px" }}>
+                            Add inventory items needed for this job. Items will be requested from inventory.
+                        </p>
+
+                        {selectedItems.length > 0 && (
+                            <div style={{ marginBottom: "20px" }}>
+                                <h3 style={{
+                                    fontSize: "16px",
+                                    fontWeight: 600,
+                                    marginBottom: "12px",
+                                    color: "#1f2937"
+                                }}>
+                                    Selected Items ({selectedItems.length})
+                                </h3>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                    {selectedItems.map(item => (
+                                        <div key={item._id} style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            padding: "16px",
+                                            backgroundColor: "#f8fafc",
+                                            borderRadius: "8px",
+                                            border: "1px solid #e2e8f0"
+                                        }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
+                                                    fontWeight: 600,
+                                                    color: "#1f2937",
+                                                    marginBottom: "4px"
                                                 }}>
-                                                    Available Stock: <strong>{item.currentStock || item.stock || 0} {item.unit || 'pcs'}</strong>
-                                                </span>
-                                                <span style={{ color: "#1f2937" }}>
-                                                    Unit Price: <strong>Rs. {(item.unitPrice || item.price || 0).toFixed(2)}</strong>
-                                                </span>
+                                                    {item.name}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: "13px",
+                                                    color: "#6b7280",
+                                                    display: "flex",
+                                                    gap: "12px",
+                                                    flexWrap: "wrap"
+                                                }}>
+                                                    <span>Stock: {item.availableStock || item.currentStock || item.stock || 0} {item.unit || 'pcs'}</span>
+                                                    <span>Price: Rs. {(item.unitPrice || item.price || 0).toFixed(2)}</span>
+                                                    <span style={{ fontWeight: 500 }}>
+                                                        Total: Rs. {((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)).toFixed(2)}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div style={{
-                                                marginTop: "8px",
-                                                padding: "8px 12px",
-                                                backgroundColor: "#e0f2fe",
-                                                borderRadius: "6px",
-                                                border: "1px solid #0891b2",
-                                                fontSize: "14px",
-                                                color: "#0c4a6e"
-                                            }}>
-                                                <strong>Total Cost:</strong> Rs. {((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)).toFixed(2)}
-                                                ({item.requestedQuantity || 1} {item.unit || 'pcs'} × Rs. {(item.unitPrice || item.price || 0).toFixed(2)})
-                                            </div>
-                                        </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginLeft: "20px" }}>
-                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                                                <label style={{ fontSize: "12px", fontWeight: 500, color: "#374151" }}>
-                                                    Quantity
-                                                </label>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                                                     <button
-                                                        onClick={() => updateRequestedQuantity(item._id, Math.max(1, (item.requestedQuantity || 1) - 1))}
+                                                        type="button"
+                                                        onClick={() => updateRequestedQuantity(item._id, (item.requestedQuantity || 1) - 1)}
                                                         style={{
-                                                            width: "28px",
-                                                            height: "28px",
+                                                            width: "24px",
+                                                            height: "24px",
                                                             border: "1px solid #d1d5db",
                                                             backgroundColor: "#f9fafb",
-                                                            borderRadius: "6px",
-                                                            fontSize: "16px",
-                                                            cursor: "pointer",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            fontWeight: 500
+                                                            borderRadius: "4px",
+                                                            cursor: "pointer"
                                                         }}
                                                     >
                                                         -
@@ -468,103 +661,126 @@ export default function CreateJob() {
                                                     <input
                                                         type="number"
                                                         min="1"
-                                                        max={item.currentStock || item.stock || 999}
+                                                        max={item.availableStock || item.currentStock || item.stock || 1}
                                                         value={item.requestedQuantity || 1}
                                                         onChange={(e) => updateRequestedQuantity(item._id, parseInt(e.target.value) || 1)}
                                                         style={{
-                                                            width: "70px",
-                                                            padding: "6px 8px",
-                                                            border: "2px solid #3b82f6",
-                                                            borderRadius: "6px",
-                                                            fontSize: "14px",
+                                                            width: "60px",
+                                                            padding: "4px",
+                                                            border: "1px solid #d1d5db",
+                                                            borderRadius: "4px",
                                                             textAlign: "center",
-                                                            fontWeight: 500
+                                                            fontSize: "14px"
                                                         }}
                                                     />
                                                     <button
-                                                        onClick={() => updateRequestedQuantity(item._id, Math.min((item.currentStock || item.stock || 999), (item.requestedQuantity || 1) + 1))}
+                                                        type="button"
+                                                        onClick={() => updateRequestedQuantity(item._id, (item.requestedQuantity || 1) + 1)}
                                                         style={{
-                                                            width: "28px",
-                                                            height: "28px",
+                                                            width: "24px",
+                                                            height: "24px",
                                                             border: "1px solid #d1d5db",
                                                             backgroundColor: "#f9fafb",
-                                                            borderRadius: "6px",
-                                                            fontSize: "16px",
-                                                            cursor: "pointer",
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            fontWeight: 500
+                                                            borderRadius: "4px",
+                                                            cursor: "pointer"
                                                         }}
                                                     >
                                                         +
                                                     </button>
                                                 </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeItemFromRequest(item._id)}
+                                                    style={{
+                                                        padding: "6px 12px",
+                                                        backgroundColor: "#ef4444",
+                                                        color: "white",
+                                                        border: "none",
+                                                        borderRadius: "6px",
+                                                        fontSize: "13px",
+                                                        cursor: "pointer"
+                                                    }}
+                                                >
+                                                    Remove
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => removeItemFromRequest(item._id)}
-                                                style={{
-                                                    padding: "8px 12px",
-                                                    backgroundColor: "#ef4444",
-                                                    color: "white",
-                                                    border: "none",
-                                                    borderRadius: "6px",
-                                                    fontSize: "14px",
-                                                    cursor: "pointer",
-                                                    fontWeight: 500
-                                                }}
-                                            >
-                                                Remove
-                                            </button>
                                         </div>
+                                    ))}
+                                </div>
+                                <div style={{
+                                    marginTop: "12px",
+                                    padding: "12px",
+                                    backgroundColor: "#eff6ff",
+                                    border: "1px solid #93c5fd",
+                                    borderRadius: "8px"
+                                }}>
+                                    <div style={{ fontWeight: 600, color: "#1e40af" }}>
+                                        Total: Rs. {selectedItems.reduce((total, item) =>
+                                        total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0).toFixed(2)}
                                     </div>
-                                ))}
+                                </div>
                             </div>
+                        )}
 
-                            {/* Summary Section */}
-                            <div style={{
-                                marginTop: "16px",
-                                padding: "16px",
-                                backgroundColor: "#f0f9ff",
-                                border: "2px solid #0ea5e9",
-                                borderRadius: "12px"
-                            }}>
-                                <div style={{ fontSize: "16px", fontWeight: 600, color: "#0c4a6e" }}>
-                                    Items Summary: {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
-                                </div>
-                                <div style={{ fontSize: "18px", fontWeight: 700, color: "#0c4a6e", marginTop: "4px" }}>
-                                    Total Estimated Cost: Rs. {selectedItems.reduce((total, item) =>
-                                        total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0
-                                    ).toFixed(2)}
-                                </div>
-                            </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowInventoryModal(true)}
+                            style={{
+                                padding: "10px 16px",
+                                backgroundColor: "#10b981",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "8px",
+                                fontSize: "14px",
+                                fontWeight: 500,
+                                cursor: "pointer"
+                            }}
+                        >
+                            + Add Items from Inventory
+                        </button>
+                    </div>
+
+                    <div style={card}>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            <button
+                                type="button"
+                                onClick={submit}
+                                disabled={isSubmitting || !form.assignedTechnician}
+                                style={{
+                                    padding: "12px 24px",
+                                    backgroundColor: (!form.assignedTechnician || isSubmitting) ? "#9ca3af" : "#3b82f6",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    cursor: (!form.assignedTechnician || isSubmitting) ? "not-allowed" : "pointer"
+                                }}
+                            >
+                                {isSubmitting ? "Creating Job & Syncing Status..." : "Create Job"}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={resetForm}
+                                style={{
+                                    padding: "12px 24px",
+                                    backgroundColor: isSubmitting ? "#9ca3af" : "#6b7280",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    fontSize: "14px",
+                                    fontWeight: 600,
+                                    cursor: isSubmitting ? "not-allowed" : "pointer"
+                                }}
+                            >
+                                Reset Form
+                            </button>
                         </div>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={() => setShowInventoryModal(true)}
-                        style={{
-                            padding: "10px 16px",
-                            backgroundColor: "#10b981",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "8px",
-                            fontSize: "14px",
-                            fontWeight: 500,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px"
-                        }}
-                    >
-                        <span>+</span>
-                        Add Items from Inventory
-                    </button>
-                </div>
+                    </div>
+                </>
             )}
 
-            {/* Inventory Selection Modal */}
             {showInventoryModal && (
                 <div style={{
                     position: "fixed",
@@ -585,18 +801,27 @@ export default function CreateJob() {
                         width: "90%",
                         maxWidth: "800px",
                         maxHeight: "80vh",
-                        overflow: "auto",
-                        boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)"
+                        overflow: "auto"
                     }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                            <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>Select Inventory Items</h3>
+                        <div style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "20px"
+                        }}>
+                            <h3 style={{
+                                margin: 0,
+                                fontSize: "18px",
+                                fontWeight: 600
+                            }}>
+                                Select Inventory Items
+                            </h3>
                             <button
                                 onClick={() => setShowInventoryModal(false)}
                                 style={{
-                                    padding: "8px",
-                                    backgroundColor: "transparent",
+                                    background: "none",
                                     border: "none",
-                                    fontSize: "18px",
+                                    fontSize: "24px",
                                     cursor: "pointer",
                                     color: "#6b7280"
                                 }}
@@ -605,8 +830,12 @@ export default function CreateJob() {
                             </button>
                         </div>
 
-                        {/* Search and Filter */}
-                        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "12px", marginBottom: "20px" }}>
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: "2fr 1fr 1fr",
+                            gap: "12px",
+                            marginBottom: "20px"
+                        }}>
                             <input
                                 type="text"
                                 placeholder="Search items..."
@@ -614,9 +843,8 @@ export default function CreateJob() {
                                 onChange={(e) => setInventorySearch(e.target.value)}
                                 style={{
                                     padding: "8px 12px",
-                                    border: "1px solid #575764ff",
-                                    borderRadius: "6px",
-                                    fontSize: "14px"
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "6px"
                                 }}
                             />
                             <select
@@ -625,8 +853,7 @@ export default function CreateJob() {
                                 style={{
                                     padding: "8px 12px",
                                     border: "1px solid #d1d5db",
-                                    borderRadius: "6px",
-                                    fontSize: "14px"
+                                    borderRadius: "6px"
                                 }}
                             >
                                 <option value="">All Categories</option>
@@ -641,8 +868,7 @@ export default function CreateJob() {
                                 style={{
                                     padding: "8px 12px",
                                     border: "1px solid #d1d5db",
-                                    borderRadius: "6px",
-                                    fontSize: "14px"
+                                    borderRadius: "6px"
                                 }}
                             >
                                 <option value="">All Status</option>
@@ -651,156 +877,90 @@ export default function CreateJob() {
                             </select>
                         </div>
 
-                        {/* Items List */}
                         <div style={{ maxHeight: "400px", overflow: "auto" }}>
-                            {inventoryItems
-                                .filter((item: any) => {
-                                    const searchMatch = inventorySearch === "" ||
-                                        item.name?.toLowerCase().includes(inventorySearch.toLowerCase()) ||
-                                        item.category?.toLowerCase().includes(inventorySearch.toLowerCase());
-                                    return searchMatch;
-                                })
-                                .map((item: any) => {
-                                    const isSelected = selectedItems.some((selected: any) => selected._id === item._id);
-                                    const selectedItem = selectedItems.find((selected: any) => selected._id === item._id);
-                                    const requestedQuantity = selectedItem ? selectedItem.requestedQuantity : 1;
+                            {filteredInventoryItems.length === 0 ? (
+                                <div style={{
+                                    padding: "40px",
+                                    textAlign: "center",
+                                    color: "#6b7280"
+                                }}>
+                                    No inventory items found
+                                </div>
+                            ) : (
+                                filteredInventoryItems.map(item => {
+                                    const isSelected = selectedItems.some(selected => selected._id === item._id);
+                                    const availableStock = item.currentStock || item.stock || 0;
+                                    const isOutOfStock = availableStock === 0;
 
                                     return (
-                                        <div key={item._id} style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            padding: "16px",
-                                            borderBottom: "1px solid #e5e7eb",
-                                            backgroundColor: isSelected ? "#f0fdf4" : "transparent"
-                                        }}>
+                                        <div
+                                            key={item._id}
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                alignItems: "center",
+                                                padding: "12px",
+                                                borderBottom: "1px solid #e5e7eb",
+                                                backgroundColor: isSelected ? "#f0fdf4" : "transparent"
+                                            }}
+                                        >
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 600, color: "#1f2937", fontSize: "16px" }}>
-                                                    {item.name}
+                                                <div style={{ fontWeight: 600 }}>{item.name}</div>
+                                                <div style={{ fontSize: "13px", color: "#6b7280" }}>
+                                                    Stock: {availableStock} {item.unit || 'pcs'} |
+                                                    Price: Rs. {(item.unitPrice || item.price || 0).toFixed(2)} |
+                                                    Category: {item.category || 'N/A'}
                                                 </div>
-                                                <div style={{
-                                                    fontSize: "14px",
-                                                    color: "#6b7280",
-                                                    marginTop: "4px",
-                                                    display: "flex",
-                                                    gap: "16px"
-                                                }}>
-                                                    <span>Category: {item.category || 'N/A'}</span>
-                                                    <span style={{
-                                                        color: item.currentStock > 0 ? "#059669" : "#dc2626",
-                                                        fontWeight: 500
-                                                    }}>
-                                                        Stock: {item.currentStock || 0} {item.unit || 'pcs'}
-                                                    </span>
-                                                    <span style={{ fontWeight: 500, color: "#1f2937" }}>
-                                                        Price: Rs. {(item.unitPrice || 0).toFixed(2)} per {item.unit || 'pc'}
-                                                    </span>
-                                                </div>
-                                                {isSelected && (
+                                                {item.description && (
                                                     <div style={{
-                                                        marginTop: "8px",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: "8px"
+                                                        fontSize: "12px",
+                                                        color: "#9ca3af",
+                                                        marginTop: "4px"
                                                     }}>
-                                                        <span style={{ fontSize: "14px", color: "#374151", fontWeight: 500 }}>
-                                                            Requested Quantity:
-                                                        </span>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                                                            <button
-                                                                onClick={() => updateRequestedQuantity(item._id, Math.max(1, requestedQuantity - 1))}
-                                                                style={{
-                                                                    width: "24px",
-                                                                    height: "24px",
-                                                                    border: "1px solid #d1d5db",
-                                                                    backgroundColor: "#f9fafb",
-                                                                    borderRadius: "4px",
-                                                                    fontSize: "14px",
-                                                                    cursor: "pointer",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center"
-                                                                }}
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                max={item.currentStock || 999}
-                                                                value={requestedQuantity}
-                                                                onChange={(e) => updateRequestedQuantity(item._id, Math.max(1, parseInt(e.target.value) || 1))}
-                                                                style={{
-                                                                    width: "60px",
-                                                                    padding: "4px 8px",
-                                                                    border: "1px solid #d1d5db",
-                                                                    borderRadius: "4px",
-                                                                    textAlign: "center",
-                                                                    fontSize: "14px"
-                                                                }}
-                                                            />
-                                                            <button
-                                                                onClick={() => updateRequestedQuantity(item._id, Math.min((item.currentStock || 999), requestedQuantity + 1))}
-                                                                style={{
-                                                                    width: "24px",
-                                                                    height: "24px",
-                                                                    border: "1px solid #d1d5db",
-                                                                    backgroundColor: "#f9fafb",
-                                                                    borderRadius: "4px",
-                                                                    fontSize: "14px",
-                                                                    cursor: "pointer",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center"
-                                                                }}
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                        <span style={{
-                                                            fontSize: "12px",
-                                                            color: "#6b7280",
-                                                            marginLeft: "8px"
-                                                        }}>
-                                                            Total: Rs. {((item.unitPrice || 0) * requestedQuantity).toFixed(2)}
-                                                        </span>
+                                                        {item.description}
                                                     </div>
                                                 )}
                                             </div>
                                             <button
-                                                onClick={() => isSelected ? removeItemFromRequest(item._id) : addItemToRequest(item)}
-                                                disabled={!isSelected && (item.currentStock === 0 || !item.currentStock)}
+                                                onClick={() => isSelected ?
+                                                    removeItemFromRequest(item._id) :
+                                                    addItemToRequest(item)
+                                                }
+                                                disabled={!isSelected && isOutOfStock}
                                                 style={{
-                                                    padding: "8px 16px",
+                                                    padding: "6px 12px",
                                                     backgroundColor: isSelected ? "#ef4444" :
-                                                        (!item.currentStock || item.currentStock === 0) ? "#9ca3af" : "#3b82f6",
+                                                        isOutOfStock ? "#9ca3af" : "#3b82f6",
                                                     color: "white",
                                                     border: "none",
                                                     borderRadius: "6px",
-                                                    fontSize: "14px",
-                                                    fontWeight: 500,
-                                                    cursor: (isSelected || (item.currentStock && item.currentStock > 0)) ? "pointer" : "not-allowed",
-                                                    minWidth: "80px"
+                                                    cursor: (isSelected || !isOutOfStock) ? "pointer" : "not-allowed",
+                                                    whiteSpace: "nowrap"
                                                 }}
                                             >
-                                                {isSelected ? "Remove" : (!item.currentStock || item.currentStock === 0) ? "Out of Stock" : "Add"}
+                                                {isSelected ? "Remove" :
+                                                    isOutOfStock ? "Out of Stock" : "Add"}
                                             </button>
                                         </div>
                                     );
                                 })
-                            }
+                            )}
                         </div>
 
-                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px", gap: "12px" }}>
+                        <div style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            marginTop: "16px",
+                            gap: "12px"
+                        }}>
                             <button
                                 onClick={() => setShowInventoryModal(false)}
                                 style={{
                                     padding: "8px 16px",
-                                    backgroundColor: "#6b7280",
+                                    backgroundColor: "#3b82f6",
                                     color: "white",
                                     border: "none",
                                     borderRadius: "6px",
-                                    fontSize: "14px",
                                     cursor: "pointer"
                                 }}
                             >
@@ -811,77 +971,22 @@ export default function CreateJob() {
                 </div>
             )}
 
-            {/* Submit buttons */}
-            {!isLoading && booking && (
-                <div style={{ ...card, paddingTop: "0" }}>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={submit}
-                            style={{
-                                padding: "12px 20px",
-                                backgroundColor: "#3b82f6",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                cursor: isSubmitting ? "not-allowed" : "pointer",
-                                opacity: isSubmitting ? 0.6 : 1,
-                            }}
-                        >
-                            {isSubmitting ? "Creating..." : "Create Job"}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setForm({
-                                    title: "",
-                                    description: "",
-                                    category: Enums.JobCategory[0],
-                                    estimatedHours: 1,
-                                    priority: "medium",
-                                    scheduledDate: "",
-                                    assignedTechnician: ""
-                                });
-                                setSelectedItems([]);
-                            }}
-                            style={{
-                                padding: "12px 20px",
-                                backgroundColor: "#6b7280",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                            }}
-                        >
-                            Reset
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            <style>
-                {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-            </style>
+            <style>{`
+                @keyframes spin { 
+                    0% { transform: rotate(0deg); } 
+                    100% { transform: rotate(360deg); } 
+                }
+            `}</style>
         </div>
     );
 }
 
+// Field component for displaying label-value pairs
 function Field({ label, value }) {
     return (
-        <div style={{ display: "flex" }}>
-            <span style={{ flex: 1, color: "#6b7280" }}>{label}:</span>
-            <span style={{ flex: 1, fontWeight: 500 }}>{value}</span>
+        <div style={{ display: "flex", gap: "8px" }}>
+            <span style={{ color: "#6b7280", fontSize: "14px" }}>{label}:</span>
+            <span style={{ fontWeight: 500, fontSize: "14px" }}>{value || "—"}</span>
         </div>
     );
 }

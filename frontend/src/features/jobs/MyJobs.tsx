@@ -12,51 +12,113 @@ export default function MyJobs() {
     const [status, setStatus] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [msg, setMsg] = useState({ text: "", type: "" });
+    const [userInfo, setUserInfo] = useState(null);
 
     // Debounce query
     useEffect(() => {
         const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
         return () => clearTimeout(t);
-    }, [q]); // Debouncing reduces unnecessary work while typing [web:52][web:55]
+    }, [q]);
 
-    // Load "my jobs"
+    // Load user info and jobs
     useEffect(() => {
         let cancelled = false;
-        async function load() {
+
+        async function loadUserInfo() {
+            try {
+                const response = await http.get("/users/profile");
+                if (!cancelled) {
+                    setUserInfo(response.data?.user || null);
+                    console.log("User info loaded:", response.data?.user);
+                }
+            } catch (error) {
+                console.error("Failed to load user info:", error);
+                if (!cancelled) {
+                    setMsg({ text: "Failed to load user profile", type: "error" });
+                }
+            }
+        }
+
+        async function loadJobs() {
             setIsLoading(true);
             setMsg({ text: "", type: "" });
+
             try {
-                const r = await http.get("/jobs/my-jobs");
-                if (!cancelled) setRows(r.data?.jobs || []);
-            } catch (e) {
-                if (!cancelled) setMsg({ text: e.message || "Failed to load jobs", type: "error" });
+                console.log("Loading jobs for technician...");
+                const response = await http.get("/jobs/my-jobs");
+                console.log("Jobs API response:", response.data);
+
+                if (!cancelled) {
+                    const jobs = response.data?.jobs || [];
+                    setRows(jobs);
+                    console.log(`Loaded ${jobs.length} jobs for technician`);
+
+                    if (jobs.length === 0) {
+                        setMsg({
+                            text: "No jobs assigned to you yet. Jobs will appear here once a service advisor assigns them to you.",
+                            type: "info"
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to load jobs:", error);
+                if (!cancelled) {
+                    let errorMessage = "Failed to load jobs";
+
+                    if (error.response?.status === 403) {
+                        errorMessage = "Access denied. Please ensure you're logged in as a technician.";
+                    } else if (error.response?.status === 401) {
+                        errorMessage = "Authentication failed. Please log in again.";
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+
+                    setMsg({ text: errorMessage, type: "error" });
+                }
             } finally {
                 if (!cancelled) setIsLoading(false);
             }
         }
-        load();
+
+        loadUserInfo();
+        loadJobs();
+
         return () => {
             cancelled = true;
         };
-    }, []); // Cleanup guard avoids setState on unmounted component [web:71][web:54]
+    }, []);
 
     // Filter + search
     const filtered = useMemo(() => {
         const needle = debouncedQ.toLowerCase();
         let list = rows;
-        if (status !== "all") list = list.filter((x) => String(x.status || "").toLowerCase() === status);
+
+        if (status !== "all") {
+            list = list.filter((x) => String(x.status || "").toLowerCase() === status);
+        }
+
         if (needle) {
             list = list.filter((x) => {
                 const id = String(x.jobId || x._id || "").toLowerCase();
                 const title = String(x.title || "").toLowerCase();
                 const booking = String(x.booking?.bookingId || "").toLowerCase();
-                return id.includes(needle) || title.includes(needle) || booking.includes(needle);
+                const category = String(x.category || "").toLowerCase();
+                const description = String(x.description || "").toLowerCase();
+
+                return id.includes(needle) ||
+                    title.includes(needle) ||
+                    booking.includes(needle) ||
+                    category.includes(needle) ||
+                    description.includes(needle);
             });
         }
-        return list;
-    }, [rows, debouncedQ, status]); // Client-side filter/search keeps UI responsive without extra API calls [web:52][web:54]
 
-    // Styles
+        return list;
+    }, [rows, debouncedQ, status]);
+
+    // Styles (same as before)
     const wrap = {
         maxWidth: "1200px",
         margin: "0 auto",
@@ -115,11 +177,44 @@ export default function MyJobs() {
         border: "1px solid #2563eb",
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return "—";
+        try {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch {
+            return "—";
+        }
+    };
+
+    const formatTime = (dateString) => {
+        if (!dateString) return "—";
+        try {
+            return new Date(dateString).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return "—";
+        }
+    };
+
     return (
         <div style={wrap}>
             {/* Header */}
             <div style={headerRow}>
-                <h1 style={title}>My Jobs</h1>
+                <div>
+                    <h1 style={title}>My Jobs</h1>
+                    {userInfo && (
+                        <p style={{ margin: "4px 0 0 0", color: "#6b7280", fontSize: "14px" }}>
+                            Welcome, {userInfo.profile?.firstName} {userInfo.profile?.lastName}
+                            {userInfo.employeeDetails?.employeeId && ` (${userInfo.employeeDetails.employeeId})`}
+                        </p>
+                    )}
+                </div>
                 <div style={controls}>
                     <select
                         value={status}
@@ -127,22 +222,24 @@ export default function MyJobs() {
                         style={control}
                         aria-label="Filter by status"
                     >
-                        <option value="all">All statuses</option>
+                        <option value="all">All Statuses</option>
                         {Enums.JobStatus.map((s) => (
-                            <option key={s} value={String(s).toLowerCase()}>{s}</option>
+                            <option key={s} value={String(s).toLowerCase()}>
+                                {s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}
+                            </option>
                         ))}
                     </select>
                     <input
-                        placeholder="Search by Job ID, Title, or Booking"
+                        placeholder="Search jobs, bookings, categories..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        style={{ ...control, minWidth: 260 }}
+                        style={{ ...control, minWidth: 280 }}
                         aria-label="Search my jobs"
                     />
                 </div>
             </div>
 
-            {/* Message (live region) */}
+            {/* Message */}
             {msg.text && (
                 <div
                     role="status"
@@ -151,9 +248,16 @@ export default function MyJobs() {
                         padding: "12px 16px",
                         borderRadius: "8px",
                         marginBottom: "16px",
-                        backgroundColor: msg.type === "error" ? "#fef2f2" : "#f0fdf4",
-                        color: msg.type === "error" ? "#991b1b" : "#166534",
-                        border: `1px solid ${msg.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                        backgroundColor:
+                            msg.type === "error" ? "#fef2f2" :
+                                msg.type === "info" ? "#eff6ff" : "#f0fdf4",
+                        color:
+                            msg.type === "error" ? "#991b1b" :
+                                msg.type === "info" ? "#1e40af" : "#166534",
+                        border: `1px solid ${
+                            msg.type === "error" ? "#fecaca" :
+                                msg.type === "info" ? "#93c5fd" : "#bbf7d0"
+                        }`,
                     }}
                 >
                     {msg.text}
@@ -163,7 +267,7 @@ export default function MyJobs() {
             {/* Loading */}
             {isLoading && (
                 <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
-                    <span>Loading jobs…</span>
+                    <span>Loading your assigned jobs…</span>
                     <div
                         style={{
                             width: 14,
@@ -177,52 +281,149 @@ export default function MyJobs() {
                 </div>
             )}
 
+            {/* Summary Stats */}
+            {!isLoading && rows.length > 0 && (
+                <div style={card}>
+                    <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 600, color: "#1f2937" }}>
+                        Job Summary
+                    </h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "24px", fontWeight: 700, color: "#3b82f6" }}>{rows.length}</div>
+                            <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "uppercase" }}>Total Jobs</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "24px", fontWeight: 700, color: "#059669" }}>
+                                {rows.filter(j => j.status === 'completed').length}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "uppercase" }}>Completed</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "24px", fontWeight: 700, color: "#dc2626" }}>
+                                {rows.filter(j => j.status === 'working').length}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "uppercase" }}>In Progress</div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ fontSize: "24px", fontWeight: 700, color: "#f59e0b" }}>
+                                {rows.filter(j => j.status === 'pending').length}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "uppercase" }}>Pending</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Table */}
             {!isLoading && (
                 <div style={{ ...card, padding: 0 }}>
                     <div style={tableWrap}>
-                        <table style={tableStyle} aria-label="My jobs list">
+                        <table style={tableStyle} aria-label="My assigned jobs">
                             <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-                                My jobs list
+                                List of jobs assigned to me as a technician
                             </caption>
                             <thead>
                             <tr>
-                                <th scope="col" style={thStyle}>JobId</th>
+                                <th scope="col" style={thStyle}>Job ID</th>
                                 <th scope="col" style={thStyle}>Booking</th>
-                                <th scope="col" style={thStyle}>Title</th>
+                                <th scope="col" style={thStyle}>Title & Category</th>
+                                <th scope="col" style={thStyle}>Customer & Vehicle</th>
+                                <th scope="col" style={thStyle}>Priority</th>
                                 <th scope="col" style={thStyle}>Status</th>
+                                <th scope="col" style={thStyle}>Created</th>
                                 <th scope="col" style={thStyle}></th>
                             </tr>
                             </thead>
                             <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        No jobs
+                                    <td colSpan={8} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                        {rows.length === 0
+                                            ? "No jobs assigned to you yet"
+                                            : "No jobs match your search criteria"
+                                        }
                                     </td>
                                 </tr>
                             )}
-                            {filtered.map((j) => (
-                                <tr key={j._id}>
+                            {filtered.map((job) => (
+                                <tr key={job._id}>
                                     <td style={tdStyle}>
                                         <div style={{ display: "flex", flexDirection: "column" }}>
-                                            <span style={{ fontWeight: 600, color: "#111827" }}>{j.jobId || j._id}</span>
+                                                <span style={{ fontWeight: 600, color: "#111827" }}>
+                                                    {job.jobId || job._id}
+                                                </span>
                                             <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.updatedAt ? new Date(j.updatedAt).toLocaleDateString() : ""}
-                        </span>
+                                                    Est: {job.estimatedHours || 0}h
+                                                </span>
                                         </div>
                                     </td>
-                                    <td style={tdStyle}>{j.booking?.bookingId || "—"}</td>
-                                    <td style={tdStyle}>{j.title || "—"}</td>
                                     <td style={tdStyle}>
-                                        <StatusBadge value={j.status} />
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 500 }}>
+                                                    {job.booking?.bookingId || "—"}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {job.booking?.serviceType || "—"}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 500 }}>
+                                                    {job.title || "—"}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {job.category || "—"}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 500 }}>
+                                                    {job.booking?.customer?.profile?.firstName} {job.booking?.customer?.profile?.lastName}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {job.booking?.vehicle?.registrationNumber} | {job.booking?.vehicle?.make} {job.booking?.vehicle?.model}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                            <span style={{
+                                                padding: "4px 8px",
+                                                borderRadius: "12px",
+                                                fontSize: "12px",
+                                                fontWeight: 500,
+                                                backgroundColor:
+                                                    job.priority === 'urgent' ? '#fee2e2' :
+                                                        job.priority === 'high' ? '#fef3c7' :
+                                                            job.priority === 'medium' ? '#e0f2fe' : '#f3f4f6',
+                                                color:
+                                                    job.priority === 'urgent' ? '#991b1b' :
+                                                        job.priority === 'high' ? '#92400e' :
+                                                            job.priority === 'medium' ? '#0c4a6e' : '#374151'
+                                            }}>
+                                                {job.priority || 'medium'}
+                                            </span>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <StatusBadge value={job.status} />
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontSize: 13 }}>
+                                                    {formatDate(job.createdAt)}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {formatTime(job.createdAt)}
+                                                </span>
+                                        </div>
                                     </td>
                                     <td style={tdStyle}>
                                         <Link
-                                            to={`/jobs/${j._id}`}
+                                            to={`/jobs/${job._id}`}
                                             style={openBtn}
                                         >
-                                            Open
+                                            View Job
                                         </Link>
                                     </td>
                                 </tr>
@@ -235,11 +436,11 @@ export default function MyJobs() {
 
             <style>
                 {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}
             </style>
         </div>
     );

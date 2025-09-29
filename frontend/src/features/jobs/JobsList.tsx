@@ -14,16 +14,16 @@ export default function JobsList() {
     const [q, setQ] = useState("");
     const [debouncedQ, setDebouncedQ] = useState("");
     const [status, setStatus] = useState("all");
+    const [priority, setPriority] = useState("all");
+    const [category, setCategory] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [msg, setMsg] = useState({ text: "", type: "" });
-    const [page, setPage] = useState(1);
-    const pageSize = 10;
 
     // Debounce search input
     useEffect(() => {
         const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
         return () => clearTimeout(t);
-    }, [q]); // Debouncing search prevents excessive filtering/fetching per keystroke [web:52][web:55]
+    }, [q]);
 
     // Load jobs once
     useEffect(() => {
@@ -33,7 +33,25 @@ export default function JobsList() {
             setMsg({ text: "", type: "" });
             try {
                 const r = await http.get("/jobs");
-                if (!cancelled) setRows(r.data?.jobs || []);
+                if (!cancelled) {
+                    const allJobs = r.data?.jobs || [];
+
+                    // If user is service_advisor, filter to only show jobs they created
+                    if (user?.role === "service_advisor" && user?._id) {
+                        const myJobs = allJobs.filter(job => {
+                            const createdById = typeof job.createdBy === 'string'
+                                ? job.createdBy
+                                : job.createdBy?._id;
+
+                            return String(createdById) === String(user._id);
+                        });
+
+                        console.log(`Service Advisor (${user._id}): Showing ${myJobs.length} of ${allJobs.length} jobs`);
+                        setRows(myJobs);
+                    } else {
+                        setRows(allJobs);
+                    }
+                }
             } catch (e) {
                 if (!cancelled) setMsg({ text: e.message || "Failed to load jobs", type: "error" });
             } finally {
@@ -42,141 +60,133 @@ export default function JobsList() {
         }
         load();
         return () => { cancelled = true; };
-    }, []); // One-time load with cleanup guard to avoid state update after unmount [web:71][web:154]
+    }, [user?._id, user?.role]);
+
+    // Calculate statistics
+    const stats = useMemo(() => {
+        const total = rows.length;
+        const completed = rows.filter(j => j.status === 'completed').length;
+        const working = rows.filter(j => j.status === 'working').length;
+        const totalLabourers = rows.reduce((sum, j) => sum + (j.assignedLabourers?.length || 0), 0);
+        return { total, completed, working, totalLabourers };
+    }, [rows]);
 
     // Filter + search
     const filtered = useMemo(() => {
         const needle = debouncedQ.toLowerCase();
         let list = rows;
+
         if (status !== "all") list = list.filter(x => String(x.status || "").toLowerCase() === status);
+        if (priority !== "all") list = list.filter(x => String(x.priority || "").toLowerCase() === priority);
+        if (category !== "all") list = list.filter(x => String(x.category || "").toLowerCase() === category);
+
         if (needle) {
             list = list.filter(x => {
                 const id = String(x.jobId || x._id || "").toLowerCase();
                 const booking = String(x.booking?.bookingId || "").toLowerCase();
                 const title = String(x.title || "").toLowerCase();
-                return id.includes(needle) || booking.includes(needle) || title.includes(needle);
+                const customer = String(x.booking?.customer?.profile?.firstName || "") + " " +
+                    String(x.booking?.customer?.profile?.lastName || "");
+                return id.includes(needle) || booking.includes(needle) || title.includes(needle) || customer.toLowerCase().includes(needle);
             });
         }
         return list;
-    }, [rows, debouncedQ, status]); // Client-side filter/search for responsiveness without server changes [web:52][web:54]
-
-    // Pagination
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-    useEffect(() => {
-        if (page > totalPages) setPage(1);
-    }, [totalPages, page]); // Keep page in range when filters change [web:52]
-
-    const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+    }, [rows, debouncedQ, status, priority, category]);
 
     function handleCreateJob() {
         const id = window.prompt("Enter booking ID (database _id) to create job");
         if (id && id.trim()) {
-            navigate(`/jobs/new/${id.trim()}`); // Programmatic navigation with useNavigate for primary action [web:126][web:130]
+            navigate(`/jobs/new/${id.trim()}`);
         }
     }
 
     // Styles
-    const wrap = {
-        maxWidth: "1200px",
-        margin: "0 auto",
-        padding: "20px",
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    };
-    const headerRow = {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "24px",
-        gap: "12px",
-        flexWrap: "wrap",
-    };
+    const wrap = { maxWidth: "1200px", margin: "0 auto", padding: "20px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' };
     const title = { fontSize: "28px", fontWeight: 700, color: "#1f2937", margin: 0 };
-    const card = {
-        background: "white",
-        borderRadius: "12px",
-        padding: "16px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        border: "1px solid #e5e7eb",
-        marginBottom: "24px",
-    };
-    const controls = { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" };
-    const control = {
-        padding: "10px 12px",
-        border: "1px solid #d1d5db",
-        borderRadius: "8px",
-        fontSize: "14px",
-        backgroundColor: "white",
-    };
-    const primaryBtn = {
-        padding: "10px 14px",
-        backgroundColor: "#3b82f6",
-        color: "white",
-        border: "1px solid #2563eb",
-        borderRadius: "8px",
-        fontSize: "14px",
-        fontWeight: 600,
-        cursor: "pointer",
-    };
+    const card = { background: "white", borderRadius: "12px", padding: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: "1px solid #e5e7eb", marginBottom: "24px" };
+    const control = { padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px", backgroundColor: "white" };
+    const primaryBtn = { padding: "10px 14px", backgroundColor: "#3b82f6", color: "white", border: "1px solid #2563eb", borderRadius: "8px", fontSize: "14px", fontWeight: 600, cursor: "pointer" };
     const tableWrap = { overflowX: "auto" };
     const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
-    const thStyle = {
-        textAlign: "left",
-        padding: "12px",
-        fontSize: "12px",
-        color: "#6b7280",
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        background: "#f9fafb",
-        borderBottom: "1px solid #e5e7eb",
-        position: "sticky",
-        top: 0,
-        zIndex: 1,
-    };
+    const thStyle = { textAlign: "left" as const, padding: "12px", fontSize: "12px", color: "#596274", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" };
     const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px" };
-    const openBtn = {
-        padding: "8px 12px",
-        backgroundColor: "#3b82f6",
-        color: "white",
-        borderRadius: "8px",
-        fontSize: "13px",
-        fontWeight: 600,
-        textDecoration: "none",
-        border: "1px solid #2563eb",
-    };
+    const openBtn = { padding: "8px 12px", backgroundColor: "#3b82f6", color: "white", borderRadius: "8px", fontSize: "13px", fontWeight: 600, textDecoration: "none", border: "1px solid #2563eb" };
+    const statCard = { background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", borderRadius: "12px", padding: "20px", marginBottom: "24px" };
+    const statGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginTop: "16px" };
+    const statItem = { backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: "8px", padding: "16px", backdropFilter: "blur(10px)" };
 
     return (
         <div style={wrap}>
             {/* Header with Create Job */}
-            <div style={headerRow}>
-                <h1 style={title}>Jobs</h1>
-                <div style={controls}>
-                    {user && (user.role === "service_advisor" || user.role === "manager" || user.role === "admin") && (
-                        <Link
-                            to="/jobs/my-created"
-                            style={{ ...primaryBtn, marginRight: "8px", textDecoration: "none" }}
-                        >
-                            My Created Jobs
-                        </Link>
-                    )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", gap: "12px", flexWrap: "wrap" }}>
+                <h1 style={title}>
+                    {user?.role === "service_advisor" ? "My Created Jobs" : "Jobs"}
+                </h1>
+                {user?.role !== "service_advisor" && (
                     <button type="button" onClick={handleCreateJob} style={primaryBtn}>
                         Create Job
                     </button>
-                    <select
-                        value={status}
-                        onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-                        style={control}
-                        aria-label="Filter by status"
-                    >
-                        <option value="all">All statuses</option>
+                )}
+            </div>
+
+            {/* Statistics Card */}
+            <div style={statCard}>
+                <h2 style={{ fontSize: "20px", fontWeight: 600, margin: "0 0 16px 0" }}>
+                    📊 Job {user?.role === "service_advisor" ? "Creation" : ""} Statistics
+                </h2>
+                <div style={statGrid}>
+                    <div style={statItem}>
+                        <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.total}</div>
+                        <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Jobs {user?.role === "service_advisor" ? "Created" : ""}</div>
+                    </div>
+                    <div style={statItem}>
+                        <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.totalLabourers}</div>
+                        <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Labourers Assigned</div>
+                    </div>
+                    <div style={statItem}>
+                        <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.completed}</div>
+                        <div style={{ fontSize: "14px", opacity: 0.9 }}>Completed Jobs</div>
+                    </div>
+                    <div style={statItem}>
+                        <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.working}</div>
+                        <div style={{ fontSize: "14px", opacity: 0.9 }}>Jobs in Progress</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div style={card}>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "#1f2937" }}>
+                    🔍 Filters & Search
+                </h3>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} style={control} aria-label="Filter by status">
+                        <option value="all">All Statuses</option>
                         {Enums.JobStatus.map((s) => (
                             <option key={s} value={String(s).toLowerCase()}>{s}</option>
                         ))}
                     </select>
+                    <select value={priority} onChange={(e) => setPriority(e.target.value)} style={control} aria-label="Filter by priority">
+                        <option value="all">All Priorities</option>
+                        {Enums.Priority?.map((p) => (
+                            <option key={p} value={String(p).toLowerCase()}>{p}</option>
+                        )) || ["low", "medium", "high", "urgent"].map(p => (
+                            <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                        ))}
+                    </select>
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} style={control} aria-label="Filter by category">
+                        <option value="all">All Categories</option>
+                        {Enums.JobCategory?.map((c) => (
+                            <option key={c} value={String(c).toLowerCase()}>{c}</option>
+                        )) || ["inspection", "repair", "maintenance", "bodywork", "detailing"].map(c => (
+                            <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                        ))}
+                    </select>
                     <input
-                        placeholder="Search by Job ID, Booking, or Title"
+                        placeholder="Search by Job ID, Title, Booking, or Customer"
                         value={q}
-                        onChange={(e) => { setQ(e.target.value); setPage(1); }}
-                        style={{ ...control, minWidth: 260 }}
+                        onChange={(e) => setQ(e.target.value)}
+                        style={{ ...control, minWidth: 300 }}
                         aria-label="Search jobs"
                     />
                 </div>
@@ -202,16 +212,7 @@ export default function JobsList() {
             {isLoading && (
                 <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
                     <span>Loading jobs…</span>
-                    <div
-                        style={{
-                            width: 14,
-                            height: 14,
-                            border: "2px solid transparent",
-                            borderTop: "2px solid #6b7280",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                        }}
-                    />
+                    <div style={{ width: 14, height: 14, border: "2px solid transparent", borderTop: "2px solid #6b7280", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
                 </div>
             )}
 
@@ -224,83 +225,112 @@ export default function JobsList() {
                                 Jobs list
                             </caption>
                             <thead>
-                                <tr>
-                                    <th scope="col" style={thStyle}>JobId</th>
-                                    <th scope="col" style={thStyle}>Booking</th>
-                                    <th scope="col" style={thStyle}>Title</th>
-                                    <th scope="col" style={thStyle}>Status</th>
-                                    <th scope="col" style={thStyle}></th>
-                                </tr>
+                            <tr>
+                                <th scope="col" style={thStyle}>Job ID</th>
+                                <th scope="col" style={thStyle}>Booking</th>
+                                <th scope="col" style={thStyle}>Customer</th>
+                                <th scope="col" style={thStyle}>Title</th>
+                                <th scope="col" style={thStyle}>Status</th>
+                                <th scope="col" style={thStyle}>Priority</th>
+                                <th scope="col" style={thStyle}>Category</th>
+                                <th scope="col" style={thStyle}>Assigned</th>
+                                <th scope="col" style={thStyle}>Actions</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {pageRows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                            No jobs
-                                        </td>
-                                    </tr>
-                                )}
-                                {pageRows.map((j) => (
-                                    <tr key={j._id}>
-                                        <td style={tdStyle}>
-                                            <div style={{ display: "flex", flexDirection: "column" }}>
-                                                <span style={{ fontWeight: 600, color: "#111827" }}>{j.jobId || j._id}</span>
-                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
-                                                    {j.updatedAt ? new Date(j.updatedAt).toLocaleDateString() : ""}
+                            {filtered.length === 0 && (
+                                <tr>
+                                    <td colSpan={9} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                        {rows.length === 0 ? "No jobs yet" : "No jobs match your search"}
+                                    </td>
+                                </tr>
+                            )}
+                            {filtered.map((j) => (
+                                <tr key={j._id}>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            <span style={{ fontWeight: 600, color: "#111827" }}>{j.jobId || j._id}</span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {j.createdAt ? new Date(j.createdAt).toLocaleDateString() : ""}
                                                 </span>
-                                            </div>
-                                        </td>
-                                        <td style={tdStyle}>{j.booking?.bookingId || "—"}</td>
-                                        <td style={tdStyle}>{j.title || "—"}</td>
-                                        <td style={tdStyle}>
-                                            <StatusBadge value={j.status} />
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <Link to={`/jobs/${j._id}`} style={openBtn}>Open</Link>
-                                        </td>
-                                    </tr>
-                                ))}
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            <span style={{ fontWeight: 500 }}>{j.booking?.bookingId || "—"}</span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {j.booking?.vehicle?.registrationNumber || ""}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 500 }}>
+                                                    {j.booking?.customer?.profile?.firstName || ""} {j.booking?.customer?.profile?.lastName || ""}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {j.booking?.customer?.profile?.phone || j.booking?.customer?.profile?.phoneNumber || ""}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            <span style={{ fontWeight: 500 }}>{j.title || "—"}</span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {j.estimatedDuration || j.estimatedHours ? `~${j.estimatedDuration || j.estimatedHours}` : ""}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <StatusBadge value={j.status} />
+                                    </td>
+                                    <td style={tdStyle}>
+                                            <span style={{
+                                                padding: "4px 8px",
+                                                borderRadius: "12px",
+                                                fontSize: "12px",
+                                                fontWeight: 500,
+                                                backgroundColor:
+                                                    j.priority === "urgent" ? "#fee2e2" :
+                                                        j.priority === "high" ? "#fef3c7" :
+                                                            j.priority === "medium" ? "#dbeafe" : "#f3f4f6",
+                                                color:
+                                                    j.priority === "urgent" ? "#991b1b" :
+                                                        j.priority === "high" ? "#92400e" :
+                                                            j.priority === "medium" ? "#1e40af" : "#374151"
+                                            }}>
+                                                {j.priority || "—"}
+                                            </span>
+                                    </td>
+                                    <td style={tdStyle}>
+                                            <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                                                {j.category || "—"}
+                                            </span>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 500 }}>
+                                                    {j.assignedLabourers?.length || 0} technician{(j.assignedLabourers?.length || 0) !== 1 ? 's' : ''}
+                                                </span>
+                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {j.assignedLabourers?.length > 0 ? "assigned" : "pending"}
+                                                </span>
+                                        </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                        <Link to={`/jobs/${j._id}`} style={openBtn}>View Details</Link>
+                                    </td>
+                                </tr>
+                            ))}
                             </tbody>
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 16 }}>
+                    {/* Pagination info */}
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }}>
                         <span style={{ color: "#6b7280", fontSize: 14 }}>
-                            Page {page} of {totalPages}
+                            Showing {filtered.length} of {rows.length} jobs
                         </span>
-                        <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                                type="button"
-                                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                style={{
-                                    padding: "8px 12px",
-                                    backgroundColor: page === 1 ? "#e5e7eb" : "#fff",
-                                    color: "#111827",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: 8,
-                                    cursor: page === 1 ? "not-allowed" : "pointer",
-                                }}
-                            >
-                                Prev
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                style={{
-                                    padding: "8px 12px",
-                                    backgroundColor: page === totalPages ? "#e5e7eb" : "#fff",
-                                    color: "#111827",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: 8,
-                                    cursor: page === totalPages ? "not-allowed" : "pointer",
-                                }}
-                            >
-                                Next
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}
