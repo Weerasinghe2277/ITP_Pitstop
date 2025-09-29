@@ -22,8 +22,8 @@ const router = express.Router();
 
 // Protected routes - General job management
 router.route("/")
-  .get(authenticate, getAllJobs) // All authenticated users can view jobs (with role-based filtering)
-  .post(authenticate, authorize("service_advisor", "manager", "admin"), createJob); // Only inspectors can create jobs
+    .get(authenticate, getAllJobs) // All authenticated users can view jobs (with role-based filtering)
+    .post(authenticate, authorize("service_advisor", "manager", "admin"), createJob); // Only inspectors can create jobs
 
 // Statistics route (for managers/admins)
 router.get("/stats", authenticate, authorize("service_advisor", "manager", "admin"), getJobStats);
@@ -39,12 +39,12 @@ router.get("/booking/:bookingId", authenticate, getJobsByBooking);
 
 // Job-specific routes
 router.route("/:id")
-  .get(authenticate, getJobById) // All authenticated users can view individual jobs (with role-based access)
-  .patch(authenticate, authorize("service_advisor", "manager", "admin"), updateJob) // Only inspectors can update job details
-  .delete(authenticate, authorize("manager", "admin"), deleteJob); // Only managers/admins can delete jobs
+    .get(authenticate, getJobById) // All authenticated users can view individual jobs (with role-based access)
+    .patch(authenticate, authorize("service_advisor", "manager", "admin"), updateJob) // Only inspectors can update job details
+    .delete(authenticate, authorize("manager", "admin"), deleteJob); // Only managers/admins can delete jobs
 
-// Job status management
-router.patch("/:id/status", authenticate, updateJobStatus); // Technicians and inspectors can update status
+// Job status management - UPDATED: Allow technicians to update status
+router.patch("/:id/status", authenticate, authorize("technician", "service_advisor", "manager", "admin"), updateJobStatus);
 
 // Labourer assignment (inspectors only)
 router.patch("/:id/assign-labourers", authenticate, authorize("service_advisor", "manager", "admin"), assignLabourers);

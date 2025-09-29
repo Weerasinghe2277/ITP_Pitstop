@@ -1,24 +1,72 @@
-// src/features/invoices/InvoiceDetail.jsx
+// src/features/invoices/InvoiceDetail.tsx
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { http } from "../../lib/http";
+import PrintableInvoice from "./PrintableInvoice";
+import { PDFGenerator } from "../../utils/pdfGenerator";
+
+interface Invoice {
+    _id: string;
+    invoiceId?: string;
+    booking?: any;
+    job?: any;
+    customer?: {
+        _id: string;
+        name?: string;
+        email?: string;
+        phone?: string;
+        profile?: {
+            firstName?: string;
+            lastName?: string;
+        };
+    };
+    items?: Array<{
+        description: string;
+        quantity: number;
+        unitPrice: number;
+        total: number;
+        type?: string;
+        note?: string;
+    }>;
+    laborCharges?: number;
+    subtotal?: number;
+    tax?: number;
+    discount?: number;
+    total: number;
+    paymentMethod?: string;
+    status?: string;
+    paymentStatus?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
 
 export default function InvoiceDetail() {
-    const { id } = useParams();
-    const [inv, setInv] = useState(null);
-    const [msg, setMsg] = useState({ text: "", type: "" });
+    const { id } = useParams<{ id: string }>();
+    const [invoice, setInvoice] = useState<Invoice | null>(null);
+    const [booking, setBooking] = useState<any>(null);
+    const [job, setJob] = useState<any>(null);
+    const [message, setMessage] = useState({ text: "", type: "" });
     const [isLoading, setIsLoading] = useState(true);
+    const [showPrintView, setShowPrintView] = useState(false);
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
     useEffect(() => {
         let ignore = false;
         async function load() {
             setIsLoading(true);
-            setMsg({ text: "", type: "" });
+            setMessage({ text: "", type: "" });
             try {
-                const r = await http.get(`/invoices/${id}`);
-                if (!ignore) setInv(r.data?.invoice || null);
-            } catch (e) {
-                if (!ignore) setMsg({ text: e.message || "Failed to load invoice", type: "error" });
+                const response = await http.get(`/invoices/${id}`);
+                if (!ignore) {
+                    const invoiceData = response.data?.invoice || null;
+                    setInvoice(invoiceData);
+
+                    if (invoiceData) {
+                        await loadAdditionalData(invoiceData);
+                    }
+                }
+            } catch (e: any) {
+                if (!ignore) setMessage({ text: e.message || "Failed to load invoice", type: "error" });
             } finally {
                 if (!ignore) setIsLoading(false);
             }
@@ -27,351 +75,401 @@ export default function InvoiceDetail() {
         return () => { ignore = true; };
     }, [id]);
 
-    function money(n) {
-        if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+    async function loadAdditionalData(invoiceData: Invoice) {
         try {
-            return n.toLocaleString("en-LK", { style: "currency", currency: "LKR", maximumFractionDigits: 2 });
-        } catch {
-            return `LKR ${n.toFixed(2)}`;
+            if (invoiceData.booking) {
+                const bookingResponse = await http.get(`/bookings/${invoiceData.booking}`);
+                setBooking(bookingResponse.data?.booking || null);
+            }
+
+            if (invoiceData.job) {
+                const jobResponse = await http.get(`/jobs/${invoiceData.job}`);
+                setJob(jobResponse.data?.job || null);
+            }
+        } catch (error) {
+            console.warn("Failed to load additional data:", error);
         }
     }
 
-    const wrap = {
+    function handlePrint() {
+        setShowPrintView(true);
+        setTimeout(() => {
+            window.print();
+            // Return to normal view after printing
+            setTimeout(() => setShowPrintView(false), 500);
+        }, 500);
+    }
+
+    async function handleDownloadPDF() {
+        if (!invoice) return;
+
+        setIsGeneratingPDF(true);
+        setMessage({ text: "", type: "" });
+
+        try {
+            await PDFGenerator.generateInvoicePDF(invoice, booking, job, {
+                filename: `invoice-${invoice.invoiceId || invoice._id}.pdf`,
+                orientation: 'portrait',
+                format: 'a4',
+                quality: 1
+            });
+
+            // Show success message
+            setMessage({
+                text: 'PDF downloaded successfully!',
+                type: 'success'
+            });
+
+            // Clear message after 3 seconds
+            setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+
+        } catch (error: any) {
+            console.error('PDF generation error:', error);
+            setMessage({
+                text: error.message || 'Failed to generate PDF. Please try again.',
+                type: 'error'
+            });
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    }
+
+    // Alternative method: Download PDF from current visible element
+    async function handleDownloadPDFFromElement() {
+        if (!invoice) return;
+
+        setIsGeneratingPDF(true);
+        setMessage({ text: "", type: "" });
+
+        try {
+            const element = document.getElementById('printable-invoice');
+            if (element) {
+                await PDFGenerator.generateFromElement(element, {
+                    filename: `invoice-${invoice.invoiceId || invoice._id}.pdf`,
+                    orientation: 'portrait',
+                    format: 'a4',
+                    quality: 1
+                });
+
+                setMessage({
+                    text: 'PDF downloaded successfully!',
+                    type: 'success'
+                });
+                setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+            } else {
+                throw new Error('Could not find invoice element');
+            }
+        } catch (error: any) {
+            setMessage({
+                text: error.message || 'Failed to generate PDF. Please try again.',
+                type: 'error'
+            });
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    }
+
+    // Print-specific styles
+    const printStyles = `
+    @media print {
+      @page {
+        margin: 0.5in;
+        size: A4;
+      }
+      
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        background: white !important;
+      }
+      
+      .no-print {
+        display: none !important;
+      }
+      
+      .print-only {
+        display: block !important;
+      }
+      
+      .invoice-print-container {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+      }
+    }
+    
+    @media screen {
+      .print-only {
+        display: none !important;
+      }
+    }
+  `;
+
+    const containerStyle = {
         maxWidth: "1200px",
         margin: "0 auto",
         padding: "20px",
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        backgroundColor: '#f8fafc',
+        minHeight: '100vh'
     };
 
-    const headerRow = {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "24px",
-        gap: "12px",
-        flexWrap: "wrap",
-    };
-
-    const title = { fontSize: "28px", fontWeight: 700, color: "#1f2937", margin: 0 };
-
-    const card = {
-        background: "white",
-        borderRadius: "12px",
-        padding: "16px",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-        border: "1px solid #e5e7eb",
-        marginBottom: "24px",
-    };
-
-    const sectionTitle = {
-        fontSize: "18px",
+    const actionButtonStyle = {
+        padding: "12px 20px",
+        backgroundColor: "white",
+        color: "#475569",
+        border: "2px solid #e2e8f0",
+        borderRadius: "10px",
+        fontSize: "14px",
         fontWeight: 600,
-        color: "#1f2937",
-        marginBottom: "16px",
-        paddingBottom: "12px",
-        borderBottom: "1px solid #e5e7eb",
+        textDecoration: "none",
+        cursor: "pointer",
+        transition: 'all 0.2s ease',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginRight: '12px'
     };
 
-    const grid = {
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: "24px",
-        marginBottom: "24px",
+    const loadingContainerStyle = {
+        background: "white",
+        borderRadius: "16px",
+        padding: "24px",
+        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        color: "#64748b",
+        fontSize: '16px'
     };
 
-    const row = { display: "flex" };
-    const label = { flex: 1, color: "#6b7280" };
-    const value = { flex: 1, fontWeight: 500 };
-
-    const statusBadge = (status) => {
-        const map = {
-            draft: { bg: "#f3f4f6", color: "#374151", border: "#e5e7eb" },
-            pending: { bg: "#fffbeb", color: "#92400e", border: "#fde68a" },
-            paid: { bg: "#f0fdf4", color: "#166534", border: "#bbf7d0" },
-            cancelled: { bg: "#fef2f2", color: "#991b1b", border: "#fecaca" },
-        };
-        const s = map[String(status || "").toLowerCase()] || map.draft;
-        return {
-            display: "inline-block",
-            padding: "4px 8px",
-            borderRadius: 9999,
-            fontSize: 12,
-            fontWeight: 700,
-            backgroundColor: s.bg,
-            color: s.color,
-            border: `1px solid ${s.border}`,
-        };
+    const messageStyle = {
+        padding: "16px 20px",
+        borderRadius: "12px",
+        marginBottom: "20px",
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
     };
 
-    const tableWrap = { overflowX: "auto" };
-    const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
-    const thStyle = {
-        textAlign: "left",
-        padding: "12px",
-        fontSize: "12px",
-        color: "#6b7280",
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        background: "#f9fafb",
-        borderBottom: "1px solid #e5e7eb",
-    };
-    const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px", verticalAlign: "top" };
-
-    if (isLoading) {
+    // If we're showing print view, render the printable component
+    if (showPrintView && invoice) {
         return (
-            <div style={wrap}>
-                <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
-                    <span>Loading invoice…</span>
-                    <div
-                        style={{
-                            width: 14,
-                            height: 14,
-                            border: "2px solid transparent",
-                            borderTop: "2px solid #6b7280",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite",
-                        }}
-                    />
-                </div>
-                <style>
-                    {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
-                </style>
+            <div className="print-only invoice-print-container">
+                <style>{printStyles}</style>
+                <PrintableInvoice invoice={invoice} booking={booking} job={job} />
             </div>
         );
     }
 
-    if (!inv) {
+    if (isLoading) {
         return (
-            <div style={wrap}>
-                <div
-                    style={{
-                        padding: "12px 16px",
-                        borderRadius: "8px",
-                        marginBottom: "24px",
-                        backgroundColor: "#fef2f2",
-                        color: "#991b1b",
-                        border: "1px solid #fecaca",
-                    }}
-                >
-                    {msg.text || "Invoice not found"}
+            <div style={containerStyle}>
+                <div style={loadingContainerStyle}>
+                    <div style={{
+                        width: 20,
+                        height: 20,
+                        border: "2px solid #e2e8f0",
+                        borderTop: "2px solid #3b82f6",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite"
+                    }} />
+                    <span>Loading invoice details...</span>
                 </div>
-                <Link
-                    to="/invoices"
-                    style={{
-                        padding: "10px 14px",
-                        backgroundColor: "#3b82f6",
-                        color: "white",
-                        border: "1px solid #2563eb",
-                        borderRadius: "8px",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        textDecoration: "none",
-                    }}
-                >
-                    Back to Invoices
+                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
+
+    if (!invoice) {
+        return (
+            <div style={containerStyle}>
+                <div style={{
+                    ...messageStyle,
+                    backgroundColor: "#fef2f2",
+                    color: "#991b1b",
+                    border: "2px solid #fecaca"
+                }}>
+                    <div style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        backgroundColor: "#ef4444",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                    }}>
+                        !
+                    </div>
+                    {message.text || "Invoice not found"}
+                </div>
+                <Link to="/invoices" style={{
+                    ...actionButtonStyle,
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    borderColor: "#2563eb"
+                }}>
+                    ← Back to Invoices
                 </Link>
             </div>
         );
     }
 
     return (
-        <div style={wrap}>
-            {/* Header */}
-            <div style={headerRow}>
-                <h1 style={title}>
-                    {inv.invoiceId || inv._id}
-                </h1>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={statusBadge(inv.status)}>{inv.status || "draft"}</span>
-                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <Link
-                            to="/invoices"
-                            style={{
-                                padding: "10px 14px",
-                                backgroundColor: "#3b82f6",
-                                color: "white",
-                                border: "1px solid #2563eb",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                textDecoration: "none",
-                            }}
-                        >
-                            Back
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={() => window.print()}
-                            style={{
-                                padding: "10px 14px",
-                                backgroundColor: "#6b7280",
-                                color: "white",
-                                border: "1px solid #4b5563",
-                                borderRadius: "8px",
-                                fontSize: "14px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                            }}
-                        >
-                            Print
-                        </button>
-                    </div>
-                </div>
+        <div style={containerStyle}>
+            <style>{printStyles}</style>
+
+            {/* Action Buttons - Hidden in print */}
+            <div className="no-print" style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                marginBottom: "20px",
+                flexWrap: "wrap"
+            }}>
+                <Link
+                    to="/invoices"
+                    style={actionButtonStyle}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f8fafc';
+                        e.currentTarget.style.borderColor = '#cbd5e1';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                    }}
+                >
+                    ← Back to List
+                </Link>
+                <button
+                    onClick={handlePrint}
+                    style={{
+                        ...actionButtonStyle,
+                        backgroundColor: "#10b981",
+                        color: "white",
+                        borderColor: "#059669"
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#059669';
+                        e.currentTarget.style.borderColor = '#047857';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#10b981';
+                        e.currentTarget.style.borderColor = '#059669';
+                    }}
+                >
+                    🖨️ Print Invoice
+                </button>
+                <button
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPDF}
+                    style={{
+                        ...actionButtonStyle,
+                        backgroundColor: isGeneratingPDF ? "#9ca3af" : "#ef4444",
+                        color: "white",
+                        borderColor: isGeneratingPDF ? "#6b7280" : "#dc2626",
+                        cursor: isGeneratingPDF ? 'not-allowed' : 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!isGeneratingPDF) {
+                            e.currentTarget.style.backgroundColor = '#dc2626';
+                            e.currentTarget.style.borderColor = '#b91c1c';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!isGeneratingPDF) {
+                            e.currentTarget.style.backgroundColor = '#ef4444';
+                            e.currentTarget.style.borderColor = '#dc2626';
+                        }
+                    }}
+                >
+                    {isGeneratingPDF ? (
+                        <>
+                            <div style={{
+                                width: 16,
+                                height: 16,
+                                border: "2px solid transparent",
+                                borderTop: "2px solid white",
+                                borderRadius: "50%",
+                                animation: "spin 1s linear infinite",
+                            }} />
+                            Generating PDF...
+                        </>
+                    ) : (
+                        '📄 Download PDF'
+                    )}
+                </button>
             </div>
 
             {/* Message */}
-            {msg.text && (
-                <div
-                    style={{
-                        padding: "12px 16px",
-                        borderRadius: "8px",
-                        marginBottom: "16px",
-                        backgroundColor: msg.type === "error" ? "#fef2f2" : "#f0fdf4",
-                        color: msg.type === "error" ? "#991b1b" : "#166534",
-                        border: `1px solid ${msg.type === "error" ? "#fecaca" : "#bbf7d0"}`,
-                    }}
-                >
-                    {msg.text}
+            {message.text && (
+                <div style={{
+                    ...messageStyle,
+                    backgroundColor: message.type === "error" ? "#fef2f2" : "#f0fdf4",
+                    color: message.type === "error" ? "#991b1b" : "#166534",
+                    border: `2px solid ${message.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                }}>
+                    <div style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        backgroundColor: message.type === "error" ? "#ef4444" : "#10b981",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                    }}>
+                        {message.type === "error" ? '!' : '✓'}
+                    </div>
+                    {message.text}
                 </div>
             )}
 
-            {/* Info grid */}
-            <div style={grid}>
-                <div style={card}>
-                    <h2 style={sectionTitle}>Invoice</h2>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={row}>
-                            <span style={label}>Invoice ID:</span>
-                            <span style={value}>{inv.invoiceId || inv._id || "—"}</span>
-                        </div>
-                        <div style={row}>
-                            <span style={label}>Booking:</span>
-                            <span style={value}>{inv.booking?.bookingId || inv.booking || "—"}</span>
-                        </div>
-                        <div style={row}>
-                            <span style={label}>Date:</span>
-                            <span style={value}>
-                {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : "—"}
-              </span>
-                        </div>
-                        <div style={row}>
-                            <span style={label}>Payment:</span>
-                            <span style={value}>{inv.paymentMethod || "—"}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div style={card}>
-                    <h2 style={sectionTitle}>Customer</h2>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={row}>
-                            <span style={label}>Name:</span>
-                            <span style={value}>
-                {inv.customer?.profile?.firstName ||
-                    inv.customer?.name ||
-                    inv.customer?.email ||
-                    "—"}
-              </span>
-                        </div>
-                        <div style={row}>
-                            <span style={label}>Email:</span>
-                            <span style={value}>{inv.customer?.email || "—"}</span>
-                        </div>
-                        <div style={row}>
-                            <span style={label}>Phone:</span>
-                            <span style={value}>{inv.customer?.phone || "—"}</span>
-                        </div>
-                    </div>
-                </div>
+            {/* Regular invoice view for screen */}
+            <div
+                id="printable-invoice"
+                className="no-print"
+                style={{
+                    background: "white",
+                    borderRadius: "16px",
+                    padding: "24px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                    border: "1px solid #e2e8f0",
+                    marginBottom: "24px",
+                }}
+            >
+                <PrintableInvoice invoice={invoice} booking={booking} job={job} />
             </div>
 
-            {/* Items */}
-            <div style={{ ...card, padding: 0 }}>
-                <div style={{ padding: 16 }}>
-                    <h2 style={sectionTitle}>Items</h2>
-                </div>
-                <div style={{ padding: 16, paddingTop: 0 }}>
-                    <div style={tableWrap}>
-                        <table style={tableStyle} aria-label="Invoice line items">
-                            <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-                                Invoice line items
-                            </caption>
-                            <thead>
-                            <tr>
-                                <th scope="col" style={thStyle}>Description</th>
-                                <th scope="col" style={thStyle}>Qty</th>
-                                <th scope="col" style={thStyle}>Unit Price</th>
-                                <th scope="col" style={thStyle}>Line Total</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {(inv.items || []).length === 0 && (
-                                <tr>
-                                    <td colSpan={4} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        No items
-                                    </td>
-                                </tr>
-                            )}
-                            {(inv.items || []).map((it, i) => (
-                                <tr key={i}>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
-                                            <span style={{ fontWeight: 600, color: "#111827" }}>{it.description || "—"}</span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>{it.note || ""}</span>
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>{it.quantity ?? "—"}</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(it.unitPrice)}</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(it.total)}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                            <tfoot>
-                            <tr>
-                                <td colSpan={3} style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>Items Subtotal</td>
-                                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(inv.items?.reduce((s, x) => s + (x.total || 0), 0) || 0)}</td>
-                            </tr>
-                            {"laborCharges" in inv && (
-                                <tr>
-                                    <td colSpan={3} style={{ ...tdStyle, textAlign: "right" }}>Labor Charges</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(inv.laborCharges)}</td>
-                                </tr>
-                            )}
-                            {"subtotal" in inv && (
-                                <tr>
-                                    <td colSpan={3} style={{ ...tdStyle, textAlign: "right" }}>Subtotal</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(inv.subtotal)}</td>
-                                </tr>
-                            )}
-                            {"tax" in inv && (
-                                <tr>
-                                    <td colSpan={3} style={{ ...tdStyle, textAlign: "right" }}>Tax</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(inv.tax)}</td>
-                                </tr>
-                            )}
-                            {"discount" in inv && (
-                                <tr>
-                                    <td colSpan={3} style={{ ...tdStyle, textAlign: "right" }}>Discount</td>
-                                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{money(inv.discount)}</td>
-                                </tr>
-                            )}
-                            <tr>
-                                <td colSpan={3} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, borderTop: "1px solid #e5e7eb" }}>
-                                    Total
-                                </td>
-                                <td style={{ ...tdStyle, whiteSpace: "nowrap", fontWeight: 700, borderTop: "1px solid #e5e7eb" }}>
-                                    {money(inv.total)}
-                                </td>
-                            </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            {/* Removed the bottom action buttons section */}
 
-            <style>
-                {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
-            </style>
+            <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+          .no-print {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          
+          .no-print button, .no-print a {
+            flex: 1;
+            justify-content: center;
+          }
+        }
+      `}</style>
         </div>
     );
 }
