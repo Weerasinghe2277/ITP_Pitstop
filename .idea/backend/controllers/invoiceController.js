@@ -14,6 +14,7 @@ const createInvoice = asyncWrapper(async (req, res, next) => {
     tax,
     discount,
     paymentMethod,
+    status,
     notes,
   } = req.body;
 
@@ -52,16 +53,20 @@ const createInvoice = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Customer must match the booking customer", 400));
   }
 
+  // Validate status if provided
+  const validStatuses = ["draft", "pending", "completed", "paid", "cancelled"];
+  const invoiceStatus = status && validStatuses.includes(status) ? status : "draft";
+
   // Calculate totals
   let subtotal = 0;
   const processedItems = items.map(item => {
     if (!item.description || !item.quantity || !item.unitPrice) {
       throw new Error("Each item must have description, quantity, and unit price");
     }
-    
+
     const itemTotal = item.quantity * item.unitPrice;
     subtotal += itemTotal;
-    
+
     return {
       description: item.description,
       quantity: item.quantity,
@@ -83,8 +88,8 @@ const createInvoice = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Total amount cannot be negative", 400));
   }
 
-  // Create the invoice
-  const invoice = await Invoice.create({
+  // Prepare invoice data
+  const invoiceData = {
     booking,
     customer,
     items: processedItems,
@@ -94,9 +99,18 @@ const createInvoice = asyncWrapper(async (req, res, next) => {
     discount: discountAmount,
     total: finalTotal,
     paymentMethod,
+    status: invoiceStatus,
     notes,
     createdBy: req.user.userId,
-  });
+  };
+
+  // If status is paid, set paidAt date
+  if (invoiceStatus === "paid") {
+    invoiceData.paidAt = new Date();
+  }
+
+  // Create the invoice
+  const invoice = await Invoice.create(invoiceData);
 
   // Populate related data for response
   await invoice.populate([
@@ -190,34 +204,34 @@ const getAllInvoices = asyncWrapper(async (req, res) => {
 
   // Calculate pagination
   const skip = (page - 1) * limit;
-  
+
   // Build sort object
   const sort = {};
   sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
   // Execute query with population
   const invoices = await Invoice.find(query)
-    .populate([
-      {
-        path: 'booking',
-        select: 'bookingId serviceType scheduledDate status',
-        populate: {
-          path: 'vehicle',
-          select: 'vehicleId registrationNumber make model'
+      .populate([
+        {
+          path: 'booking',
+          select: 'bookingId serviceType scheduledDate status',
+          populate: {
+            path: 'vehicle',
+            select: 'vehicleId registrationNumber make model'
+          }
+        },
+        {
+          path: 'customer',
+          select: 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier'
+        },
+        {
+          path: 'createdBy',
+          select: 'userId profile.firstName profile.lastName role'
         }
-      },
-      {
-        path: 'customer',
-        select: 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier'
-      },
-      {
-        path: 'createdBy',
-        select: 'userId profile.firstName profile.lastName role'
-      }
-    ])
-    .sort(sort)
-    .limit(limit * 1)
-    .skip(skip);
+      ])
+      .sort(sort)
+      .limit(limit * 1)
+      .skip(skip);
 
   // Get total count for pagination
   const total = await Invoice.countDocuments(query);
@@ -237,24 +251,24 @@ const getInvoiceById = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
 
   const invoice = await Invoice.findById(id)
-    .populate([
-      {
-        path: 'booking',
-        select: 'bookingId serviceType scheduledDate status description priority',
-        populate: {
-          path: 'vehicle',
-          select: 'vehicleId registrationNumber make model year color mileage'
+      .populate([
+        {
+          path: 'booking',
+          select: 'bookingId serviceType scheduledDate status description priority',
+          populate: {
+            path: 'vehicle',
+            select: 'vehicleId registrationNumber make model year color mileage'
+          }
+        },
+        {
+          path: 'customer',
+          select: 'userId profile email customerDetails'
+        },
+        {
+          path: 'createdBy',
+          select: 'userId profile.firstName profile.lastName role'
         }
-      },
-      {
-        path: 'customer',
-        select: 'userId profile email customerDetails'
-      },
-      {
-        path: 'createdBy',
-        select: 'userId profile.firstName profile.lastName role'
-      }
-    ]);
+      ]);
 
   if (!invoice) {
     return next(createCustomError(`No invoice found with id: ${id}`, 404));
@@ -270,8 +284,8 @@ const getInvoiceById = asyncWrapper(async (req, res, next) => {
 const getInvoiceByInvoiceId = asyncWrapper(async (req, res, next) => {
   const { invoiceId } = req.params;
 
-  const invoice = await Invoice.findOne({ 
-    invoiceId: invoiceId.toUpperCase() 
+  const invoice = await Invoice.findOne({
+    invoiceId: invoiceId.toUpperCase()
   }).populate([
     {
       path: 'booking',
@@ -324,25 +338,25 @@ const getInvoicesByCustomer = asyncWrapper(async (req, res, next) => {
 
   // Calculate pagination
   const skip = (page - 1) * limit;
-  
+
   // Build sort object
   const sort = {};
   sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
   const invoices = await Invoice.find(query)
-    .populate([
-      {
-        path: 'booking',
-        select: 'bookingId serviceType scheduledDate',
-        populate: {
-          path: 'vehicle',
-          select: 'vehicleId registrationNumber make model'
+      .populate([
+        {
+          path: 'booking',
+          select: 'bookingId serviceType scheduledDate',
+          populate: {
+            path: 'vehicle',
+            select: 'vehicleId registrationNumber make model'
+          }
         }
-      }
-    ])
-    .sort(sort)
-    .limit(limit * 1)
-    .skip(skip);
+      ])
+      .sort(sort)
+      .limit(limit * 1)
+      .skip(skip);
 
   const total = await Invoice.countDocuments(query);
 
@@ -373,15 +387,28 @@ const updateInvoice = asyncWrapper(async (req, res, next) => {
   delete updateData.customer;
   delete updateData.createdBy;
 
+  // Validate status if provided
+  if (updateData.status) {
+    const validStatuses = ["draft", "pending", "completed", "paid", "cancelled"];
+    if (!validStatuses.includes(updateData.status)) {
+      return next(createCustomError("Invalid status value", 400));
+    }
+  }
+
   // Prevent updating paid invoices (except status and payment details)
   if (invoice.status === "paid") {
-    const allowedFields = ["paymentMethod", "paidAt", "notes"];
+    const allowedFields = ["status", "paymentMethod", "paidAt", "notes"];
     const updateFields = Object.keys(updateData);
     const invalidFields = updateFields.filter(field => !allowedFields.includes(field));
-    
+
     if (invalidFields.length > 0) {
-      return next(createCustomError("Cannot modify paid invoice except payment method, paid date, and notes", 400));
+      return next(createCustomError("Cannot modify paid invoice except status, payment method, paid date, and notes", 400));
     }
+  }
+
+  // If changing status to paid, set paidAt if not provided
+  if (updateData.status === "paid" && !invoice.paidAt && !updateData.paidAt) {
+    updateData.paidAt = new Date();
   }
 
   // Recalculate totals if items are updated
@@ -391,10 +418,10 @@ const updateInvoice = asyncWrapper(async (req, res, next) => {
       if (!item.description || !item.quantity || !item.unitPrice) {
         throw new Error("Each item must have description, quantity, and unit price");
       }
-      
+
       const itemTotal = item.quantity * item.unitPrice;
       subtotal += itemTotal;
-      
+
       return {
         description: item.description,
         quantity: item.quantity,
@@ -404,9 +431,9 @@ const updateInvoice = asyncWrapper(async (req, res, next) => {
     });
 
     updateData.items = processedItems;
-    subtotal += updateData.laborCharges || invoice.laborCharges;
+    subtotal += updateData.laborCharges !== undefined ? updateData.laborCharges : invoice.laborCharges;
     updateData.subtotal = subtotal;
-    
+
     const taxAmount = updateData.tax !== undefined ? updateData.tax : invoice.tax;
     const discountAmount = updateData.discount !== undefined ? updateData.discount : invoice.discount;
     updateData.total = subtotal + taxAmount - discountAmount;
@@ -417,12 +444,12 @@ const updateInvoice = asyncWrapper(async (req, res, next) => {
   }
 
   const updatedInvoice = await Invoice.findByIdAndUpdate(
-    id,
-    updateData,
-    {
-      new: true,
-      runValidators: true,
-    }
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
   ).populate([
     {
       path: 'booking',
@@ -454,8 +481,9 @@ const updateInvoiceStatus = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { status, paymentMethod, paidAt } = req.body;
 
-  if (!status || !["draft", "pending", "paid", "cancelled"].includes(status)) {
-    return next(createCustomError("Please provide a valid status (draft, pending, paid, cancelled)", 400));
+  const validStatuses = ["draft", "pending", "completed", "paid", "cancelled"];
+  if (!status || !validStatuses.includes(status)) {
+    return next(createCustomError(`Please provide a valid status (${validStatuses.join(", ")})`, 400));
   }
 
   const invoice = await Invoice.findById(id);
@@ -472,12 +500,14 @@ const updateInvoiceStatus = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Cannot change status of a cancelled invoice", 400));
   }
 
-  // If marking as paid, require payment method
+  // If marking as paid, require payment method and set paidAt
   if (status === "paid") {
-    if (!paymentMethod) {
+    if (!paymentMethod && !invoice.paymentMethod) {
       return next(createCustomError("Payment method is required when marking invoice as paid", 400));
     }
-    invoice.paymentMethod = paymentMethod;
+    if (paymentMethod) {
+      invoice.paymentMethod = paymentMethod;
+    }
     invoice.paidAt = paidAt || new Date();
   }
 
@@ -532,7 +562,7 @@ const deleteInvoice = asyncWrapper(async (req, res, next) => {
     // Soft delete - change status to cancelled
     invoice.status = "cancelled";
     await invoice.save();
-    
+
     res.status(200).json({
       success: true,
       message: "Invoice cancelled successfully",
@@ -642,7 +672,9 @@ const getInvoiceStats = asyncWrapper(async (req, res) => {
   const totalInvoices = await Invoice.countDocuments();
   const paidInvoices = await Invoice.countDocuments({ status: "paid" });
   const pendingInvoices = await Invoice.countDocuments({ status: "pending" });
+  const completedInvoices = await Invoice.countDocuments({ status: "completed" });
   const cancelledInvoices = await Invoice.countDocuments({ status: "cancelled" });
+  const draftInvoices = await Invoice.countDocuments({ status: "draft" });
 
   // Total revenue
   const totalRevenueResult = await Invoice.aggregate([
@@ -663,7 +695,9 @@ const getInvoiceStats = asyncWrapper(async (req, res) => {
       totalInvoices,
       paidInvoices,
       pendingInvoices,
+      completedInvoices,
       cancelledInvoices,
+      draftInvoices,
       totalRevenue,
       averageInvoiceAmount,
       statusStats,
@@ -694,23 +728,23 @@ const searchInvoices = asyncWrapper(async (req, res) => {
   };
 
   const invoices = await Invoice.find(searchQuery)
-    .populate([
-      {
-        path: 'customer',
-        select: 'userId profile.firstName profile.lastName'
-      },
-      {
-        path: 'booking',
-        select: 'bookingId',
-        populate: {
-          path: 'vehicle',
-          select: 'registrationNumber'
+      .populate([
+        {
+          path: 'customer',
+          select: 'userId profile.firstName profile.lastName'
+        },
+        {
+          path: 'booking',
+          select: 'bookingId',
+          populate: {
+            path: 'vehicle',
+            select: 'registrationNumber'
+          }
         }
-      }
-    ])
-    .select('invoiceId total status createdAt customer booking')
-    .limit(limit * 1)
-    .sort({ createdAt: -1 });
+      ])
+      .select('invoiceId total status createdAt customer booking')
+      .limit(limit * 1)
+      .sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,
@@ -724,19 +758,19 @@ const generateInvoicePDF = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
 
   const invoice = await Invoice.findById(id)
-    .populate([
-      {
-        path: 'booking',
-        populate: {
-          path: 'vehicle',
-          select: 'vehicleId registrationNumber make model year'
+      .populate([
+        {
+          path: 'booking',
+          populate: {
+            path: 'vehicle',
+            select: 'vehicleId registrationNumber make model year'
+          }
+        },
+        {
+          path: 'customer',
+          select: 'profile email'
         }
-      },
-      {
-        path: 'customer',
-        select: 'profile email'
-      }
-    ]);
+      ]);
 
   if (!invoice) {
     return next(createCustomError(`No invoice found with id: ${id}`, 404));
@@ -744,7 +778,7 @@ const generateInvoicePDF = asyncWrapper(async (req, res, next) => {
 
   // TODO: Implement PDF generation using libraries like puppeteer, jsPDF, or PDFKit
   // For now, return invoice data that can be used to generate PDF on frontend
-  
+
   res.status(200).json({
     success: true,
     message: "Invoice data ready for PDF generation",

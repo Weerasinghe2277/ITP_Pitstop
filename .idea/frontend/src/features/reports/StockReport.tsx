@@ -3,7 +3,7 @@ import { useAuth } from "../../store/AuthContext";
 export default function StockReport() {
     const { user } = useAuth();
 
-    if (!user || user.role !== "owner") {
+    if (!user || user.role !== "cashier","admin","manager") {
         return <div>Access denied. This page is restricted to Owners.</div>;
     }
 

@@ -26,6 +26,7 @@ export default function BookingDetail() {
     const isServiceAdvisor = user?.role === "service_advisor";
     const isCashier = user?.role === "cashier";
     const canAssignInspector = isAdmin || isManager || isCashier;
+    const canAccessBookingActions = isAdmin || isManager || isCashier; // New condition for booking actions
 
     async function loadBooking() {
         try {
@@ -178,12 +179,12 @@ export default function BookingDetail() {
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 marginBottom: '24px',
                 flexWrap: 'wrap',
                 gap: '16px'
             }}>
-                <div>
+                <div style={{ flex: 1 }}>
                     <Link
                         to="/bookings"
                         style={{
@@ -201,11 +202,101 @@ export default function BookingDetail() {
                         fontSize: '28px',
                         fontWeight: '700',
                         color: theme.text,
-                        margin: 0
+                        margin: '0 0 16px 0'
                     }}>
                         Booking #{booking.bookingId}
                     </h1>
+
+                    {/* Status Timeline - Moved under the booking title */}
+                    <div style={{
+                        background: theme.card,
+                        borderRadius: '12px',
+                        padding: '20px',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                        border: `1px solid ${theme.border}`,
+                        marginBottom: '0'
+                    }}>
+                        <h3 style={{
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: theme.text,
+                            marginBottom: '16px',
+                            paddingBottom: '8px',
+                            borderBottom: `1px solid ${theme.border}`
+                        }}>
+                            Status Timeline
+                        </h3>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                            {['pending', 'inspecting', 'working', 'completed', 'cancelled'].map((status, index, array) => (
+                                <div key={status} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                    <div style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '50%',
+                                        backgroundColor: booking.status === status ? '#3b82f6' :
+                                            array.indexOf(booking.status) >= index ? '#10b981' : '#e5e7eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'white',
+                                        fontWeight: '600',
+                                        fontSize: '11px',
+                                        zIndex: 2,
+                                        position: 'relative'
+                                    }}>
+                                        {index + 1}
+                                    </div>
+                                    {index < array.length - 1 && (
+                                        <div style={{
+                                            flex: 1,
+                                            height: '2px',
+                                            backgroundColor: array.indexOf(booking.status) > index ? '#10b981' : '#e5e7eb'
+                                        }} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                            {['Pending', 'Inspecting', 'Working', 'Completed', 'Cancelled'].map((label, index) => (
+                                <div key={index} style={{
+                                    fontSize: '11px',
+                                    color: theme.mutedText,
+                                    textAlign: 'center',
+                                    width: `${100 / 5}%`,
+                                    padding: '0 2px'
+                                }}>
+                                    {label}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Status History */}
+                        {timeline.length > 0 && (
+                            <div>
+                                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>Status History</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {timeline.map((item, index) => (
+                                        <div key={index} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            padding: '6px 8px',
+                                            backgroundColor: index % 2 === 0 ? (darkMode ? '#374151' : '#f9fafb') : 'transparent',
+                                            borderRadius: '4px',
+                                            fontSize: '12px'
+                                        }}>
+                                            <span style={{ fontWeight: '500', flex: 1 }}>{item.status}</span>
+                                            <span style={{ color: theme.mutedText, flex: 1, textAlign: 'center' }}>{item.timestamp}</span>
+                                            <span style={{ color: theme.mutedText, flex: 1, textAlign: 'right' }}>By: {item.changedBy}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
+
                 <StatusBadge value={booking.status} size="large" />
             </div>
 
@@ -468,88 +559,53 @@ export default function BookingDetail() {
                 </div> */}
             </div>
 
-            {/* Actions Card */}
-            <div style={{
-                background: theme.card,
-                borderRadius: '12px',
-                padding: '24px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                border: `1px solid ${theme.border}`,
-                marginBottom: '32px'
-            }}>
-                <h2 style={{
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    color: theme.text,
-                    marginBottom: '20px',
-                    paddingBottom: '12px',
-                    borderBottom: `1px solid ${theme.border}`
+            {/* Booking Actions Card - Conditionally rendered */}
+            {canAccessBookingActions && (
+                <div style={{
+                    background: theme.card,
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+                    border: `1px solid ${theme.border}`,
+                    marginBottom: '32px'
                 }}>
-                    Booking Actions
-                </h2>
+                    <h2 style={{
+                        fontSize: '18px',
+                        fontWeight: '600',
+                        color: theme.text,
+                        marginBottom: '20px',
+                        paddingBottom: '12px',
+                        borderBottom: `1px solid ${theme.border}`
+                    }}>
+                        Booking Actions
+                    </h2>
 
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                    <Link
-                        to={`/jobs/new/${booking._id}`}
-                        style={{
-                            padding: '12px 20px',
-                            backgroundColor: '#10b981',
-                            color: 'white',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <span>Create Job</span>
-                    </Link>
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        {/* Removed Create Job button */}
 
-                    <Link
-                        to={`/invoices/new/${booking._id}`}
-                        style={{
-                            padding: '12px 20px',
-                            backgroundColor: '#8b5cf6',
-                            color: 'white',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <span>Generate Invoice</span>
-                    </Link>
-
-                    <button
-                        onClick={sendReminder}
-                        style={{
-                            padding: '12px 20px',
-                            backgroundColor: '#f59e0b',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <span>Send Reminder</span>
-                    </button>
-
-                    {booking.status !== 'cancelled' && (
-                        <button
-                            onClick={() => setShowCancelDialog(true)}
+                        <Link
+                            to={`/invoices/new/${booking._id}`}
                             style={{
                                 padding: '12px 20px',
-                                backgroundColor: '#ef4444',
+                                backgroundColor: '#8b5cf6',
+                                color: 'white',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            <span>Generate Invoice</span>
+                        </Link>
+
+                        <button
+                            onClick={sendReminder}
+                            style={{
+                                padding: '12px 20px',
+                                backgroundColor: '#f59e0b',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '8px',
@@ -561,157 +617,34 @@ export default function BookingDetail() {
                                 gap: '8px'
                             }}
                         >
-                            <span>Cancel Booking</span>
+                            <span>Send Reminder</span>
                         </button>
-                    )}
 
-                    {/* Quick Status Update Buttons */}
-                    <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-                        {booking.status === 'pending' && (
+                        {booking.status !== 'cancelled' && (
                             <button
-                                onClick={() => updateStatus('inspecting')}
-                                disabled={isLoading}
+                                onClick={() => setShowCancelDialog(true)}
                                 style={{
-                                    padding: '8px 12px',
-                                    backgroundColor: '#10b981',
+                                    padding: '12px 20px',
+                                    backgroundColor: '#ef4444',
                                     color: 'white',
                                     border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
                                     fontWeight: '500',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer'
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
-                                Start Inspection
+                                <span>Cancel Booking</span>
                             </button>
                         )}
-                        {booking.status === 'inspecting' && (
-                            <button
-                                onClick={() => updateStatus('working')}
-                                disabled={isLoading}
-                                style={{
-                                    padding: '8px 12px',
-                                    backgroundColor: '#3b82f6',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: '500',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                Start Working
-                            </button>
-                        )}
-                        {booking.status === 'working' && (
-                            <button
-                                onClick={() => updateStatus('completed')}
-                                disabled={isLoading}
-                                style={{
-                                    padding: '8px 12px',
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: '500',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                Mark as Completed
-                            </button>
-                        )}
+
+                        {/* Removed Quick Status Update Buttons (Start Inspection, Start Working, Mark as Completed) */}
                     </div>
                 </div>
-            </div>
-
-            {/* Status Timeline */}
-            <div style={{
-                background: theme.card,
-                borderRadius: '12px',
-                padding: '24px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                border: `1px solid ${theme.border}`,
-                marginBottom: '32px'
-            }}>
-                <h2 style={{
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    color: theme.text,
-                    marginBottom: '20px',
-                    paddingBottom: '12px',
-                    borderBottom: `1px solid ${theme.border}`
-                }}>
-                    Status Timeline
-                </h2>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                    {['pending', 'inspecting', 'working', 'completed', 'cancelled'].map((status, index, array) => (
-                        <div key={status} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '50%',
-                                backgroundColor: booking.status === status ? '#3b82f6' :
-                                    array.indexOf(booking.status) >= index ? '#10b981' : '#e5e7eb',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontWeight: '600',
-                                fontSize: '12px',
-                                zIndex: 2,
-                                position: 'relative'
-                            }}>
-                                {index + 1}
-                            </div>
-                            {index < array.length - 1 && (
-                                <div style={{
-                                    flex: 1,
-                                    height: '3px',
-                                    backgroundColor: array.indexOf(booking.status) > index ? '#10b981' : '#e5e7eb'
-                                }} />
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-                    {['Pending', 'Inspecting', 'Working', 'Completed', 'Cancelled'].map((label, index) => (
-                        <div key={index} style={{
-                            fontSize: '12px',
-                            color: theme.mutedText,
-                            textAlign: 'center',
-                            width: `${100 / 6}%`,
-                            padding: '0 4px'
-                        }}>
-                            {label}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Status History */}
-                {timeline.length > 0 && (
-                    <div>
-                        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>Status History</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {timeline.map((item, index) => (
-                                <div key={index} style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    padding: '8px 12px',
-                                    backgroundColor: index % 2 === 0 ? (darkMode ? '#374151' : '#f9fafb') : 'transparent',
-                                    borderRadius: '6px'
-                                }}>
-                                    <span style={{ fontWeight: '500' }}>{item.status}</span>
-                                    <span style={{ color: theme.mutedText, fontSize: '14px' }}>{item.timestamp}</span>
-                                    <span style={{ color: theme.mutedText, fontSize: '14px' }}>By: {item.changedBy}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Cancel Booking Dialog */}
             {showCancelDialog && (

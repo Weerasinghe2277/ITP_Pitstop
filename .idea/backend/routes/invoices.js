@@ -23,7 +23,7 @@ router.get("/search", authenticate, searchInvoices); // Quick search for invoice
 // Invoice CRUD operations
 router.route("/")
   .get(authenticate, getAllInvoices) // All staff can view invoices
-  .post(authenticate, authorize("admin", "manager", "service_advisor"), createInvoice); // Staff can create invoices
+  .post(authenticate, authorize("cashier","admin", "manager", "service_advisor"), createInvoice); // Staff can create invoices
 
 // Invoice statistics (admin/manager only)
 router.get("/stats/overview", authenticate, authorize("admin", "manager"), getInvoiceStats);

@@ -333,7 +333,7 @@ const getJobById = asyncWrapper(async (req, res, next) => {
   });
 });
 
-// Update job status (Labourers and Inspectors)
+// Update job status (Labourers and Inspectors) - WITH BOOKING STATUS SYNC
 const updateJobStatus = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { status, notes } = req.body;
@@ -341,7 +341,7 @@ const updateJobStatus = asyncWrapper(async (req, res, next) => {
 
   console.log(`🔄 updateJobStatus called by user: ${userId}, role: ${role}, new status: ${status}`);
 
-  const job = await Job.findById(id);
+  const job = await Job.findById(id).populate('booking');
   if (!job) {
     return next(createCustomError("Job not found", 404));
   }
@@ -381,13 +381,76 @@ const updateJobStatus = asyncWrapper(async (req, res, next) => {
     }
   }
 
+  // Store old status for comparison
+  const oldStatus = job.status;
+
   // Update job
   job.status = status;
+
+  // Set timestamps based on status changes
+  if (status === "working" && oldStatus !== "working") {
+    job.startedAt = new Date();
+  } else if (status === "completed" && oldStatus !== "completed") {
+    job.completedAt = new Date();
+  }
+
   if (notes) job.notes = notes;
 
   await job.save();
+
+  // NEW: SYNC BOOKING STATUS
+  if (job.booking && job.booking._id) {
+    try {
+      console.log(`🔄 Syncing booking status for booking: ${job.booking._id}`);
+
+      // Define job status to booking status mapping
+      const statusMapping = {
+        'working': 'working',
+        'completed': 'completed',
+        'on_hold': 'on_hold',
+        'cancelled': 'cancelled'
+      };
+
+      const bookingStatus = statusMapping[status];
+
+      if (bookingStatus) {
+        console.log(`📋 Mapping job status "${status}" to booking status "${bookingStatus}"`);
+
+        // Update the booking status
+        const updatedBooking = await Booking.findByIdAndUpdate(
+            job.booking._id,
+            {
+              status: bookingStatus,
+              $push: {
+                notes: {
+                  note: `Status updated to ${bookingStatus} via job ${job.jobId} status change`,
+                  createdBy: userId,
+                  createdAt: new Date()
+                }
+              }
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (updatedBooking) {
+          console.log(`✅ Booking status synced successfully to: ${bookingStatus}`);
+        } else {
+          console.log(`❌ Failed to update booking status`);
+        }
+      } else {
+        console.log(`ℹ️ No booking status mapping for job status: ${status}`);
+      }
+    } catch (bookingError) {
+      console.error(`❌ Error syncing booking status:`, bookingError);
+      // Don't fail the job update if booking sync fails
+    }
+  } else {
+    console.log(`ℹ️ No booking associated with this job, skipping sync`);
+  }
+
+  // Populate job data for response
   await job.populate([
-    { path: "booking", select: "bookingId" },
+    { path: "booking", select: "bookingId status" },
     { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName" },
   ]);
 
@@ -395,7 +458,7 @@ const updateJobStatus = asyncWrapper(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: "Job status updated successfully",
+    message: "Job status updated successfully" + (job.booking ? " and booking status synced" : ""),
     job,
   });
 });

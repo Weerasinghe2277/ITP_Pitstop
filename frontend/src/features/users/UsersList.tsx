@@ -11,9 +11,9 @@ export default function UsersList() {
     const [role, setRole] = useState("all");
     const [isLoading, setIsLoading] = useState(true);
     const [msg, setMsg] = useState({ text: "", type: "" });
-    const [deleteConfirm, setDeleteConfirm] = useState(null); // For delete confirmation modal
-    const [viewUser, setViewUser] = useState(null); // For view user modal
-    const [editUser, setEditUser] = useState(null); // For edit user modal
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [viewUser, setViewUser] = useState(null);
+    const [editUser, setEditUser] = useState(null);
 
     // Debounce search input
     useEffect(() => {
@@ -61,9 +61,16 @@ export default function UsersList() {
             setRows(prev => prev.map(u => u._id === userId ? { ...u, ...response.data } : u));
             setMsg({ text: "User updated successfully", type: "success" });
             setEditUser(null);
+            setViewUser(null); // Close view modal after successful update
         } catch (e) {
             setMsg({ text: e.message || "Failed to update user", type: "error" });
         }
+    };
+
+    // Function to open edit modal from view modal
+    const handleEditFromView = (user) => {
+        setViewUser(null);
+        setEditUser(user);
     };
 
     // Filter + search
@@ -85,7 +92,7 @@ export default function UsersList() {
         return list;
     }, [rows, debouncedQ, role]);
 
-    // Styles
+    // Styles (keeping existing styles)
     const wrap = {
         maxWidth: "1200px",
         margin: "0 auto",
@@ -198,7 +205,7 @@ export default function UsersList() {
         backgroundColor: "white",
         borderRadius: "12px",
         padding: "24px",
-        maxWidth: "500px",
+        maxWidth: "600px",
         width: "90%",
         maxHeight: "80vh",
         overflowY: "auto",
@@ -306,65 +313,65 @@ export default function UsersList() {
                                 Users list with CRUD operations
                             </caption>
                             <thead>
-                                <tr>
-                                    <th scope="col" style={thStyle}>UserId</th>
-                                    <th scope="col" style={thStyle}>Name</th>
-                                    <th scope="col" style={thStyle}>Email</th>
-                                    <th scope="col" style={thStyle}>Role</th>
-                                    <th scope="col" style={thStyle}>Actions</th>
-                                </tr>
+                            <tr>
+                                <th scope="col" style={thStyle}>UserId</th>
+                                <th scope="col" style={thStyle}>Name</th>
+                                <th scope="col" style={thStyle}>Email</th>
+                                <th scope="col" style={thStyle}>Role</th>
+                                <th scope="col" style={thStyle}>Actions</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {filtered.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                            No users found
+                            {filtered.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                        No users found
+                                    </td>
+                                </tr>
+                            )}
+                            {filtered.map((u) => {
+                                const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
+                                return (
+                                    <tr key={u._id}>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>{name || "—"}</td>
+                                        <td style={tdStyle}>{u.email || "—"}</td>
+                                        <td style={tdStyle}>{u.role || "—"}</td>
+                                        <td style={tdStyle}>
+                                            <div style={actionBtnGroup}>
+                                                <button
+                                                    onClick={() => setViewUser(u)}
+                                                    style={viewBtn}
+                                                    aria-label={`View user ${name || u.email}`}
+                                                >
+                                                    View
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditUser(u)}
+                                                    style={editBtn}
+                                                    aria-label={`Edit user ${name || u.email}`}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
+                                                    style={deleteBtn}
+                                                    aria-label={`Delete user ${name || u.email}`}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
-                                )}
-                                {filtered.map((u) => {
-                                    const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
-                                    return (
-                                        <tr key={u._id}>
-                                            <td style={tdStyle}>
-                                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                                    <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
-                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
-                                                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td style={tdStyle}>{name || "—"}</td>
-                                            <td style={tdStyle}>{u.email || "—"}</td>
-                                            <td style={tdStyle}>{u.role || "—"}</td>
-                                            <td style={tdStyle}>
-                                                <div style={actionBtnGroup}>
-                                                    <button
-                                                        onClick={() => setViewUser(u)}
-                                                        style={viewBtn}
-                                                        aria-label={`View user ${name || u.email}`}
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditUser(u)}
-                                                        style={editBtn}
-                                                        aria-label={`Edit user ${name || u.email}`}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
-                                                        style={deleteBtn}
-                                                        aria-label={`Delete user ${name || u.email}`}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                );
+                            })}
                             </tbody>
                         </table>
                     </div>
@@ -395,49 +402,13 @@ export default function UsersList() {
                 </div>
             )}
 
-            {/* View User Modal */}
+            {/* View User Modal - UPDATED with Edit button */}
             {viewUser && (
-                <div style={modalOverlay}>
-                    <div style={modal}>
-                        <h3 style={modalHeader}>User Details</h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                            <div>
-                                <strong>User ID:</strong> {viewUser.userId || viewUser._id}
-                            </div>
-                            <div>
-                                <strong>Name:</strong> {[viewUser.profile?.firstName || "", viewUser.profile?.lastName || ""].filter(Boolean).join(" ") || "—"}
-                            </div>
-                            <div>
-                                <strong>Email:</strong> {viewUser.email || "—"}
-                            </div>
-                            <div>
-                                <strong>Role:</strong> {viewUser.role || "—"}
-                            </div>
-                            <div>
-                                <strong>Created:</strong> {viewUser.createdAt ? new Date(viewUser.createdAt).toLocaleString() : "—"}
-                            </div>
-                            <div>
-                                <strong>Updated:</strong> {viewUser.updatedAt ? new Date(viewUser.updatedAt).toLocaleString() : "—"}
-                            </div>
-                            {viewUser.profile && (
-                                <div>
-                                    <strong>Profile:</strong>
-                                    <pre style={{ fontSize: "12px", background: "#f3f4f6", padding: "8px", borderRadius: "4px", marginTop: "4px" }}>
-                                        {JSON.stringify(viewUser.profile, null, 2)}
-                                    </pre>
-                                </div>
-                            )}
-                        </div>
-                        <div style={modalActions}>
-                            <button
-                                onClick={() => setViewUser(null)}
-                                style={cancelBtn}
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ViewUserModal
+                    user={viewUser}
+                    onClose={() => setViewUser(null)}
+                    onEdit={handleEditFromView}
+                />
             )}
 
             {/* Edit User Modal */}
@@ -462,27 +433,492 @@ export default function UsersList() {
     );
 }
 
-// Edit User Modal Component
+// UPDATED: View User Modal Component with Edit Button
+function ViewUserModal({ user, onClose, onEdit }) {
+    const modalOverlay = {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        backdropFilter: "blur(2px)",
+    };
+
+    const modal = {
+        backgroundColor: "white",
+        borderRadius: "16px",
+        padding: "0",
+        maxWidth: "700px",
+        width: "90%",
+        maxHeight: "85vh",
+        overflowY: "auto",
+        boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+    };
+
+    const modalHeader = {
+        padding: "24px 32px",
+        borderBottom: "1px solid #e5e7eb",
+        backgroundColor: "#f9fafb",
+        borderRadius: "16px 16px 0 0",
+    };
+
+    const modalTitle = {
+        fontSize: "24px",
+        fontWeight: 700,
+        color: "#111827",
+        margin: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+    };
+
+    const modalBody = {
+        padding: "32px",
+    };
+
+    const section = {
+        marginBottom: "28px",
+    };
+
+    const sectionTitle = {
+        fontSize: "18px",
+        fontWeight: 600,
+        color: "#1f2937",
+        marginBottom: "16px",
+        paddingBottom: "8px",
+        borderBottom: "1px solid #e5e7eb",
+    };
+
+    const field = {
+        display: "flex",
+        marginBottom: "12px",
+        alignItems: "flex-start",
+    };
+
+    const label = {
+        flex: "0 0 140px",
+        fontWeight: 600,
+        color: "#6b7280",
+        fontSize: "14px",
+        marginRight: "16px",
+    };
+
+    const value = {
+        flex: 1,
+        color: "#111827",
+        fontSize: "14px",
+        wordBreak: "break-word",
+    };
+
+    const badge = {
+        display: "inline-block",
+        padding: "4px 12px",
+        borderRadius: "6px",
+        fontSize: "12px",
+        fontWeight: 500,
+        textTransform: "capitalize",
+    };
+
+    const modalFooter = {
+        padding: "24px 32px",
+        borderTop: "1px solid #e5e7eb",
+        backgroundColor: "#f9fafb",
+        borderRadius: "0 0 16px 16px",
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "12px",
+    };
+
+    const editBtn = {
+        padding: "12px 24px",
+        backgroundColor: "#f59e0b",
+        color: "white",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer",
+        minWidth: "120px",
+        transition: "all 0.2s ease-in-out",
+    };
+
+    const closeBtn = {
+        padding: "12px 24px",
+        backgroundColor: "#3b82f6",
+        color: "white",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer",
+        minWidth: "120px",
+    };
+
+    function getStatusBadgeStyle(status) {
+        const baseStyle = { ...badge };
+        switch (status?.toLowerCase()) {
+            case "active":
+                return { ...baseStyle, backgroundColor: "#dcfce7", color: "#166534" };
+            case "inactive":
+                return { ...baseStyle, backgroundColor: "#fef2f2", color: "#991b1b" };
+            default:
+                return { ...baseStyle, backgroundColor: "#f3f4f6", color: "#374151" };
+        }
+    }
+
+    function getTierBadgeStyle(tier) {
+        const baseStyle = { ...badge };
+        switch (tier?.toLowerCase()) {
+            case "bronze":
+                return { ...baseStyle, backgroundColor: "#fef3c7", color: "#92400e" };
+            case "silver":
+                return { ...baseStyle, backgroundColor: "#e5e7eb", color: "#374151" };
+            case "gold":
+                return { ...baseStyle, backgroundColor: "#fef3c7", color: "#d97706" };
+            case "platinum":
+                return { ...baseStyle, backgroundColor: "#e0e7ff", color: "#3730a3" };
+            default:
+                return { ...baseStyle, backgroundColor: "#f3f4f6", color: "#374151" };
+        }
+    }
+
+    function fmtDate(d) {
+        if (!d) return "—";
+        try {
+            return new Date(d).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "2-digit",
+            });
+        } catch {
+            return "—";
+        }
+    }
+
+    function fmtDateTime(d) {
+        if (!d) return "—";
+        try {
+            return new Date(d).toLocaleString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return "—";
+        }
+    }
+
+    const fullName = [
+        user.profile?.firstName || "",
+        user.profile?.lastName || "",
+    ]
+        .map((s) => s?.trim())
+        .filter(Boolean)
+        .join(" ");
+
+    return (
+        <div style={modalOverlay} onClick={onClose}>
+            <div style={modal} onClick={(e) => e.stopPropagation()}>
+                <div style={modalHeader}>
+                    <h3 style={modalTitle}>
+                        <span>👤</span>
+                        User Details
+                    </h3>
+                </div>
+
+                <div style={modalBody}>
+                    {/* Basic Information */}
+                    <div style={section}>
+                        <h4 style={sectionTitle}>Basic Information</h4>
+                        <div style={field}>
+                            <span style={label}>User ID:</span>
+                            <span style={value}>{user.userId || user._id || "—"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Full Name:</span>
+                            <span style={value}>{fullName || "—"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Email:</span>
+                            <span style={value}>{user.email || "—"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Role:</span>
+                            <span style={value}>{user.role || "—"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Status:</span>
+                            <span style={getStatusBadgeStyle(user.status)}>{user.status || "—"}</span>
+                        </div>
+                    </div>
+
+                    {/* Profile Information */}
+                    {user.profile && (
+                        <div style={section}>
+                            <h4 style={sectionTitle}>Profile Information</h4>
+                            <div style={field}>
+                                <span style={label}>First Name:</span>
+                                <span style={value}>{user.profile.firstName || "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>Last Name:</span>
+                                <span style={value}>{user.profile.lastName || "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>Phone:</span>
+                                <span style={value}>{user.profile.phoneNumber || "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>NIC:</span>
+                                <span style={value}>{user.profile.nic || "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>Date of Birth:</span>
+                                <span style={value}>{fmtDate(user.profile.dateOfBirth)}</span>
+                            </div>
+
+                            {/* Address */}
+                            {user.profile.address && (
+                                <>
+                                    <div style={field}>
+                                        <span style={label}>Address:</span>
+                                        <span style={value}>{user.profile.address.street || "—"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>City:</span>
+                                        <span style={value}>{user.profile.address.city || "—"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Province:</span>
+                                        <span style={value}>{user.profile.address.province || "—"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Postal Code:</span>
+                                        <span style={value}>{user.profile.address.postalCode || "—"}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Customer Details */}
+                    {user.customerDetails && (
+                        <div style={section}>
+                            <h4 style={sectionTitle}>Customer Details</h4>
+                            <div style={field}>
+                                <span style={label}>Loyalty Points:</span>
+                                <span style={value}>{user.customerDetails.loyaltyPoints ?? "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>Membership Tier:</span>
+                                <span style={getTierBadgeStyle(user.customerDetails.membershipTier)}>
+                                    {user.customerDetails.membershipTier || "—"}
+                                </span>
+                            </div>
+
+                            {/* Emergency Contact */}
+                            {user.customerDetails.emergencyContact && (
+                                <>
+                                    <div style={field}>
+                                        <span style={label}>Emergency Contact:</span>
+                                        <span style={value}>{user.customerDetails.emergencyContact.name || "—"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Emergency Phone:</span>
+                                        <span style={value}>{user.customerDetails.emergencyContact.phoneNumber || "—"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Relationship:</span>
+                                        <span style={value}>{user.customerDetails.emergencyContact.relationship || "—"}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Preferences */}
+                    {user.preferences && (
+                        <div style={section}>
+                            <h4 style={sectionTitle}>Preferences</h4>
+                            <div style={field}>
+                                <span style={label}>Language:</span>
+                                <span style={value}>{user.preferences.language || "—"}</span>
+                            </div>
+                            <div style={field}>
+                                <span style={label}>Timezone:</span>
+                                <span style={value}>{user.preferences.timezone || "—"}</span>
+                            </div>
+
+                            {/* Notifications */}
+                            {user.preferences.notifications && (
+                                <>
+                                    <div style={field}>
+                                        <span style={label}>Email Notifications:</span>
+                                        <span style={value}>{user.preferences.notifications.email ? "✅ Enabled" : "❌ Disabled"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>SMS Notifications:</span>
+                                        <span style={value}>{user.preferences.notifications.sms ? "✅ Enabled" : "❌ Disabled"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Push Notifications:</span>
+                                        <span style={value}>{user.preferences.notifications.push ? "✅ Enabled" : "❌ Disabled"}</span>
+                                    </div>
+                                    <div style={field}>
+                                        <span style={label}>Marketing:</span>
+                                        <span style={value}>{user.preferences.notifications.marketing ? "✅ Enabled" : "❌ Disabled"}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Security & Verification */}
+                    <div style={section}>
+                        <h4 style={sectionTitle}>Security & Verification</h4>
+                        <div style={field}>
+                            <span style={label}>Email Verified:</span>
+                            <span style={value}>{user.emailVerified ? "✅ Verified" : "❌ Not Verified"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Phone Verified:</span>
+                            <span style={value}>{user.phoneVerified ? "✅ Verified" : "❌ Not Verified"}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Two Factor Auth:</span>
+                            <span style={value}>{user.twoFactorEnabled ? "✅ Enabled" : "❌ Disabled"}</span>
+                        </div>
+                    </div>
+
+                    {/* System Information */}
+                    <div style={section}>
+                        <h4 style={sectionTitle}>System Information</h4>
+                        <div style={field}>
+                            <span style={label}>Created:</span>
+                            <span style={value}>{fmtDateTime(user.createdAt)}</span>
+                        </div>
+                        <div style={field}>
+                            <span style={label}>Updated:</span>
+                            <span style={value}>{fmtDateTime(user.updatedAt)}</span>
+                        </div>
+                        {user.lastLogin && (
+                            <div style={field}>
+                                <span style={label}>Last Login:</span>
+                                <span style={value}>{fmtDateTime(user.lastLogin)}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div style={modalFooter}>
+                    <button
+                        onClick={() => onEdit(user)}
+                        style={editBtn}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#d97706";
+                            e.target.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#f59e0b";
+                            e.target.style.transform = "translateY(0)";
+                        }}
+                    >
+                        Edit User
+                    </button>
+                    <button
+                        onClick={onClose}
+                        style={closeBtn}
+                        onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#2563eb";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#3b82f6";
+                        }}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Enhanced Edit User Modal Component
 function EditUserModal({ user, onClose, onUpdate, roles }) {
     const [formData, setFormData] = useState({
         email: user.email || "",
         role: user.role || "",
         firstName: user.profile?.firstName || "",
         lastName: user.profile?.lastName || "",
+        phoneNumber: user.profile?.phoneNumber || "",
+        nic: user.profile?.nic || "",
+        status: user.status || "active",
+        // Address fields
+        street: user.profile?.address?.street || "",
+        city: user.profile?.address?.city || "",
+        province: user.profile?.address?.province || "",
+        postalCode: user.profile?.address?.postalCode || "",
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const validateForm = () => {
+        const newErrors = {};
+
+        // Email validation
+        if (!formData.email) {
+            newErrors.email = "Email is required";
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+            newErrors.email = "Email is invalid";
+        }
+
+        // Role validation
+        if (!formData.role) {
+            newErrors.role = "Role is required";
+        }
+
+        // Phone validation (if provided)
+        if (formData.phoneNumber && !/^[\+]?[0-9\s\-\(\)]+$/.test(formData.phoneNumber)) {
+            newErrors.phoneNumber = "Invalid phone number format";
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!validateForm()) {
+            return;
+        }
+
         setIsSubmitting(true);
 
         const updatedData = {
             email: formData.email,
             role: formData.role,
+            status: formData.status,
             profile: {
                 ...user.profile,
                 firstName: formData.firstName,
                 lastName: formData.lastName,
+                phoneNumber: formData.phoneNumber,
+                nic: formData.nic,
+                address: {
+                    ...user.profile?.address,
+                    street: formData.street,
+                    city: formData.city,
+                    province: formData.province,
+                    postalCode: formData.postalCode,
+                }
             }
         };
 
@@ -492,6 +928,10 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
 
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+        // Clear error when user starts typing
+        if (errors[field]) {
+            setErrors(prev => ({ ...prev, [field]: "" }));
+        }
     };
 
     const modalOverlay = {
@@ -507,29 +947,56 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
         zIndex: 1000,
         backdropFilter: "blur(2px)",
     };
+
     const modal = {
         backgroundColor: "white",
         borderRadius: "16px",
-        padding: "32px",
-        maxWidth: "520px",
+        padding: "0",
+        maxWidth: "700px",
         width: "90%",
         maxHeight: "85vh",
         overflowY: "auto",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)",
         position: "relative",
     };
+
     const modalHeader = {
+        padding: "24px 32px",
+        borderBottom: "1px solid #e5e7eb",
+        backgroundColor: "#f9fafb",
+        borderRadius: "16px 16px 0 0",
+    };
+
+    const modalTitle = {
         fontSize: "24px",
         fontWeight: 700,
-        marginBottom: "24px",
         color: "#111827",
-        textAlign: "center",
-        paddingBottom: "16px",
-        borderBottom: "1px solid #e5e7eb",
+        margin: 0,
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
     };
+
+    const modalBody = {
+        padding: "32px",
+    };
+
+    const formGrid = {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        marginBottom: "24px",
+    };
+
+    const formGroupFull = {
+        gridColumn: "1 / -1",
+        marginBottom: "20px",
+    };
+
     const formGroup = {
         marginBottom: "20px",
     };
+
     const label = {
         display: "block",
         fontSize: "14px",
@@ -538,6 +1005,7 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
         marginBottom: "8px",
         letterSpacing: "0.025em",
     };
+
     const input = {
         width: "100%",
         padding: "12px 16px",
@@ -550,19 +1018,38 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
         color: "#111827",
         outline: "none",
     };
-    const inputFocus = {
+
+    const errorInput = {
         ...input,
-        borderColor: "#3b82f6",
-        boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+        borderColor: "#ef4444",
     };
+
+    const errorText = {
+        color: "#ef4444",
+        fontSize: "12px",
+        marginTop: "4px",
+    };
+
+    const sectionTitle = {
+        fontSize: "18px",
+        fontWeight: 600,
+        color: "#1f2937",
+        marginBottom: "16px",
+        paddingBottom: "8px",
+        borderBottom: "1px solid #e5e7eb",
+        gridColumn: "1 / -1",
+    };
+
     const modalActions = {
         display: "flex",
         gap: "16px",
         justifyContent: "flex-end",
-        marginTop: "32px",
-        paddingTop: "24px",
+        padding: "24px 32px",
         borderTop: "1px solid #e5e7eb",
+        backgroundColor: "#f9fafb",
+        borderRadius: "0 0 16px 16px",
     };
+
     const cancelBtn = {
         padding: "12px 24px",
         backgroundColor: "#ffffff",
@@ -575,6 +1062,7 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
         transition: "all 0.2s ease-in-out",
         minWidth: "100px",
     };
+
     const saveBtn = {
         padding: "12px 24px",
         backgroundColor: "#3b82f6",
@@ -591,98 +1079,287 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
     };
 
     return (
-        <div style={modalOverlay}>
-            <div style={modal}>
-                <h3 style={modalHeader}>Edit User</h3>
+        <div style={modalOverlay} onClick={onClose}>
+            <div style={modal} onClick={(e) => e.stopPropagation()}>
+                <div style={modalHeader}>
+                    <h3 style={modalTitle}>
+                        <span>✏️</span>
+                        Edit User
+                    </h3>
+                </div>
+
                 <form onSubmit={handleSubmit}>
-                    <div style={formGroup}>
-                        <label style={label}>First Name</label>
-                        <input
-                            type="text"
-                            value={formData.firstName}
-                            onChange={(e) => handleChange("firstName", e.target.value)}
-                            style={input}
-                            placeholder="Enter first name"
-                            onFocus={(e) => {
-                                e.target.style.borderColor = "#3b82f6";
-                                e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = "#e5e7eb";
-                                e.target.style.boxShadow = "none";
-                            }}
-                        />
+                    <div style={modalBody}>
+                        <div style={formGrid}>
+                            {/* Basic Information Section */}
+                            <h4 style={sectionTitle}>Basic Information</h4>
+
+                            <div style={formGroup}>
+                                <label style={label}>First Name</label>
+                                <input
+                                    type="text"
+                                    value={formData.firstName}
+                                    onChange={(e) => handleChange("firstName", e.target.value)}
+                                    style={errors.firstName ? errorInput : input}
+                                    placeholder="Enter first name"
+                                    onFocus={(e) => {
+                                        if (!errors.firstName) {
+                                            e.target.style.borderColor = "#3b82f6";
+                                            e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!errors.firstName) {
+                                            e.target.style.borderColor = "#e5e7eb";
+                                            e.target.style.boxShadow = "none";
+                                        }
+                                    }}
+                                />
+                                {errors.firstName && <div style={errorText}>{errors.firstName}</div>}
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Last Name</label>
+                                <input
+                                    type="text"
+                                    value={formData.lastName}
+                                    onChange={(e) => handleChange("lastName", e.target.value)}
+                                    style={errors.lastName ? errorInput : input}
+                                    placeholder="Enter last name"
+                                    onFocus={(e) => {
+                                        if (!errors.lastName) {
+                                            e.target.style.borderColor = "#3b82f6";
+                                            e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!errors.lastName) {
+                                            e.target.style.borderColor = "#e5e7eb";
+                                            e.target.style.boxShadow = "none";
+                                        }
+                                    }}
+                                />
+                                {errors.lastName && <div style={errorText}>{errors.lastName}</div>}
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Email Address *</label>
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => handleChange("email", e.target.value)}
+                                    style={errors.email ? errorInput : input}
+                                    placeholder="Enter email address"
+                                    required
+                                    onFocus={(e) => {
+                                        if (!errors.email) {
+                                            e.target.style.borderColor = "#3b82f6";
+                                            e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!errors.email) {
+                                            e.target.style.borderColor = "#e5e7eb";
+                                            e.target.style.boxShadow = "none";
+                                        }
+                                    }}
+                                />
+                                {errors.email && <div style={errorText}>{errors.email}</div>}
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Phone Number</label>
+                                <input
+                                    type="tel"
+                                    value={formData.phoneNumber}
+                                    onChange={(e) => handleChange("phoneNumber", e.target.value)}
+                                    style={errors.phoneNumber ? errorInput : input}
+                                    placeholder="Enter phone number"
+                                    onFocus={(e) => {
+                                        if (!errors.phoneNumber) {
+                                            e.target.style.borderColor = "#3b82f6";
+                                            e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!errors.phoneNumber) {
+                                            e.target.style.borderColor = "#e5e7eb";
+                                            e.target.style.boxShadow = "none";
+                                        }
+                                    }}
+                                />
+                                {errors.phoneNumber && <div style={errorText}>{errors.phoneNumber}</div>}
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>User Role *</label>
+                                <select
+                                    value={formData.role}
+                                    onChange={(e) => handleChange("role", e.target.value)}
+                                    style={{
+                                        ...(errors.role ? errorInput : input),
+                                        cursor: "pointer",
+                                        backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
+                                        backgroundPosition: "right 12px center",
+                                        backgroundRepeat: "no-repeat",
+                                        backgroundSize: "16px",
+                                        paddingRight: "40px",
+                                        appearance: "none",
+                                    }}
+                                    required
+                                    onFocus={(e) => {
+                                        if (!errors.role) {
+                                            e.target.style.borderColor = "#3b82f6";
+                                            e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!errors.role) {
+                                            e.target.style.borderColor = "#e5e7eb";
+                                            e.target.style.boxShadow = "none";
+                                        }
+                                    }}
+                                >
+                                    <option value="" style={{ color: "#9ca3af" }}>Select a role</option>
+                                    {roles.map((role) => (
+                                        <option key={role} value={role} style={{ color: "#111827" }}>
+                                            {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.role && <div style={errorText}>{errors.role}</div>}
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Status</label>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => handleChange("status", e.target.value)}
+                                    style={{
+                                        ...input,
+                                        cursor: "pointer",
+                                        backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
+                                        backgroundPosition: "right 12px center",
+                                        backgroundRepeat: "no-repeat",
+                                        backgroundSize: "16px",
+                                        paddingRight: "40px",
+                                        appearance: "none",
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                </select>
+                            </div>
+
+                            <div style={formGroupFull}>
+                                <label style={label}>NIC</label>
+                                <input
+                                    type="text"
+                                    value={formData.nic}
+                                    onChange={(e) => handleChange("nic", e.target.value)}
+                                    style={input}
+                                    placeholder="Enter NIC number"
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                />
+                            </div>
+
+                            {/* Address Section */}
+                            <h4 style={sectionTitle}>Address Information</h4>
+
+                            <div style={formGroupFull}>
+                                <label style={label}>Street Address</label>
+                                <input
+                                    type="text"
+                                    value={formData.street}
+                                    onChange={(e) => handleChange("street", e.target.value)}
+                                    style={input}
+                                    placeholder="Enter street address"
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                />
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>City</label>
+                                <input
+                                    type="text"
+                                    value={formData.city}
+                                    onChange={(e) => handleChange("city", e.target.value)}
+                                    style={input}
+                                    placeholder="Enter city"
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                />
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Province</label>
+                                <input
+                                    type="text"
+                                    value={formData.province}
+                                    onChange={(e) => handleChange("province", e.target.value)}
+                                    style={input}
+                                    placeholder="Enter province"
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                />
+                            </div>
+
+                            <div style={formGroup}>
+                                <label style={label}>Postal Code</label>
+                                <input
+                                    type="text"
+                                    value={formData.postalCode}
+                                    onChange={(e) => handleChange("postalCode", e.target.value)}
+                                    style={input}
+                                    placeholder="Enter postal code"
+                                    onFocus={(e) => {
+                                        e.target.style.borderColor = "#3b82f6";
+                                        e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.borderColor = "#e5e7eb";
+                                        e.target.style.boxShadow = "none";
+                                    }}
+                                />
+                            </div>
+                        </div>
                     </div>
-                    <div style={formGroup}>
-                        <label style={label}>Last Name</label>
-                        <input
-                            type="text"
-                            value={formData.lastName}
-                            onChange={(e) => handleChange("lastName", e.target.value)}
-                            style={input}
-                            placeholder="Enter last name"
-                            onFocus={(e) => {
-                                e.target.style.borderColor = "#3b82f6";
-                                e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = "#e5e7eb";
-                                e.target.style.boxShadow = "none";
-                            }}
-                        />
-                    </div>
-                    <div style={formGroup}>
-                        <label style={label}>Email Address</label>
-                        <input
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => handleChange("email", e.target.value)}
-                            style={input}
-                            placeholder="Enter email address"
-                            required
-                            onFocus={(e) => {
-                                e.target.style.borderColor = "#3b82f6";
-                                e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = "#e5e7eb";
-                                e.target.style.boxShadow = "none";
-                            }}
-                        />
-                    </div>
-                    <div style={formGroup}>
-                        <label style={label}>User Role</label>
-                        <select
-                            value={formData.role}
-                            onChange={(e) => handleChange("role", e.target.value)}
-                            style={{
-                                ...input,
-                                cursor: "pointer",
-                                backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e\")",
-                                backgroundPosition: "right 12px center",
-                                backgroundRepeat: "no-repeat",
-                                backgroundSize: "16px",
-                                paddingRight: "40px",
-                                appearance: "none",
-                            }}
-                            required
-                            onFocus={(e) => {
-                                e.target.style.borderColor = "#3b82f6";
-                                e.target.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = "#e5e7eb";
-                                e.target.style.boxShadow = "none";
-                            }}
-                        >
-                            <option value="" style={{ color: "#9ca3af" }}>Select a role</option>
-                            {roles.map((role) => (
-                                <option key={role} value={role} style={{ color: "#111827" }}>
-                                    {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+
                     <div style={modalActions}>
                         <button
                             type="button"
@@ -742,6 +1419,7 @@ function EditUserModal({ user, onClose, onUpdate, roles }) {
                         </button>
                     </div>
                 </form>
+
                 <style>
                     {`
                         @keyframes spin {
