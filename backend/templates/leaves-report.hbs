@@ -1,0 +1,105 @@
+{{!-- {{#if summary}}
+<div class="table-section">
+    <h2 class="table-title">Leave Requests Summary</h2>
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h4>Total Requests</h4>
+            <div class="value">{{summary.totalRequests}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Approved</h4>
+            <div class="value">{{summary.approvedRequests}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Pending</h4>
+            <div class="value">{{summary.pendingRequests}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Days</h4>
+            <div class="value">{{summary.totalDays}}</div>
+        </div>
+    </div>
+</div>
+{{/if}} --}}
+
+{{#if leavesByType.length}}
+<div class="table-section">
+    <h2 class="table-title">Leave Requests by Type</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Leave Type</th>
+                <th>Count</th>
+                <th>Total Days</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each leavesByType}}
+            <tr>
+                <td>{{leaveType}}</td>
+                <td>{{count}}</td>
+                <td>{{totalDays}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+{{#if leavesByStatus.length}}
+<div class="table-section">
+    <h2 class="table-title">Leave Requests by Status</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each leavesByStatus}}
+            <tr>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td>{{count}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+<div class="table-section">
+    <h2 class="table-title">Leave Request Details</h2>
+    <table class="data-table cols-8">
+        <thead>
+            <tr>
+                <th>Request ID</th>
+                <th>Employee</th>
+                <th>Leave Type</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Total Days</th>
+                <th>Status</th>
+                <th>Approved By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each leaveRequests}}
+            <tr>
+                <td>{{requestId}}</td>
+                <td>{{employeeName}}</td>
+                <td>{{leaveType}}</td>
+                <td>{{formatDate startDate}}</td>
+                <td>{{formatDate endDate}}</td>
+                <td>{{totalDays}}</td>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td>{{approvedByName}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

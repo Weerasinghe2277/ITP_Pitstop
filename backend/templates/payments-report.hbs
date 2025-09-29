@@ -1,0 +1,83 @@
+{{!-- {{#if summary}}
+<div class="table-section">
+    <h2 class="table-title">Payments Summary</h2>
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h4>Total Invoices</h4>
+            <div class="value">{{summary.totalInvoices}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Revenue</h4>
+            <div class="value">${{formatCurrency summary.totalRevenue}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Paid Invoices</h4>
+            <div class="value">{{summary.paidInvoices}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Average Invoice</h4>
+            <div class="value">${{formatCurrency summary.averageInvoice}}</div>
+        </div>
+    </div>
+</div>
+{{/if}} --}}
+
+{{#if paymentsByStatus.length}}
+<div class="table-section">
+    <h2 class="table-title">Payments by Status</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Payment Status</th>
+                <th>Count</th>
+                <th>Total Amount</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each paymentsByStatus}}
+            <tr>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td>{{count}}</td>
+                <td>${{formatCurrency totalAmount}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+<div class="table-section">
+    <h2 class="table-title">Payment Details</h2>
+    <table class="data-table cols-9">
+        <thead>
+            <tr>
+                <th>Invoice ID</th>
+                <th>Booking ID</th>
+                <th>Customer</th>
+                <th>Issue Date</th>
+                <th>Due Date</th>
+                <th>Subtotal</th>
+                <th>Tax</th>
+                <th>Total Amount</th>
+                <th>Payment Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each invoices}}
+            <tr>
+                <td>{{invoiceId}}</td>
+                <td>{{bookingId}}</td>
+                <td>{{customerName}}</td>
+                <td>{{formatDate issueDate}}</td>
+                <td>{{formatDate dueDate}}</td>
+                <td>${{formatCurrency subtotal}}</td>
+                <td>${{formatCurrency tax}}</td>
+                <td>${{formatCurrency totalAmount}}</td>
+                <td><span class="status {{paymentStatus}}">{{paymentStatus}}</span></td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

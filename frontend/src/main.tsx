@@ -66,6 +66,13 @@ import BookingReport from "./features/reports/BookingReport";
 import WorkAllocationReport from "./features/reports/WorkAllocationReport";
 import EmployeeReport from "./features/reports/EmployeeReport";
 
+// API Reports
+import BookingsReport from "./features/reports/api/BookingsReport";
+import PaymentsReport from "./features/reports/api/PaymentsReport";
+import JobsReport from "./features/reports/api/JobsReport";
+import LeavesReport from "./features/reports/api/LeavesReport";
+import InventoryReport from "./features/reports/api/InventoryReport";
+
 const router = createBrowserRouter([
     { path: "/login", element: <Login /> },
     { path: "/no-access", element: <NoAccess /> },
@@ -374,6 +381,48 @@ const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["owner", "admin", "manager"]}>
                         <EmployeeReport />
+                    </ProtectedRoute>
+                ),
+            },
+
+            // API Reports with role-based access
+            {
+                path: "reports/api/bookings",
+                element: (
+                    <ProtectedRoute roles={["cashier", "admin", "manager", "service_advisor"]}>
+                        <BookingsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/payments",
+                element: (
+                    <ProtectedRoute roles={["cashier", "admin", "manager"]}>
+                        <PaymentsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/jobs",
+                element: (
+                    <ProtectedRoute roles={["technician", "service_advisor", "admin", "manager"]}>
+                        <JobsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/leaves",
+                element: (
+                    <ProtectedRoute roles={["admin", "manager"]}>
+                        <LeavesReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/inventory",
+                element: (
+                    <ProtectedRoute roles={["manager", "admin"]}>
+                        <InventoryReport />
                     </ProtectedRoute>
                 ),
             },

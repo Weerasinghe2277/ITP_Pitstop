@@ -3,66 +3,72 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider, type RouteObject } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import "./styles/globals.css";
-import { AuthProvider } from "./store/AuthContext";
-import Layout from "./components/Layout";
-import ProtectedRoute from "./components/ProtectedRoute";
-import Dashboard from "./pages/Dashboard";
-import NoAccess from "./pages/NoAccess";
-import NotFound from "./pages/NotFound";
+import "../styles/globals.css";
+import { AuthProvider } from "../store/AuthContext";
+import Layout from "../components/Layout";
+import ProtectedRoute from "../components/ProtectedRoute";
+import Dashboard from "../pages/Dashboard";
+import NoAccess from "../pages/NoAccess";
+import NotFound from "../pages/NotFound";
 
 // Auth
-import Login from "./features/auth/Login";
+import Login from "../features/auth/Login";
 
 // Bookings
-import BookingsList from "./features/bookings/BookingsList";
-import CreateBooking from "./features/bookings/CreateBooking";
-import BookingDetail from "./features/bookings/BookingDetail";
+import BookingsList from "../features/bookings/BookingsList";
+import CreateBooking from "../features/bookings/CreateBooking";
+import BookingDetail from "../features/bookings/BookingDetail";
 
 // Jobs
-import JobsList from "./features/jobs/JobsList";
-import CreateJob from "./features/jobs/CreateJob";
-import JobDetail from "./features/jobs/JobDetail";
-import MyJobs from "./features/jobs/MyJobs";
+import JobsList from "../features/jobs/JobsList";
+import CreateJob from "../features/jobs/CreateJob";
+import JobDetail from "../features/jobs/JobDetail";
+import MyJobs from "../features/jobs/MyJobs";
 
 // Goods Requests
-import GoodsRequestsList from "./features/goods/GoodsRequestsList";
-import CreateGoodsRequest from "./features/goods/CreateGoodsRequest";
-import GoodsRouter from "./features/goods/GoodsRouter";
+import GoodsRequestsList from "../features/goods/GoodsRequestsList";
+import CreateGoodsRequest from "../features/goods/CreateGoodsRequest";
 
 // Inventory
-import InventoryList from "./features/inventory/InventoryList";
-import CreateItem from "./features/inventory/CreateItem";
-import ItemDetail from "./features/inventory/ItemDetail";
-import LowStock from "./features/inventory/LowStock";
+import InventoryList from "../features/inventory/InventoryList";
+import CreateItem from "../features/inventory/CreateItem";
+import ItemDetail from "../features/inventory/ItemDetail";
+import LowStock from "../features/inventory/LowStock";
 
 // Invoices
-import InvoicesList from "./features/invoices/InvoicesList";
-import CreateInvoice from "./features/invoices/CreateInvoice";
-import InvoiceDetail from "./features/invoices/InvoiceDetail";
+import InvoicesList from "../features/invoices/InvoicesList";
+import CreateInvoice from "../features/invoices/CreateInvoice";
+import InvoiceDetail from "../features/invoices/InvoiceDetail";
 
 // Leave
-import MyLeave from "./features/leave/MyLeave";
-import ManageLeave from "./features/leave/ManageLeave";
+import MyLeave from "../features/leave/MyLeave";
+import ManageLeave from "../features/leave/ManageLeave";
 
 // Users
-import UsersList from "./features/users/UsersList";
-import CreateUser from "./features/users/CreateUser";
-import UserDetail from "./features/users/UserDetail";
-import MyProfile from "./features/users/MyProfile";
+import UsersList from "../features/users/UsersList";
+import CreateUser from "../features/users/CreateUser";
+import UserDetail from "../features/users/UserDetail";
+import MyProfile from "../features/users/MyProfile";
 
 // Vehicles
-import VehiclesList from "./features/vehicles/VehiclesList";
-import CreateVehicle from "./features/vehicles/CreateVehicle";
-import VehicleDetail from "./features/vehicles/VehicleDetail";
+import VehiclesList from "../features/vehicles/VehiclesList";
+import CreateVehicle from "../features/vehicles/CreateVehicle";
+import VehicleDetail from "../features/vehicles/VehicleDetail";
 
 // Reports
-import ReportsList from "./features/reports/ReportsList";
-import SalaryReport from "./features/reports/SalaryReport";
-import StockReport from "./features/reports/StockReport";
-import BookingReport from "./features/reports/BookingReport";
-import WorkAllocationReport from "./features/reports/WorkAllocationReport";
-import EmployeeReport from "./features/reports/EmployeeReport";
+import ReportsList from "../features/reports/ReportsList";
+import SalaryReport from "../features/reports/SalaryReport";
+import StockReport from "../features/reports/StockReport";
+import BookingReport from "../features/reports/BookingReport";
+import WorkAllocationReport from "../features/reports/WorkAllocationReport";
+import EmployeeReport from "../features/reports/EmployeeReport";
+
+// API Reports
+import BookingsReport from "../features/reports/api/BookingsReport";
+import PaymentsReport from "../features/reports/api/PaymentsReport";
+import JobsReport from "../features/reports/api/JobsReport";
+import LeavesReport from "../features/reports/api/LeavesReport";
+import InventoryReport from "../features/reports/api/InventoryReport";
 
 const routes: RouteObject[] = [
     { path: "/login", element: <Login /> },
@@ -363,6 +369,48 @@ const routes: RouteObject[] = [
                 element: (
                     <ProtectedRoute roles={["owner", "admin", "manager"]}>
                         <EmployeeReport />
+                    </ProtectedRoute>
+                ),
+            },
+
+            // API Reports with role-based access
+            {
+                path: "reports/api/bookings",
+                element: (
+                    <ProtectedRoute roles={["cashier", "admin", "manager", "service_advisor"]}>
+                        <BookingsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/payments",
+                element: (
+                    <ProtectedRoute roles={["cashier", "admin", "manager"]}>
+                        <PaymentsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/jobs",
+                element: (
+                    <ProtectedRoute roles={["technician", "service_advisor", "admin", "manager"]}>
+                        <JobsReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/leaves",
+                element: (
+                    <ProtectedRoute roles={["admin", "manager"]}>
+                        <LeavesReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/inventory",
+                element: (
+                    <ProtectedRoute roles={["manager", "admin"]}>
+                        <InventoryReport />
                     </ProtectedRoute>
                 ),
             },

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{reportTitle}}</title>
+    <style>
+        :root {
+            --primary-color: {{theme.primaryColor}};
+            --primary-dark: {{theme.primaryDark}};
+            --secondary-color: {{theme.secondaryColor}};
+            --accent-color: {{theme.accentColor}};
+            --text-color: {{theme.textColor}};
+            --bg-color: {{theme.backgroundColor}};
+            --header-bg: {{theme.headerBackground}};
+            --border-color: {{theme.borderColor}};
+            --table-border: {{theme.tableBorder}};
+            --table-header-bg: {{theme.tableHeaderBackground}};
+            --table-header-border: {{theme.tableHeaderBorder}};
+        }
+        
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif !important;
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            line-height: 1.4;
+            background-color: var(--bg-color);
+            font-size: 11px !important;
+        }
+        
+        .letterhead {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            border-bottom: 3px solid var(--primary-color);
+            page-break-before: always;
+            page-break-inside: avoid;
+        }
+        
+        .letterhead-left {
+            flex: 1;
+        }
+        
+        .letterhead-right {
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 20px;
+        }
+        
+        .company-name {
+            font-size: 14px !important;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .report-title {
+            font-size: 18px !important;
+            font-weight: bold;
+            color: var(--primary-dark);
+            margin: 0;
+            line-height: 1.2;
+        }
+        
+        .report-subtitle {
+            font-size: 12px !important;
+            color: var(--secondary-color);
+            margin: 4px 0 0 0;
+            font-style: italic;
+        }
+        
+        .logo-img {
+            height: 60px !important;
+            width: auto !important;
+            max-width: 150px !important;
+            max-height: 60px !important;
+            object-fit: contain;
+            display: block;
+        }
+        
+        .table-section {
+            margin-bottom: 30px;
+        }
+        
+        .table-title {
+            font-size: 16px !important;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin: 20px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .meta-info {
+            display: flex;
+            justify-content: space-between;
+            background: var(--header-bg);
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0 25px 0;
+            font-size: 10px !important;
+            border: 1px solid var(--border-color);
+        }
+        
+        .first-page-only {
+            page-break-inside: avoid;
+        }
+        
+        .meta-info .left, .meta-info .right {
+            flex: 1;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .summary-card h4 {
+            margin: 0 0 10px 0;
+            color: #6b7280;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        
+        .summary-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--table-border);
+            table-layout: auto;
+        }
+        
+        .data-table th {
+            background: var(--table-header-bg);
+            color: white;
+            padding: 0.5em 0.7em;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            vertical-align: middle;
+            border-right: 1px solid var(--table-header-border);
+            width: auto;
+        }
+        
+        .data-table th:last-child {
+            border-right: none;
+        }
+        
+        .data-table td {
+            padding: 0.5em 0.7em;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            line-height: 1.3;
+        }
+        
+        .data-table td:last-child {
+            border-right: none;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        
+        .data-table tr:hover {
+            background: #e0f2fe;
+        }
+        
+        .data-table tbody tr:first-child td {
+            border-top: 1px solid #d1d5db;
+        }
+        
+        /* Dynamic font sizing based on column count */
+        .cols-6 { font-size: 12px; }
+        .cols-7 { font-size: 11px; }
+        .cols-8 { font-size: 10px; }
+        .cols-9 { font-size: 9px; }
+        .cols-10 { font-size: 8px; }
+        
+        .status {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px !important;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        .status.pending { background: #fef3c7; color: #92400e; }
+        .status.working { background: #dbeafe; color: #1e40af; }
+        .status.completed { background: #dcfce7; color: #166534; }
+        .status.cancelled { background: #fee2e2; color: #991b1b; }
+        .status.on_hold { background: #f3e8ff; color: #7c2d12; }
+        .status.approved { background: #dcfce7; color: #166534; }
+        .status.rejected { background: #fecaca; color: #dc2626; }
+        .status.inspecting { background: #fbbf24; color: #92400e; }
+        .status.urgent { background: #fecaca; color: #dc2626; }
+        .status.high { background: #fed7aa; color: #ea580c; }
+        .status.medium { background: #fef3c7; color: #d97706; }
+        .status.low { background: #dcfce7; color: #059669; }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 12px;
+            color: var(--secondary-color);
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        @media print {
+            body { 
+                margin: 0;
+                padding: 20px;
+                font-size: 11px !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .letterhead {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                page-break-inside: avoid;
+                page-break-after: avoid;
+                margin-bottom: 20px;
+                border-bottom: 2px solid var(--primary-color);
+                padding-bottom: 15px;
+            }
+            
+            .letterhead:not(:first-child) {
+                page-break-before: always;
+                margin-top: 0;
+            }
+            
+            .letterhead-right {
+                text-align: right;
+                flex-shrink: 0;
+                margin-left: 20px;
+            }
+            
+            .page-break {
+                page-break-before: always;
+            }
+            
+            .table-section {
+                page-break-inside: avoid;
+                margin-bottom: 25px;
+            }
+            
+            .table-title {
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                color: var(--primary-dark) !important;
+                margin: 20px 0 15px 0 !important;
+                padding-bottom: 8px !important;
+                border-bottom: 1px solid var(--border-color) !important;
+            }
+            
+            .data-table {
+                font-size: inherit;
+                table-layout: auto;
+                page-break-inside: auto;
+            }
+            
+            .data-table thead {
+                display: table-header-group;
+            }
+            
+            .data-table tbody tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            
+            .data-table th {
+                font-size: 0.9em;
+                padding: 0.4em 0.6em;
+            }
+            
+            .data-table td {
+                font-size: 0.8em;
+                padding: 0.4em 0.6em;
+            }
+            
+            .company-name {
+                font-size: 12px !important;
+            }
+            
+            .report-title {
+                font-size: 16px !important;
+            }
+            
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body data-report-title="{{reportTitle}}">
+    <div class="letterhead">
+        <div class="letterhead-left">
+            <div class="company-name">PITSTOP AUTO SERVICE</div>
+            <h1 class="report-title">{{reportTitle}}</h1>
+            <p class="report-subtitle">{{reportSubtitle}}</p>
+        </div>
+        <div class="letterhead-right">
+            {{#if logoBase64}}
+            <img src="data:image/png;base64,{{logoBase64}}" alt="Pitstop Logo" class="logo-img" />
+            {{else}}
+            <div style="width: 150px; height: 60px; background: var(--primary-color); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">PITSTOP</div>
+            {{/if}}
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="meta-info first-page-only">
+            <div class="left">
+                <strong>Generated By:</strong> {{generatedBy}}<br>
+                <strong>Generated On:</strong> {{generatedDate}}<br>
+                <strong>Report Period:</strong> {{reportPeriod}}
+            </div>
+            <div class="right">
+                <strong>Total Records:</strong> {{totalRecords}}<br>
+                <strong>Report Type:</strong> {{reportType}}<br>
+                <strong>Format:</strong> PDF
+            </div>
+        </div>
+    
+        {{!-- {{#if summary}}
+        <div class="summary-cards">
+            {{#each summary}}
+            <div class="summary-card">
+                <h4>{{label}}</h4>
+                <div class="value">{{value}}</div>
+            </div>
+            {{/each}}
+        </div>
+        {{/if}} --}}
+        
+        <div class="content">
+            {{> content}}
+        </div>
+        
+        <div class="footer">
+            <p>This report was automatically generated by Pitstop Auto Service Management System</p>
+            <p>© {{currentYear}} Pitstop Auto Service. All rights reserved.</p>
+            <p>Page generated at {{timestamp}}</p>
+        </div>
+    </div>
+</body>
+</html>

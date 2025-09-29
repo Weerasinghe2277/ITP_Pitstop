@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pitstop Reports API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .endpoint {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .get { background: #28a745; color: white; }
+        .post { background: #007bff; color: white; }
+        .url {
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .role-badge {
+            display: inline-block;
+            background: #6c757d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin: 2px;
+        }
+        .test-form {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #991b1b;
+        }
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .auth-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏎️ Pitstop Auto Service</h1>
+        <h2>Reports API Testing Interface</h2>
+        <p>Test the report generation endpoints with role-based access control</p>
+    </div>
+
+    <div class="auth-section">
+        <h3>📝 Authentication Setup</h3>
+        <p><strong>Important:</strong> You need to login first to get an authentication token.</p>
+        <div class="form-group">
+            <label for="authToken">JWT Token:</label>
+            <input type="text" id="authToken" placeholder="Enter your JWT token here">
+        </div>
+        <button onclick="setAuthToken()">Set Auth Token</button>
+        <div id="authStatus" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
+    <div class="section">
+        <h3>🔍 Available Reports</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/available</span>
+            <div>
+                <span class="role-badge">All Users</span>
+            </div>
+            <p>Get available report types for current user role</p>
+            <button onclick="testEndpoint('/api/v1/reports/available')">Test</button>
+            <div id="response-available" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📊 Bookings Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/bookings</span>
+            <div>
+                <span class="role-badge">Cashier</span>
+                <span class="role-badge">Manager</span>
+                <span class="role-badge">Admin</span>
+            </div>
+            <p>Generate comprehensive bookings report</p>
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="bookings-status">Status:</label>
+                    <select id="bookings-status">
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="inspecting">Inspecting</option>
+                        <option value="working">Working</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bookings-service">Service Type:</label>
+                    <select id="bookings-service">
+                        <option value="">All</option>
+                        <option value="inspection">Inspection</option>
+                        <option value="repair">Repair</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="bodywork">Bodywork</option>
+                        <option value="detailing">Detailing</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bookings-from">Date From:</label>
+                    <input type="date" id="bookings-from">
+                </div>
+                <div class="form-group">
+                    <label for="bookings-to">Date To:</label>
+                    <input type="date" id="bookings-to">
+                </div>
+                <div class="form-group">
+                    <label for="bookings-format">Format:</label>
+                    <select id="bookings-format">
+                        <option value="json">JSON</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button onclick="testBookingsReport()">Generate Report</button>
+            </div>
+            <div id="response-bookings" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>💰 Payments Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/payments</span>
+            <div>
+                <span class="role-badge">Cashier</span>
+                <span class="role-badge">Manager</span>
+                <span class="role-badge">Admin</span>
+            </div>
+            <p>Generate financial summary of invoices and payments</p>
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="payments-status">Payment Status:</label>
+                    <select id="payments-status">
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="payments-from">Date From:</label>
+                    <input type="date" id="payments-from">
+                </div>
+                <div class="form-group">
+                    <label for="payments-to">Date To:</label>
+                    <input type="date" id="payments-to">
+                </div>
+                <div class="form-group">
+                    <label for="payments-format">Format:</label>
+                    <select id="payments-format">
+                        <option value="json">JSON</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button onclick="testPaymentsReport()">Generate Report</button>
+            </div>
+            <div id="response-payments" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>🔧 Jobs Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/jobs</span>
+            <div>
+                <span class="role-badge">Service Advisor</span>
+                <span class="role-badge">Technician</span>
+                <span class="role-badge">Manager</span>
+                <span class="role-badge">Admin</span>
+            </div>
+            <p>Generate technical work assignments and completion status</p>
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="jobs-status">Status:</label>
+                    <select id="jobs-status">
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="working">Working</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="on_hold">On Hold</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="jobs-category">Category:</label>
+                    <select id="jobs-category">
+                        <option value="">All</option>
+                        <option value="mechanical">Mechanical</option>
+                        <option value="electrical">Electrical</option>
+                        <option value="bodywork">Bodywork</option>
+                        <option value="detailing">Detailing</option>
+                        <option value="inspection">Inspection</option>
+                        <option value="repair">Repair</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="jobs-from">Date From:</label>
+                    <input type="date" id="jobs-from">
+                </div>
+                <div class="form-group">
+                    <label for="jobs-to">Date To:</label>
+                    <input type="date" id="jobs-to">
+                </div>
+                <div class="form-group">
+                    <label for="jobs-format">Format:</label>
+                    <select id="jobs-format">
+                        <option value="json">JSON</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button onclick="testJobsReport()">Generate Report</button>
+            </div>
+            <div id="response-jobs" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>🏖️ Leave Requests Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/leaves</span>
+            <div>
+                <span class="role-badge">Admin</span>
+                <span class="role-badge">Manager</span>
+            </div>
+            <p>Generate employee leave requests and approvals</p>
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="leaves-status">Status:</label>
+                    <select id="leaves-status">
+                        <option value="">All</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="leaves-type">Leave Type:</label>
+                    <select id="leaves-type">
+                        <option value="">All</option>
+                        <option value="annual">Annual</option>
+                        <option value="sick">Sick</option>
+                        <option value="emergency">Emergency</option>
+                        <option value="maternity">Maternity</option>
+                        <option value="paternity">Paternity</option>
+                        <option value="unpaid">Unpaid</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="leaves-from">Date From:</label>
+                    <input type="date" id="leaves-from">
+                </div>
+                <div class="form-group">
+                    <label for="leaves-to">Date To:</label>
+                    <input type="date" id="leaves-to">
+                </div>
+                <div class="form-group">
+                    <label for="leaves-format">Format:</label>
+                    <select id="leaves-format">
+                        <option value="json">JSON</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button onclick="testLeavesReport()">Generate Report</button>
+            </div>
+            <div id="response-leaves" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📦 Inventory Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/inventory</span>
+            <div>
+                <span class="role-badge">Manager</span>
+                <span class="role-badge">Admin</span>
+            </div>
+            <p>Generate parts and supplies inventory analysis</p>
+            <div class="test-form">
+                <div class="form-group">
+                    <label for="inventory-category">Category:</label>
+                    <select id="inventory-category">
+                        <option value="">All</option>
+                        <option value="parts">Parts</option>
+                        <option value="tools">Tools</option>
+                        <option value="fluids">Fluids</option>
+                        <option value="consumables">Consumables</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inventory-lowstock">Low Stock Only:</label>
+                    <select id="inventory-lowstock">
+                        <option value="">All Items</option>
+                        <option value="true">Low Stock Only</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inventory-format">Format:</label>
+                    <select id="inventory-format">
+                        <option value="json">JSON</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <button onclick="testInventoryReport()">Generate Report</button>
+            </div>
+            <div id="response-inventory" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📈 Dashboard Report</h3>
+        <div class="endpoint">
+            <span class="method get">GET</span>
+            <span class="url">/api/v1/reports/dashboard</span>
+            <div>
+                <span class="role-badge">Manager</span>
+                <span class="role-badge">Admin</span>
+            </div>
+            <p>Generate comprehensive dashboard summary</p>
+            <button onclick="testEndpoint('/api/v1/reports/dashboard')">Generate Dashboard</button>
+            <div id="response-dashboard" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = '';
+
+        function setAuthToken() {
+            authToken = document.getElementById('authToken').value;
+            const status = document.getElementById('authStatus');
+            if (authToken) {
+                status.innerHTML = '✅ Token set successfully';
+                status.style.color = 'green';
+            } else {
+                status.innerHTML = '❌ Please enter a valid token';
+                status.style.color = 'red';
+            }
+        }
+
+        async function testEndpoint(endpoint, params = {}) {
+            const url = new URL(`http://localhost:5000${endpoint}`);
+            
+            // Add query parameters
+            Object.keys(params).forEach(key => {
+                if (params[key]) {
+                    url.searchParams.append(key, params[key]);
+                }
+            });
+
+            const responseId = `response-${endpoint.split('/').pop()}`;
+            const responseDiv = document.getElementById(responseId);
+
+            try {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch(url, { headers });
+                
+                let responseText;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/pdf')) {
+                    responseText = 'PDF file downloaded successfully!';
+                    // Create a blob and download the PDF
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `${endpoint.split('/').pop()}-report.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    document.body.removeChild(a);
+                } else {
+                    responseText = await response.text();
+                }
+
+                responseDiv.style.display = 'block';
+                responseDiv.innerHTML = `Status: ${response.status}\n\n${responseText}`;
+                
+                if (response.ok) {
+                    responseDiv.style.color = 'green';
+                } else {
+                    responseDiv.style.color = 'red';
+                }
+            } catch (error) {
+                responseDiv.style.display = 'block';
+                responseDiv.style.color = 'red';
+                responseDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        function testBookingsReport() {
+            const params = {
+                status: document.getElementById('bookings-status').value,
+                serviceType: document.getElementById('bookings-service').value,
+                dateFrom: document.getElementById('bookings-from').value,
+                dateTo: document.getElementById('bookings-to').value,
+                format: document.getElementById('bookings-format').value
+            };
+            testEndpoint('/api/v1/reports/bookings', params);
+        }
+
+        function testPaymentsReport() {
+            const params = {
+                paymentStatus: document.getElementById('payments-status').value,
+                dateFrom: document.getElementById('payments-from').value,
+                dateTo: document.getElementById('payments-to').value,
+                format: document.getElementById('payments-format').value
+            };
+            testEndpoint('/api/v1/reports/payments', params);
+        }
+
+        function testJobsReport() {
+            const params = {
+                status: document.getElementById('jobs-status').value,
+                category: document.getElementById('jobs-category').value,
+                dateFrom: document.getElementById('jobs-from').value,
+                dateTo: document.getElementById('jobs-to').value,
+                format: document.getElementById('jobs-format').value
+            };
+            testEndpoint('/api/v1/reports/jobs', params);
+        }
+
+        function testLeavesReport() {
+            const params = {
+                status: document.getElementById('leaves-status').value,
+                leaveType: document.getElementById('leaves-type').value,
+                dateFrom: document.getElementById('leaves-from').value,
+                dateTo: document.getElementById('leaves-to').value,
+                format: document.getElementById('leaves-format').value
+            };
+            testEndpoint('/api/v1/reports/leaves', params);
+        }
+
+        function testInventoryReport() {
+            const params = {
+                category: document.getElementById('inventory-category').value,
+                lowStock: document.getElementById('inventory-lowstock').value,
+                format: document.getElementById('inventory-format').value
+            };
+            testEndpoint('/api/v1/reports/inventory', params);
+        }
+
+        // Set default date range to last 30 days
+        const today = new Date();
+        const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        document.querySelectorAll('input[type="date"]').forEach(input => {
+            if (input.id.includes('from')) {
+                input.value = lastMonth.toISOString().split('T')[0];
+            } else {
+                input.value = today.toISOString().split('T')[0];
+            }
+        });
+    </script>
+</body>
+</html>

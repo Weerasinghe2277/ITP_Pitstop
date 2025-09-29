@@ -1,0 +1,105 @@
+{{!-- {{#if summary}}
+<div class="table-section">
+    <h2 class="table-title">Bookings Summary</h2>
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h4>Total Bookings</h4>
+            <div class="value">{{summary.totalBookings}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Completed</h4>
+            <div class="value">{{summary.completedBookings}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>In Progress</h4>
+            <div class="value">{{summary.inProgressBookings}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Revenue</h4>
+            <div class="value">${{formatCurrency summary.totalRevenue}}</div>
+        </div>
+    </div>
+</div>
+{{/if}} --}}
+
+{{#if bookingsByStatus.length}}
+<div class="table-section">
+    <h2 class="table-title">Bookings by Status</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each bookingsByStatus}}
+            <tr>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td>{{count}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+{{#if bookingsByServiceType.length}}
+<div class="table-section">
+    <h2 class="table-title">Bookings by Service Type</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Service Type</th>
+                <th>Count</th>
+                <th>Percentage</th>
+                <th>Average Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each bookingsByServiceType}}
+            <tr>
+                <td>{{serviceType}}</td>
+                <td>{{count}}</td>
+                <td>{{percentage}}%</td>
+                <td>${{formatCurrency averageCost}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+<div class="table-section">
+    <h2 class="table-title">Bookings Details</h2>
+    <table class="data-table cols-8">
+        <thead>
+            <tr>
+                <th>Booking ID</th>
+                <th>Customer</th>
+                <th>Vehicle</th>
+                <th>Service Type</th>
+                <th>Scheduled Date</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Estimated Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each bookings}}
+            <tr>
+                <td>{{bookingId}}</td>
+                <td>{{customerName}}</td>
+                <td>{{vehicleInfo}}</td>
+                <td>{{serviceType}}</td>
+                <td>{{formatDate scheduledDate}}</td>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td><span class="status {{priority}}">{{priority}}</span></td>
+                <td>${{formatCurrency estimatedCost}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

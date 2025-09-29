@@ -1,0 +1,111 @@
+{{!-- {{#if summary}}
+<div class="table-section">
+    <h2 class="table-title">Inventory Summary</h2>
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h4>Total Items</h4>
+            <div class="value">{{summary.totalItems}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Low Stock Items</h4>
+            <div class="value">{{summary.lowStockItems}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Out of Stock</h4>
+            <div class="value">{{summary.outOfStockItems}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Value</h4>
+            <div class="value">${{formatCurrency summary.totalValue}}</div>
+        </div>
+    </div>
+</div>
+{{/if}} --}}
+
+{{#if itemsByCategory.length}}
+<div class="table-section">
+    <h2 class="table-title">Inventory by Category</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Count</th>
+                <th>Total Value</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each itemsByCategory}}
+            <tr>
+                <td>{{category}}</td>
+                <td>{{count}}</td>
+                <td>${{formatCurrency totalValue}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+{{#if lowStockItems.length}}
+<div class="table-section">
+    <h2 class="table-title">Low Stock Alert</h2>
+    <table class="data-table cols-6">
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Current Stock</th>
+                <th>Minimum Stock</th>
+                <th>Unit Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each lowStockItems}}
+            <tr style="background-color: #fef3c7;">
+                <td>{{itemId}}</td>
+                <td>{{name}}</td>
+                <td>{{category}}</td>
+                <td>{{currentStock}}</td>
+                <td>{{minimumStock}}</td>
+                <td>${{formatCurrency unitPrice}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+<div class="table-section">
+    <h2 class="table-title">Inventory Details</h2>
+    <table class="data-table cols-8">
+        <thead>
+            <tr>
+                <th>Item ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Brand</th>
+                <th>Current Stock</th>
+                <th>Unit</th>
+                <th>Unit Price</th>
+                <th>Total Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each inventoryItems}}
+            <tr>
+                <td>{{itemId}}</td>
+                <td>{{name}}</td>
+                <td>{{category}}</td>
+                <td>{{brand}}</td>
+                <td>{{currentStock}}</td>
+                <td>{{unit}}</td>
+                <td>${{formatCurrency unitPrice}}</td>
+                <td>${{formatCurrency totalValue}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>

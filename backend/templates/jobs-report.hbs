@@ -1,0 +1,109 @@
+{{!-- {{#if summary}}
+<div class="table-section">
+    <h2 class="table-title">Jobs Summary</h2>
+    <div class="summary-cards">
+        <div class="summary-card">
+            <h4>Total Jobs</h4>
+            <div class="value">{{summary.totalJobs}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Completed Jobs</h4>
+            <div class="value">{{summary.completedJobs}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>In Progress</h4>
+            <div class="value">{{summary.inProgressJobs}}</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Hours</h4>
+            <div class="value">{{summary.totalHours}}</div>
+        </div>
+    </div>
+</div>
+{{/if}} --}}
+
+{{#if jobsByCategory.length}}
+<div class="table-section">
+    <h2 class="table-title">Jobs by Category</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Count</th>
+                <th>Percentage</th>
+                <th>Average Hours</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each jobsByCategory}}
+            <tr>
+                <td>{{category}}</td>
+                <td>{{count}}</td>
+                <td>{{percentage}}%</td>
+                <td>{{averageHours}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+{{#if jobsByStatus.length}}
+<div class="table-section">
+    <h2 class="table-title">Jobs by Status</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each jobsByStatus}}
+            <tr>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td>{{count}}</td>
+                <td>{{percentage}}%</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
+{{/if}}
+
+<div class="table-section">
+    <h2 class="table-title">Job Details</h2>
+    <table class="data-table cols-10">
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Assigned Technician</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Estimated Hours</th>
+                <th>Actual Hours</th>
+                <th>Created Date</th>
+                <th>Completion Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#each jobs}}
+            <tr>
+                <td>{{jobId}}</td>
+                <td>{{title}}</td>
+                <td>{{category}}</td>
+                <td>{{technicianName}}</td>
+                <td><span class="status {{status}}">{{status}}</span></td>
+                <td><span class="status {{priority}}">{{priority}}</span></td>
+                <td>{{estimatedHours}}</td>
+                <td>{{actualHours}}</td>
+                <td>{{formatDate createdAt}}</td>
+                <td>{{formatDate completedAt}}</td>
+            </tr>
+            {{/each}}
+        </tbody>
+    </table>
+</div>
