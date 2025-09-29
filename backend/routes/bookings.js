@@ -33,7 +33,7 @@ router.route("/:id")
   .patch(authenticate, authorize("cashier", "admin", "manager"), updateBooking);
 
 // Booking workflow operations
-router.patch("/:id/assign-inspector", authenticate, authorize("cashier"), assignInspector);
+router.patch("/:id/assign-inspector", authenticate, authorize("cashier", "admin", "manager"), assignInspector);
 router.patch("/:id/status", authenticate, authorize("service_advisor", "cashier", "admin", "manager"), updateBookingStatus);
 router.patch("/:id/cancel", authenticate, authorize("cashier", "admin", "manager"), cancelBooking);
 router.post("/:id/notes", authenticate, authorize("cashier", "service_advisor", "admin", "manager"), addBookingNote);
