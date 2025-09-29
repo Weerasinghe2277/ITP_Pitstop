@@ -1,0 +1,452 @@
+/* InspectorVoiceAssistant.css */
+
+.inspector-voice-assistant {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.inspector-voice-assistant.collapsed {
+  width: 280px;
+  height: 70px;
+}
+
+.inspector-voice-assistant.expanded {
+  width: 400px;
+  height: 600px;
+  max-height: 80vh;
+}
+
+/* Header */
+.inspector-voice-assistant .assistant-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-radius: 12px 12px 0 0;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.inspector-voice-assistant .assistant-header:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.inspector-voice-assistant .assistant-icon {
+  margin-right: 12px;
+}
+
+.inspector-voice-assistant .status-icon {
+  font-size: 24px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.inspector-voice-assistant .assistant-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  color: white;
+}
+
+.inspector-voice-assistant .assistant-name {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.inspector-voice-assistant .assistant-status {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.inspector-voice-assistant .expand-toggle {
+  font-size: 18px;
+  color: white;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.inspector-voice-assistant .assistant-header:hover .expand-toggle {
+  opacity: 1;
+}
+
+/* Expanded Content */
+.inspector-voice-assistant .assistant-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 70px);
+  background: white;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Voice Controls */
+.inspector-voice-assistant .voice-controls {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.inspector-voice-assistant .voice-button {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.inspector-voice-assistant .voice-button.start {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.inspector-voice-assistant .voice-button.start:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+
+.inspector-voice-assistant .voice-button.stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.inspector-voice-assistant .voice-button.stop:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+}
+
+.inspector-voice-assistant .voice-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Messages */
+.inspector-voice-assistant .messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspector-voice-assistant .messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.inspector-voice-assistant .messages-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.inspector-voice-assistant .messages-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.inspector-voice-assistant .messages-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.inspector-voice-assistant .welcome-message {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 20px;
+  background: #fef3c7;
+  border-radius: 8px;
+  border: 1px solid #f59e0b;
+}
+
+.inspector-voice-assistant .welcome-message p {
+  margin: 0 0 8px 0;
+}
+
+.inspector-voice-assistant .welcome-message p:last-child {
+  margin-bottom: 0;
+}
+
+.inspector-voice-assistant .message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+}
+
+.inspector-voice-assistant .message.user {
+  align-items: flex-end;
+}
+
+.inspector-voice-assistant .message.assistant {
+  align-items: flex-start;
+}
+
+.inspector-voice-assistant .message.system {
+  align-items: center;
+}
+
+.inspector-voice-assistant .message.error {
+  align-items: center;
+}
+
+.inspector-voice-assistant .message-content {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  position: relative;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.inspector-voice-assistant .message.user .message-content {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.inspector-voice-assistant .message.assistant .message-content {
+  background: #fef3c7;
+  color: #92400e;
+  border-bottom-left-radius: 4px;
+  border: 1px solid #fbbf24;
+}
+
+.inspector-voice-assistant .message.system .message-content {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 12px;
+  max-width: 100%;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.inspector-voice-assistant .message.error .message-content {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  max-width: 100%;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.inspector-voice-assistant .message-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.inspector-voice-assistant .timestamp {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-top: 4px;
+  display: block;
+}
+
+/* Text Input */
+.inspector-voice-assistant .message-input-form {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fefbf3;
+  border-radius: 0 0 12px 12px;
+}
+
+.inspector-voice-assistant .input-container {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.inspector-voice-assistant .message-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #f59e0b;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  resize: none;
+  min-height: 20px;
+  max-height: 100px;
+  line-height: 1.4;
+  background: white;
+}
+
+.inspector-voice-assistant .message-input:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.inspector-voice-assistant .message-input::placeholder {
+  color: #9ca3af;
+}
+
+.inspector-voice-assistant .send-button {
+  padding: 12px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.inspector-voice-assistant .send-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+}
+
+.inspector-voice-assistant .send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .inspector-voice-assistant {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .inspector-voice-assistant.collapsed {
+    width: auto;
+  }
+
+  .inspector-voice-assistant.expanded {
+    width: auto;
+    height: 70vh;
+    max-height: 70vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .inspector-voice-assistant.expanded {
+    height: 80vh;
+    max-height: 80vh;
+  }
+
+  .inspector-voice-assistant .assistant-header {
+    padding: 10px 12px;
+  }
+
+  .inspector-voice-assistant .assistant-name {
+    font-size: 14px;
+  }
+
+  .inspector-voice-assistant .assistant-status {
+    font-size: 11px;
+  }
+
+  .inspector-voice-assistant .messages-container {
+    padding: 12px;
+  }
+
+  .inspector-voice-assistant .message-content {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .inspector-voice-assistant .message-input-form {
+    padding: 12px;
+  }
+}
+
+/* Animation for status changes */
+.inspector-voice-assistant.collapsed .status-icon {
+  animation: pulse 2s infinite;
+}
+
+.inspector-voice-assistant.expanded .assistant-header {
+  animation: none;
+}
+
+/* Loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.inspector-voice-assistant .status-icon:contains("🔄") {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions */
+.inspector-voice-assistant * {
+  transition: all 0.2s ease;
+}
+
+/* Focus states for accessibility */
+.inspector-voice-assistant .assistant-header:focus,
+.inspector-voice-assistant .voice-button:focus,
+.inspector-voice-assistant .message-input:focus,
+.inspector-voice-assistant .send-button:focus {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .inspector-voice-assistant {
+    border: 2px solid #000;
+  }
+  
+  .inspector-voice-assistant .message.user .message-content {
+    background: #000;
+    color: #fff;
+  }
+  
+  .inspector-voice-assistant .message.assistant .message-content {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+  }
+}
+
+/* Specific positioning when both assistants might be present */
+.inspector-voice-assistant {
+  bottom: 20px;
+  right: 20px;
+}
+
+/* If technician assistant is also present, position inspector assistant to the left */
+.technician-voice-assistant ~ .inspector-voice-assistant {
+  right: 320px; /* Offset by technician assistant width */
+}
+
+@media (max-width: 768px) {
+  .technician-voice-assistant ~ .inspector-voice-assistant {
+    right: 10px;
+    bottom: 100px; /* Stack vertically on mobile */
+  }
+}

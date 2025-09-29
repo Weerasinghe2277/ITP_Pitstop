@@ -1,0 +1,432 @@
+/* TechnicianVoiceAssistant.css */
+
+.technician-voice-assistant {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.technician-voice-assistant.collapsed {
+  width: 280px;
+  height: 70px;
+}
+
+.technician-voice-assistant.expanded {
+  width: 400px;
+  height: 600px;
+  max-height: 80vh;
+}
+
+/* Header */
+.assistant-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-radius: 12px 12px 0 0;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.assistant-header:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.assistant-icon {
+  margin-right: 12px;
+}
+
+.status-icon {
+  font-size: 24px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.assistant-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  color: white;
+}
+
+.assistant-name {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.assistant-status {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.expand-toggle {
+  font-size: 18px;
+  color: white;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.assistant-header:hover .expand-toggle {
+  opacity: 1;
+}
+
+/* Expanded Content */
+.assistant-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 70px);
+  background: white;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Voice Controls */
+.voice-controls {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.voice-button {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.voice-button.start {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.voice-button.start:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+
+.voice-button.stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.voice-button.stop:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+}
+
+.voice-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Messages */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.welcome-message {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.welcome-message p {
+  margin: 0 0 8px 0;
+}
+
+.welcome-message p:last-child {
+  margin-bottom: 0;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+}
+
+.message.user {
+  align-items: flex-end;
+}
+
+.message.assistant {
+  align-items: flex-start;
+}
+
+.message.system {
+  align-items: center;
+}
+
+.message.error {
+  align-items: center;
+}
+
+.message-content {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  position: relative;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.message.user .message-content {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message.assistant .message-content {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-bottom-left-radius: 4px;
+}
+
+.message.system .message-content {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  max-width: 100%;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.message.error .message-content {
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  max-width: 100%;
+  text-align: center;
+  border-radius: 12px;
+}
+
+.message-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.timestamp {
+  font-size: 10px;
+  opacity: 0.6;
+  margin-top: 4px;
+  display: block;
+}
+
+/* Text Input */
+.message-input-form {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 0 0 12px 12px;
+}
+
+.input-container {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.message-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  resize: none;
+  min-height: 20px;
+  max-height: 100px;
+  line-height: 1.4;
+}
+
+.message-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.message-input::placeholder {
+  color: #9ca3af;
+}
+
+.send-button {
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1);
+  transform: translateY(-1px);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .technician-voice-assistant {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    min-width: unset;
+    max-width: unset;
+  }
+
+  .technician-voice-assistant.collapsed {
+    width: auto;
+  }
+
+  .technician-voice-assistant.expanded {
+    width: auto;
+    height: 70vh;
+    max-height: 70vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .technician-voice-assistant.expanded {
+    height: 80vh;
+    max-height: 80vh;
+  }
+
+  .assistant-header {
+    padding: 10px 12px;
+  }
+
+  .assistant-name {
+    font-size: 14px;
+  }
+
+  .assistant-status {
+    font-size: 11px;
+  }
+
+  .messages-container {
+    padding: 12px;
+  }
+
+  .message-content {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .message-input-form {
+    padding: 12px;
+  }
+}
+
+/* Animation for status changes */
+.technician-voice-assistant.collapsed .status-icon {
+  animation: pulse 2s infinite;
+}
+
+.technician-voice-assistant.expanded .assistant-header {
+  animation: none;
+}
+
+/* Loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.status-icon:contains("🔄") {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions */
+.technician-voice-assistant * {
+  transition: all 0.2s ease;
+}
+
+/* Focus states for accessibility */
+.assistant-header:focus,
+.voice-button:focus,
+.message-input:focus,
+.send-button:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .technician-voice-assistant {
+    border: 2px solid #000;
+  }
+  
+  .message.user .message-content {
+    background: #000;
+    color: #fff;
+  }
+  
+  .message.assistant .message-content {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+  }
+}

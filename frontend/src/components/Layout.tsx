@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
+import TechnicianVoiceAssistant from "./TechnicianVoiceAssistant";
+import InspectorVoiceAssistant from "./InspectorVoiceAssistant";
 
 export default function Layout() {
     const { user, logout } = useAuth();
@@ -645,6 +647,12 @@ export default function Layout() {
                         <Outlet />
                     </div>
                 </main>
+                
+                {/* Voice Assistant for Technicians */}
+                {isTechnician && <TechnicianVoiceAssistant />}
+                
+                {/* Voice Assistant for Inspectors/Service Advisors */}
+                {isServiceAdvisor && <InspectorVoiceAssistant />}
             </div>
         </div>
     );
