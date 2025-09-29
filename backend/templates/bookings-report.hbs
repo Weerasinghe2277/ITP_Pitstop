@@ -16,7 +16,7 @@
         </div>
         <div class="summary-card">
             <h4>Total Revenue</h4>
-            <div class="value">${{formatCurrency summary.totalRevenue}}</div>
+            <div class="value">LKR {{formatCurrency summary.totalRevenue}}</div>
         </div>
     </div>
 </div>
@@ -64,7 +64,7 @@
                 <td>{{serviceType}}</td>
                 <td>{{count}}</td>
                 <td>{{percentage}}%</td>
-                <td>${{formatCurrency averageCost}}</td>
+                <td>LKR {{formatCurrency averageCost}}</td>
             </tr>
             {{/each}}
         </tbody>
@@ -97,7 +97,7 @@
                 <td>{{formatDate scheduledDate}}</td>
                 <td><span class="status {{status}}">{{status}}</span></td>
                 <td><span class="status {{priority}}">{{priority}}</span></td>
-                <td>${{formatCurrency estimatedCost}}</td>
+                <td>LKR {{formatCurrency estimatedCost}}</td>
             </tr>
             {{/each}}
         </tbody>

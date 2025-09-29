@@ -8,7 +8,7 @@
         </div>
         <div class="summary-card">
             <h4>Total Revenue</h4>
-            <div class="value">${{formatCurrency summary.totalRevenue}}</div>
+            <div class="value">LKR {{formatCurrency summary.totalRevenue}}</div>
         </div>
         <div class="summary-card">
             <h4>Paid Invoices</h4>
@@ -16,7 +16,7 @@
         </div>
         <div class="summary-card">
             <h4>Average Invoice</h4>
-            <div class="value">${{formatCurrency summary.averageInvoice}}</div>
+            <div class="value">LKR {{formatCurrency summary.averageInvoice}}</div>
         </div>
     </div>
 </div>
@@ -39,7 +39,7 @@
             <tr>
                 <td><span class="status {{status}}">{{status}}</span></td>
                 <td>{{count}}</td>
-                <td>${{formatCurrency totalAmount}}</td>
+                <td>LKR {{formatCurrency totalAmount}}</td>
                 <td>{{percentage}}%</td>
             </tr>
             {{/each}}
@@ -72,9 +72,9 @@
                 <td>{{customerName}}</td>
                 <td>{{formatDate issueDate}}</td>
                 <td>{{formatDate dueDate}}</td>
-                <td>${{formatCurrency subtotal}}</td>
-                <td>${{formatCurrency tax}}</td>
-                <td>${{formatCurrency totalAmount}}</td>
+                <td>LKR {{formatCurrency subtotal}}</td>
+                <td>LKR {{formatCurrency tax}}</td>
+                <td>LKR {{formatCurrency totalAmount}}</td>
                 <td><span class="status {{paymentStatus}}">{{paymentStatus}}</span></td>
             </tr>
             {{/each}}

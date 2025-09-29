@@ -37,17 +37,17 @@ export default function Layout() {
         sections.push({ path: "/", label: "Dashboard", icon: "📊" });
 
         // Bookings
-        if (isCashier || isAdmin || isManager || isServiceAdvisor) {
+        if (isCashier || isAdmin || isServiceAdvisor) {
             sections.push({ path: "/bookings", label: "Bookings", icon: "📅" });
         }
 
-        // Invoices - Only for cashier, admin, and manager
-        if (isCashier || isAdmin || isManager) {
+        // Invoices - Only for cashier and admin
+        if (isCashier || isAdmin) {
             sections.push({ path: "/invoices", label: "Invoices", icon: "🧾" });
         }
 
-        // Jobs - Remove general jobs for technicians, keep for others
-        if (isServiceAdvisor || isAdmin || isManager) {
+        // Jobs - Remove general jobs for technicians and managers, keep for others
+        if (isServiceAdvisor || isAdmin) {
             sections.push({ path: "/jobs", label: "Jobs", icon: "🔧" });
         }
 
@@ -62,7 +62,7 @@ export default function Layout() {
         }
 
         // Admin sections
-        if (isAdmin || isManager) {
+        if (isAdmin) {
             sections.push(
                 { type: "divider", label: "Administration" },
                 { path: "/users", label: "Users", icon: "👥" },

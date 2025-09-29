@@ -27,11 +27,7 @@ const rolePermissions = {
     manager: [
         { name: "Inventory Management", path: "/inventory", icon: "📊", description: "Monitor and manage inventory levels", color: "#06B6D4" },
         { name: "Goods Requests", path: "/goods/pending", icon: "📦", description: "Approve or reject goods requests", color: "#F97316" },
-        { name: "User Management", path: "/users", icon: "👥", description: "Manage system users and permissions", color: "#EC4899" },
-        { name: "Bookings Report", path: "/reports/api/bookings", icon: "📊", description: "Generate comprehensive bookings reports", color: "#2563eb" },
         { name: "Payments Report", path: "/reports/api/payments", icon: "💰", description: "View financial payments and invoice reports", color: "#059669" },
-        { name: "Jobs Report", path: "/reports/api/jobs", icon: "🔧", description: "Generate technical work assignments reports", color: "#f59e0b" },
-        { name: "Leave Reports", path: "/reports/api/leaves", icon: "🏖️", description: "View employee leave requests reports", color: "#7c3aed" },
         { name: "Inventory Report", path: "/reports/api/inventory", icon: "📦", description: "Generate inventory analysis reports", color: "#dc2626" },
         { name: "Dashboard Report", path: "/reports/api/dashboard", icon: "📈", description: "View comprehensive dashboard summary", color: "#059669" },
         { name: "Leave Request", path: "/leave", icon: "🏖️", description: "Request time off work", color: "#F59E0B" },
@@ -101,7 +97,7 @@ const getRoleStats = (role) => {
             { title: "Pending Tasks", value: 7, change: +1, icon: "📋", trend: "up" },
         ],
         owner: [
-            { title: "Monthly Revenue", value: "$24,582", change: +12, icon: "💰", trend: "up" },
+            { title: "Monthly Revenue", value: "LKR 2,458,200", change: +12, icon: "💰", trend: "up" },
             { title: "New Customers", value: 34, change: +5, icon: "👥", trend: "up" },
             { title: "Active Jobs", value: 27, change: +3, icon: "🔧", trend: "up" },
         ],
@@ -115,7 +111,7 @@ const getRecentActivity = (role) => {
         cashier: [
             { action: "Created invoice", target: "INV-00528", time: "10 mins ago", type: "success" },
             { action: "Updated booking", target: "BK-1024", time: "25 mins ago", type: "info" },
-            { action: "Processed payment", target: "$152.50", time: "1 hour ago", type: "success" },
+            { action: "Processed payment", target: "LKR 15,250.00", time: "1 hour ago", type: "success" },
         ],
         service_advisor: [
             { action: "Assigned job", target: "JV-2025", time: "15 mins ago", type: "info" },
@@ -433,14 +429,14 @@ export default function Dashboard() {
                             cursor: 'pointer',
                             border: `1px solid ${theme.border}`,
                         }}
-                             onMouseEnter={(e) => {
-                                 e.currentTarget.style.transform = 'translateY(-4px)';
-                                 e.currentTarget.style.boxShadow = '0 8px 40px rgba(0, 0, 0, 0.15)';
-                             }}
-                             onMouseLeave={(e) => {
-                                 e.currentTarget.style.transform = 'translateY(0)';
-                                 e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
-                             }}>
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-4px)';
+                                e.currentTarget.style.boxShadow = '0 8px 40px rgba(0, 0, 0, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+                            }}>
                             <div style={{
                                 width: '64px',
                                 height: '64px',
@@ -781,12 +777,12 @@ export default function Dashboard() {
                                     borderRadius: '6px',
                                     transition: 'background 0.2s ease',
                                 }}
-                                      onMouseEnter={(e) => {
-                                          e.currentTarget.style.background = `${theme.primary}10`;
-                                      }}
-                                      onMouseLeave={(e) => {
-                                          e.currentTarget.style.background = 'transparent';
-                                      }}>
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = `${theme.primary}10`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'transparent';
+                                    }}>
                                     View All
                                 </span>
                             </div>
@@ -807,14 +803,14 @@ export default function Dashboard() {
                                         cursor: 'pointer',
                                         border: `1px solid ${theme.border}`,
                                     }}
-                                         onMouseEnter={(e) => {
-                                             e.currentTarget.style.background = theme.surfaceElevated;
-                                             e.currentTarget.style.transform = 'translateX(4px)';
-                                         }}
-                                         onMouseLeave={(e) => {
-                                             e.currentTarget.style.background = theme.background;
-                                             e.currentTarget.style.transform = 'translateX(0)';
-                                         }}>
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = theme.surfaceElevated;
+                                            e.currentTarget.style.transform = 'translateX(4px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = theme.background;
+                                            e.currentTarget.style.transform = 'translateX(0)';
+                                        }}>
                                         <div style={{
                                             width: '32px',
                                             height: '32px',
@@ -897,12 +893,12 @@ export default function Dashboard() {
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                     onMouseEnter={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                     }}
-                                     onMouseLeave={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                     }}>
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                    }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>📞</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Call Support</span>
                                 </div>
@@ -915,12 +911,12 @@ export default function Dashboard() {
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                     onMouseEnter={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                     }}
-                                     onMouseLeave={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                     }}>
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                    }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>✉️</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>Email Support</span>
                                 </div>
@@ -933,12 +929,12 @@ export default function Dashboard() {
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                     onMouseEnter={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                                     }}
-                                     onMouseLeave={(e) => {
-                                         e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                                     }}>
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                                    }}>
                                     <span style={{ marginRight: '12px', fontSize: '16px' }}>📚</span>
                                     <span style={{ fontSize: '14px', fontWeight: '500' }}>View Documentation</span>
                                 </div>

@@ -39,6 +39,19 @@ interface ReportData {
     inventory?: InventoryData[];
 }
 
+// Helper function to format currency in LKR
+const formatLKR = (amount: number): string => {
+    try {
+        return amount.toLocaleString('en-LK', {
+            style: 'currency',
+            currency: 'LKR',
+            maximumFractionDigits: 2
+        });
+    } catch {
+        return `LKR ${amount.toFixed(2)}`;
+    }
+};
+
 const InventoryReport = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(false);
@@ -55,14 +68,14 @@ const InventoryReport = () => {
 
     const buildQueryParams = () => {
         const queryParams = new URLSearchParams();
-        
+
         // Add non-empty filters to query parameters
         (Object.keys(filters) as Array<keyof InventoryFilters>).forEach(key => {
             if (filters[key]) {
                 queryParams.append(key, filters[key]);
             }
         });
-        
+
         return queryParams.toString();
     };
 
@@ -99,7 +112,7 @@ const InventoryReport = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(downloadUrl);
-                
+
                 setReportData({ message: 'PDF downloaded successfully!' });
             } else {
                 // Handle JSON response
@@ -162,7 +175,7 @@ const InventoryReport = () => {
                     marginBottom: '20px',
                 }}>
                     <h3 style={{ marginBottom: '16px', color: '#374151' }}>Filters</h3>
-                    
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -401,7 +414,7 @@ const InventoryReport = () => {
                                         }}>
                                             <h4 style={{ margin: '0 0 8px 0', color: '#16a34a' }}>Total Value</h4>
                                             <p style={{ margin: 0, fontSize: '24px', fontWeight: '600', color: '#16a34a' }}>
-                                                ${reportData.summary.totalValue?.toLocaleString() || '0'}
+                                                {formatLKR(reportData.summary.totalValue || 0)}
                                             </p>
                                         </div>
                                     </div>
@@ -452,9 +465,9 @@ const InventoryReport = () => {
                                                             <td style={{ padding: '12px' }}>
                                                                 {item.minStockLevel}/{item.maxStockLevel || 'N/A'}
                                                             </td>
-                                                            <td style={{ padding: '12px' }}>${item.unitPrice.toFixed(2)}</td>
+                                                            <td style={{ padding: '12px' }}>{formatLKR(item.unitPrice)}</td>
                                                             <td style={{ padding: '12px' }}>
-                                                                ${(item.currentStock * item.unitPrice).toFixed(2)}
+                                                                {formatLKR(item.currentStock * item.unitPrice)}
                                                             </td>
                                                             <td style={{ padding: '12px' }}>
                                                                 <span style={{
@@ -462,18 +475,18 @@ const InventoryReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         item.currentStock === 0 ? '#fee2e2' :
-                                                                        item.currentStock <= item.minStockLevel ? '#fef3c7' :
-                                                                        item.maxStockLevel && item.currentStock > item.maxStockLevel ? '#e0e7ff' : '#dcfce7',
-                                                                    color: 
+                                                                            item.currentStock <= item.minStockLevel ? '#fef3c7' :
+                                                                                item.maxStockLevel && item.currentStock > item.maxStockLevel ? '#e0e7ff' : '#dcfce7',
+                                                                    color:
                                                                         item.currentStock === 0 ? '#dc2626' :
-                                                                        item.currentStock <= item.minStockLevel ? '#d97706' :
-                                                                        item.maxStockLevel && item.currentStock > item.maxStockLevel ? '#3730a3' : '#16a34a',
+                                                                            item.currentStock <= item.minStockLevel ? '#d97706' :
+                                                                                item.maxStockLevel && item.currentStock > item.maxStockLevel ? '#3730a3' : '#16a34a',
                                                                 }}>
                                                                     {item.currentStock === 0 ? 'Out of Stock' :
-                                                                     item.currentStock <= item.minStockLevel ? 'Low Stock' :
-                                                                     item.maxStockLevel && item.currentStock > item.maxStockLevel ? 'Overstocked' : 'In Stock'}
+                                                                        item.currentStock <= item.minStockLevel ? 'Low Stock' :
+                                                                            item.maxStockLevel && item.currentStock > item.maxStockLevel ? 'Overstocked' : 'In Stock'}
                                                                 </span>
                                                             </td>
                                                         </tr>
