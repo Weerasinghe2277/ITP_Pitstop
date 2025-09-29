@@ -25,7 +25,7 @@ router.get("/available-inspectors", authenticate, authorize("cashier", "admin", 
 // Booking CRUD operations
 router.route("/")
   .get(authenticate, authorize("cashier", "admin", "manager", "service_advisor"), getAllBookings)
-  .post(authenticate, authorize("cashier"), createBooking);
+  .post(authenticate, authorize("cashier", "admin", "manager"), createBooking);
 
 // Booking management by ID
 router.route("/:id")
@@ -33,7 +33,7 @@ router.route("/:id")
   .patch(authenticate, authorize("cashier", "admin", "manager"), updateBooking);
 
 // Booking workflow operations
-router.patch("/:id/assign-inspector", authenticate, authorize("cashier"), assignInspector);
+router.patch("/:id/assign-inspector", authenticate, authorize("cashier", "admin", "manager"), assignInspector);
 router.patch("/:id/status", authenticate, authorize("service_advisor", "cashier", "admin", "manager"), updateBookingStatus);
 router.patch("/:id/cancel", authenticate, authorize("cashier", "admin", "manager"), cancelBooking);
 router.post("/:id/notes", authenticate, authorize("cashier", "service_advisor", "admin", "manager"), addBookingNote);

@@ -211,6 +211,40 @@ export default function JobDetail() {
         load();
     }, [id, user]);
 
+    // NEW: Function to sync booking status with job status
+    async function syncBookingStatus(jobStatus: string) {
+        if (!job?.booking?._id) {
+            console.log("No booking associated with this job, skipping sync");
+            return;
+        }
+
+        // Define job status to booking status mapping
+        const statusMapping: Record<string, string> = {
+            'working': 'working',
+            'completed': 'completed',
+            'on_hold': 'on_hold',
+            'cancelled': 'cancelled'
+        };
+
+        const bookingStatus = statusMapping[jobStatus];
+
+        if (!bookingStatus) {
+            console.log(`No booking status mapping for job status: ${jobStatus}`);
+            return;
+        }
+
+        try {
+            console.log(`Syncing booking status to: ${bookingStatus}`);
+            await http.patch(`/bookings/${job.booking._id}/status`, {
+                status: bookingStatus
+            });
+            console.log(`Booking status updated successfully to: ${bookingStatus}`);
+        } catch (error: any) {
+            console.error("Error syncing booking status:", error);
+            // Don't show error to user for sync failure, just log it
+        }
+    }
+
     async function updateStatus() {
         if (!id || !status.trim()) {
             setMsg({ text: "Please select a status", type: "error" });
@@ -259,7 +293,11 @@ export default function JobDetail() {
 
             console.log("Updating job status:", requestData);
             await http.patch(`/jobs/${id}/status`, requestData);
-            setMsg({ text: "Status updated successfully", type: "success" });
+
+            // NEW: Sync booking status after successful job status update
+            await syncBookingStatus(status.trim());
+
+            setMsg({ text: "Status updated successfully and booking synced", type: "success" });
             setStatusNotes("");
             await load();
         } catch (error: any) {
@@ -348,6 +386,12 @@ export default function JobDetail() {
     const isAssignedTechnician = user?.role === "technician" && job?.assignedLabourers?.some(
         assignment => assignment.labourer._id === user._id || assignment.labourer.userId === user.userId
     );
+
+    // NEW: Condition for showing Update Job Status section
+    const showUpdateStatusSection = canUpdateStatus &&
+        user?.role !== "service_advisor" && // Hide for service advisors
+        (user?.role !== "technician" || isAssignedTechnician) && // For technicians, only if assigned
+        job?.status === "working"; // Only show when job status is "working"
 
     // Set default datetime values
     useEffect(() => {
@@ -577,7 +621,6 @@ export default function JobDetail() {
                 </div>
             )}
 
-            {/* Rest of your existing JSX with all the job details cards... */}
             {/* Job Overview */}
             <div style={card}>
                 <h2 style={sectionTitle}>Job Overview</h2>
@@ -672,6 +715,15 @@ export default function JobDetail() {
                             <div style={field}>
                                 <span style={label}>Scheduled Date</span>
                                 <span style={value}>{new Date(job.booking.scheduledDate).toLocaleString()}</span>
+                            </div>
+                        )}
+                        {/* NEW: Display synced booking status */}
+                        {job.booking.status && (
+                            <div style={field}>
+                                <span style={label}>Booking Status</span>
+                                <span style={value}>
+                                    <StatusBadge value={job.booking.status} size="small" />
+                                </span>
                             </div>
                         )}
                     </div>
@@ -882,7 +934,8 @@ export default function JobDetail() {
 
             {/* Actions */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24 }}>
-                {canUpdateStatus && (user?.role !== "technician" || isAssignedTechnician) && (
+                {/* Update Job Status Section - Conditionally rendered */}
+                {showUpdateStatusSection && (
                     <div style={card}>
                         <h2 style={sectionTitle}>Update Job Status</h2>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -904,6 +957,17 @@ export default function JobDetail() {
                             <button type="button" onClick={updateStatus} disabled={updating || !status.trim()} style={btn("#3b82f6", updating || !status.trim())}>
                                 {updating ? "Updating..." : "Update Status"}
                             </button>
+                            {/* NEW: Info message about booking sync */}
+                            <div style={{
+                                padding: "8px 12px",
+                                backgroundColor: "#f0f9ff",
+                                border: "1px solid #bae6fd",
+                                borderRadius: "6px",
+                                fontSize: "12px",
+                                color: "#0369a1"
+                            }}>
+                                ℹ️ Updating job status will also update the associated booking status automatically.
+                            </div>
                         </div>
                     </div>
                 )}
