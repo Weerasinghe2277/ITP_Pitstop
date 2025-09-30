@@ -1,4 +1,3 @@
-// src/features/goods/GoodsRequestsList.jsx
 import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
 
@@ -6,6 +5,7 @@ export default function GoodsRequestsList({ mode }) {
     const [rows, setRows] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [msg, setMsg] = useState({ text: "", type: "" });
+    const [expandedRows, setExpandedRows] = useState(new Set());
 
     const path = mode === "pending" ? "/goods-requests/pending" : "/goods-requests/my-requests";
 
@@ -16,7 +16,6 @@ export default function GoodsRequestsList({ mode }) {
             console.log("Loading goods requests from:", path);
             const r = await http.get(path);
             console.log("Goods requests response:", r.data);
-            // Handle different property names returned by different endpoints
             const requests = mode === "pending"
                 ? r.data?.pendingRequests || []
                 : r.data?.goodsRequests || [];
@@ -25,7 +24,7 @@ export default function GoodsRequestsList({ mode }) {
             if (requests.length === 0) {
                 console.log("No goods requests found");
             }
-        } catch (e: any) {
+        } catch (e) {
             console.error("Error loading goods requests:", e);
             setMsg({ text: e.message || "Failed to load goods requests", type: "error" });
         } finally {
@@ -43,14 +42,13 @@ export default function GoodsRequestsList({ mode }) {
                 const r = await http.get(path);
                 console.log("Initial goods requests response:", r.data);
                 if (!cancelled) {
-                    // Handle different property names returned by different endpoints
                     const requests = mode === "pending"
                         ? r.data?.pendingRequests || []
                         : r.data?.goodsRequests || [];
                     console.log("Setting initial goods requests:", requests);
                     setRows(requests);
                 }
-            } catch (e: any) {
+            } catch (e) {
                 console.error("Error in initial goods requests load:", e);
                 if (!cancelled) setMsg({ text: e.message || "Failed to load goods requests", type: "error" });
             } finally {
@@ -60,7 +58,7 @@ export default function GoodsRequestsList({ mode }) {
         return () => {
             cancelled = true;
         };
-    }, [path, mode]); // Load on path change with a cancellation guard to avoid setState after unmount [web:69].
+    }, [path, mode]);
 
     async function act(id, action) {
         const seg = action === "approve" ? "approve" : action === "reject" ? "reject" : "release";
@@ -77,9 +75,19 @@ export default function GoodsRequestsList({ mode }) {
         }
     }
 
+    function toggleExpand(id) {
+        const newExpanded = new Set(expandedRows);
+        if (newExpanded.has(id)) {
+            newExpanded.delete(id);
+        } else {
+            newExpanded.add(id);
+        }
+        setExpandedRows(newExpanded);
+    }
+
     // Styles
     const wrap = {
-        maxWidth: "1200px",
+        maxWidth: "1400px",
         margin: "0 auto",
         padding: "20px",
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -111,34 +119,87 @@ export default function GoodsRequestsList({ mode }) {
         fontWeight: 600,
         cursor: "pointer",
     };
-    const tableWrap = { overflowX: "auto" };
-    const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
-    const thStyle = {
-        textAlign: "left",
-        padding: "12px",
-        fontSize: "12px",
-        color: "#6b7280",
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        background: "#f9fafb",
-        borderBottom: "1px solid #e5e7eb",
-        position: "sticky",
-        top: 0,
-        zIndex: 1,
+    const requestCard = {
+        background: "white",
+        borderRadius: "12px",
+        padding: "20px",
+        marginBottom: "16px",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.06)",
+        border: "1px solid #e5e7eb",
+        transition: "box-shadow 0.2s",
     };
-    const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px", verticalAlign: "top" };
+    const requestHeader = {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: "16px",
+        gap: "16px",
+        flexWrap: "wrap",
+    };
     const pill = (bg, color, border) => ({
         display: "inline-block",
-        padding: "4px 8px",
+        padding: "6px 12px",
         borderRadius: 9999,
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 700,
         backgroundColor: bg,
         color,
         border: `1px solid ${border}`,
     });
-    const approveBtn = {
+    const infoGrid = {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: "16px",
+        marginBottom: "16px",
+    };
+    const infoBox = {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+    };
+    const label = {
+        fontSize: "12px",
+        color: "#6b7280",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        fontWeight: 600,
+    };
+    const value = {
+        fontSize: "14px",
+        color: "#111827",
+        fontWeight: 500,
+    };
+    const itemsSection = {
+        marginTop: "16px",
+        padding: "16px",
+        backgroundColor: "#f9fafb",
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+    };
+    const itemCard = {
+        backgroundColor: "white",
+        padding: "12px",
+        borderRadius: "6px",
+        marginBottom: "8px",
+        border: "1px solid #e5e7eb",
+    };
+    const expandBtn = {
         padding: "8px 12px",
+        backgroundColor: "#f3f4f6",
+        color: "#374151",
+        border: "1px solid #d1d5db",
+        borderRadius: "6px",
+        fontSize: "13px",
+        fontWeight: 600,
+        cursor: "pointer",
+    };
+    const actionBtns = {
+        display: "flex",
+        gap: "8px",
+        flexWrap: "wrap",
+    };
+    const approveBtn = {
+        padding: "8px 16px",
         backgroundColor: "#10b981",
         color: "white",
         border: "1px solid #059669",
@@ -148,7 +209,7 @@ export default function GoodsRequestsList({ mode }) {
         cursor: "pointer",
     };
     const rejectBtn = {
-        padding: "8px 12px",
+        padding: "8px 16px",
         backgroundColor: "#ef4444",
         color: "white",
         border: "1px solid #b91c1c",
@@ -158,7 +219,7 @@ export default function GoodsRequestsList({ mode }) {
         cursor: "pointer",
     };
     const releaseBtn = {
-        padding: "8px 12px",
+        padding: "8px 16px",
         backgroundColor: "#3b82f6",
         color: "white",
         border: "1px solid #2563eb",
@@ -166,6 +227,25 @@ export default function GoodsRequestsList({ mode }) {
         fontSize: "13px",
         fontWeight: 600,
         cursor: "pointer",
+    };
+
+    const formatDate = (dateStr) => {
+        try {
+            if (!dateStr) return "—";
+            const date = new Date(dateStr);
+            return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+        } catch (error) {
+            console.error('Error formatting date:', error);
+            return "—";
+        }
+    };
+
+    const getStatusBadge = (status) => {
+        const s = String(status || "").toLowerCase();
+        if (s === "approved") return pill("#f0fdf4", "#166534", "#bbf7d0");
+        if (s === "rejected") return pill("#fef2f2", "#991b1b", "#fecaca");
+        if (s === "released") return pill("#eff6ff", "#1d4ed8", "#bfdbfe");
+        return pill("#fffbeb", "#92400e", "#fde68a");
     };
 
     return (
@@ -176,7 +256,7 @@ export default function GoodsRequestsList({ mode }) {
                 <button type="button" onClick={load} style={refreshBtn}>Refresh</button>
             </div>
 
-            {/* Message (polite live region) */}
+            {/* Message */}
             {msg.text && (
                 <div
                     role="status"
@@ -192,7 +272,7 @@ export default function GoodsRequestsList({ mode }) {
                 >
                     {msg.text}
                 </div>
-            ) /* Live regions are appropriate for advisory updates that shouldn't interrupt focus [web:155][web:163]. */}
+            )}
 
             {/* Loading */}
             {isLoading && (
@@ -209,92 +289,172 @@ export default function GoodsRequestsList({ mode }) {
                         }}
                     />
                 </div>
-            ) /* Simple inline spinner card to indicate progress consistent with other screens [web:69]. */}
+            )}
 
-            {/* Table */}
-            {!isLoading && (
-                <div style={{ ...card, padding: 0 }}>
-                    <div style={tableWrap}>
-                        <table style={tableStyle} aria-label="Goods requests">
-                            <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-                                Goods requests
-                            </caption>
-                            <thead>
-                                <tr>
-                                    <th scope="col" style={thStyle}>Request</th>
-                                    <th scope="col" style={thStyle}>Job</th>
-                                    <th scope="col" style={thStyle}>Created</th>
-                                    <th scope="col" style={thStyle}>Status</th>
-                                    {mode === "pending" && <th scope="col" style={thStyle}></th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={mode === "pending" ? 5 : 4} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                            No goods requests
-                                        </td>
-                                    </tr>
-                                )}
-                                {rows.map((x) => {
-                                    const s = String(x.status || "").toLowerCase();
-                                    const badge =
-                                        s === "approved"
-                                            ? pill("#f0fdf4", "#166534", "#bbf7d0")
-                                            : s === "rejected"
-                                                ? pill("#fef2f2", "#991b1b", "#fecaca")
-                                                : s === "released"
-                                                    ? pill("#eff6ff", "#1d4ed8", "#bfdbfe")
-                                                    : pill("#fffbeb", "#92400e", "#fde68a");
-                                    return (
-                                        <tr key={x._id}>
-                                            <td style={tdStyle}>
-                                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                                    <span style={{ fontWeight: 700, color: "#111827" }}>{x.requestId || x._id}</span>
-                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
-                                                        {Array.isArray(x.items) ? `${x.items.length} item${x.items.length === 1 ? "" : "s"}` : "—"}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td style={tdStyle}>{x.job?.jobId || x.job || "—"}</td>
-                                            <td style={tdStyle}>
-                                                {(() => {
-                                                    try {
-                                                        if (!x.createdAt) return "—";
-                                                        const date = new Date(x.createdAt);
-                                                        return isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
-                                                    } catch (error) {
-                                                        console.error('Error formatting date:', error);
-                                                        return "—";
-                                                    }
-                                                })()}
-                                            </td>
-                                            <td style={tdStyle}>
-                                                <span style={badge}>{x.status || "pending"}</span>
-                                            </td>
-                                            {mode === "pending" && (
-                                                <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                                                    <button type="button" onClick={() => act(x._id, "approve")} style={approveBtn}>
-                                                        Approve
-                                                    </button>
-                                                    <span style={{ display: "inline-block", width: 8 }} />
-                                                    <button type="button" onClick={() => act(x._id, "reject")} style={rejectBtn}>
-                                                        Reject
-                                                    </button>
-                                                    <span style={{ display: "inline-block", width: 8 }} />
-                                                    <button type="button" onClick={() => act(x._id, "release")} style={releaseBtn}>
-                                                        Release
-                                                    </button>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+            {/* Requests List */}
+            {!isLoading && rows.length === 0 && (
+                <div style={{ ...card, textAlign: "center", color: "#6b7280", padding: "48px" }}>
+                    <div style={{ fontSize: "48px", marginBottom: "16px" }}>📦</div>
+                    <div style={{ fontSize: "18px", fontWeight: 600 }}>No goods requests found</div>
+                    <div style={{ fontSize: "14px", marginTop: "8px" }}>Check back later or create a new request</div>
                 </div>
             )}
+
+            {!isLoading && rows.map((x) => {
+                const isExpanded = expandedRows.has(x._id);
+                return (
+                    <div key={x._id} style={requestCard}>
+                        {/* Request Header */}
+                        <div style={requestHeader}>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "20px", fontWeight: 700, color: "#111827", marginBottom: "8px" }}>
+                                    {x.requestId || x._id}
+                                </div>
+                                <span style={getStatusBadge(x.status)}>{x.status || "pending"}</span>
+                            </div>
+                            {mode === "pending" && (
+                                <div style={actionBtns}>
+                                    <button type="button" onClick={() => act(x._id, "approve")} style={approveBtn}>
+                                        Approve
+                                    </button>
+                                    <button type="button" onClick={() => act(x._id, "reject")} style={rejectBtn}>
+                                        Reject
+                                    </button>
+                                    <button type="button" onClick={() => act(x._id, "release")} style={releaseBtn}>
+                                        Release
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Info Grid */}
+                        <div style={infoGrid}>
+                            <div style={infoBox}>
+                                <div style={label}>Job ID</div>
+                                <div style={value}>
+                                    {(() => {
+                                        if (!x.job) return "—";
+                                        if (typeof x.job === 'string') return x.job;
+                                        if (x.job.$oid) return x.job.$oid;
+                                        if (x.job._id?.$oid) return x.job._id.$oid;
+                                        if (x.job._id) return x.job._id;
+                                        if (x.job.jobId) return x.job.jobId;
+                                        return JSON.stringify(x.job);
+                                    })()}
+                                </div>
+                            </div>
+                            <div style={infoBox}>
+                                <div style={label}>Requested By</div>
+                                <div style={value}>
+                                    {x.requestedBy?.name || x.requestedBy?.email || x.requestedBy?._id || x.requestedBy || "—"}
+                                </div>
+                            </div>
+                            <div style={infoBox}>
+                                <div style={label}>Created At</div>
+                                <div style={value}>{formatDate(x.createdAt)}</div>
+                            </div>
+                            <div style={infoBox}>
+                                <div style={label}>Updated At</div>
+                                <div style={value}>{formatDate(x.updatedAt)}</div>
+                            </div>
+                            <div style={infoBox}>
+                                <div style={label}>Total Items</div>
+                                <div style={value}>
+                                    {Array.isArray(x.items) ? `${x.items.length} item${x.items.length === 1 ? "" : "s"}` : "—"}
+                                </div>
+                            </div>
+                            <div style={infoBox}>
+                                <div style={label}>Version</div>
+                                <div style={value}>{x.__v !== undefined ? `v${x.__v}` : "—"}</div>
+                            </div>
+                        </div>
+
+                        {/* Notes */}
+                        {x.notes && (
+                            <div style={{ marginTop: "12px", padding: "12px", backgroundColor: "#fffbeb", borderRadius: "6px", border: "1px solid #fde68a" }}>
+                                <div style={{ ...label, marginBottom: "4px" }}>Notes</div>
+                                <div style={{ fontSize: "14px", color: "#92400e" }}>{x.notes}</div>
+                            </div>
+                        )}
+
+                        {/* Items Section */}
+                        {Array.isArray(x.items) && x.items.length > 0 && (
+                            <div style={itemsSection}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#374151" }}>
+                                        Items ({x.items.length})
+                                    </div>
+                                    <button type="button" onClick={() => toggleExpand(x._id)} style={expandBtn}>
+                                        {isExpanded ? "Hide Details" : "Show Details"}
+                                    </button>
+                                </div>
+
+                                {isExpanded && (
+                                    <div>
+                                        {x.items.map((item, idx) => (
+                                            <div key={item._id || idx} style={itemCard}>
+                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
+                                                    <div>
+                                                        <div style={{ ...label, marginBottom: "4px" }}>Item ID</div>
+                                                        <div style={{ fontSize: "13px", color: "#111827", fontWeight: 600 }}>
+                                                            {item.item?.name || item.item?.itemId || item.item?._id || item.item || "—"}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ ...label, marginBottom: "4px" }}>Quantity</div>
+                                                        <div style={{ fontSize: "13px", color: "#111827", fontWeight: 600 }}>
+                                                            {item.quantity || 0}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ gridColumn: "1 / -1" }}>
+                                                        <div style={{ ...label, marginBottom: "4px" }}>Purpose</div>
+                                                        <div style={{ fontSize: "13px", color: "#374151" }}>
+                                                            {item.purpose || "—"}
+                                                        </div>
+                                                    </div>
+                                                    {item._id && (
+                                                        <div style={{ gridColumn: "1 / -1" }}>
+                                                            <div style={{ ...label, marginBottom: "4px" }}>Item Record ID</div>
+                                                            <div style={{ fontSize: "11px", color: "#6b7280", fontFamily: "monospace" }}>
+                                                                {item._id}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* MongoDB IDs Section */}
+                        {isExpanded && (
+                            <div style={{ marginTop: "16px", padding: "12px", backgroundColor: "#f9fafb", borderRadius: "6px", border: "1px solid #e5e7eb" }}>
+                                <div style={{ ...label, marginBottom: "8px" }}>Database IDs</div>
+                                <div style={{ display: "grid", gap: "8px" }}>
+                                    <div>
+                                        <span style={{ fontSize: "11px", color: "#6b7280", marginRight: "8px" }}>Request:</span>
+                                        <span style={{ fontSize: "11px", color: "#111827", fontFamily: "monospace" }}>{x._id}</span>
+                                    </div>
+                                    {x.job?._id && (
+                                        <div>
+                                            <span style={{ fontSize: "11px", color: "#6b7280", marginRight: "8px" }}>Job:</span>
+                                            <span style={{ fontSize: "11px", color: "#111827", fontFamily: "monospace" }}>{x.job._id}</span>
+                                        </div>
+                                    )}
+                                    {x.requestedBy?._id && (
+                                        <div>
+                                            <span style={{ fontSize: "11px", color: "#6b7280", marginRight: "8px" }}>User:</span>
+                                            <span style={{ fontSize: "11px", color: "#111827", fontFamily: "monospace" }}>{x.requestedBy._id}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
 
             <style>
                 {`
