@@ -12,12 +12,22 @@ export default function CreateInvoice() {
     const [taxRate, setTaxRate] = useState(0);
     const [discount, setDiscount] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState("cash");
-    const [invoiceStatus, setInvoiceStatus] = useState("completed"); // Added invoice status state
+    const [invoiceStatus, setInvoiceStatus] = useState("completed");
     const [notes, setNotes] = useState("");
     const [message, setMessage] = useState({ text: "", type: "" });
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+
+    // Payment popup states
+    const [showCardPayment, setShowCardPayment] = useState(false);
+    const [showQRPayment, setShowQRPayment] = useState(false);
+    const [cardDetails, setCardDetails] = useState({
+        cardNumber: '',
+        cardName: '',
+        expiryDate: '',
+        cvv: ''
+    });
 
     useEffect(() => {
         let ignore = false;
@@ -27,80 +37,110 @@ export default function CreateInvoice() {
             try {
                 // Load inventory items first
                 const inventoryResponse = await http.get("/inventory");
+                const allInventory = inventoryResponse.data?.items || inventoryResponse.data || [];
                 if (!ignore) {
-                    setInventoryItems(inventoryResponse.data?.items || inventoryResponse.data || []);
+                    setInventoryItems(allInventory);
                 }
 
                 // Load booking data
                 const bookingResponse = await http.get(`/bookings/${bookingId}`);
+                const bookingData = bookingResponse.data?.booking || bookingResponse.data || null;
                 if (!ignore) {
-                    setBooking(bookingResponse.data?.booking || null);
+                    setBooking(bookingData);
+                }
 
-                    // Load job data for this booking
-                    try {
-                        const jobResponse = await http.get(`/jobs/booking/${bookingId}`);
-                        const jobData = jobResponse.data?.job || jobResponse.data?.jobs?.[0] || null;
+                // Load job data for this booking
+                let jobData = null;
+                try {
+                    const jobResponse = await http.get(`/jobs/booking/${bookingId}`);
+                    jobData = jobResponse.data?.job || jobResponse.data?.jobs?.[0] || null;
+
+                    if (!ignore) {
                         setJob(jobData);
+                    }
+                } catch (jobError) {
+                    console.warn("No job found for this booking:", jobError.message);
+                }
 
-                        // Initialize items based on job data
-                        if (jobData) {
-                            const initialItems = [];
-                            const allInventory = inventoryResponse.data?.items || inventoryResponse.data || [];
+                // Initialize items based on job data
+                if (!ignore) {
+                    const initialItems = [];
 
-                            // Add labor items from assigned labourers
-                            if (jobData.assignedLabourers && jobData.assignedLabourers.length > 0) {
-                                jobData.assignedLabourers.forEach((labourer) => {
-                                    const hoursWorked = labourer.hoursWorked || 0;
-                                    initialItems.push({
-                                        description: `Labor - ${labourer.labourer?.name || 'Technician'}`,
-                                        quantity: hoursWorked,
-                                        unitPrice: 2000,
-                                        type: 'labor',
-                                        inventoryItemId: null
-                                    });
-                                });
-                            }
+                    if (jobData) {
+                        // Add labor items from assigned labourers
+                        if (jobData.assignedLabourers && Array.isArray(jobData.assignedLabourers) && jobData.assignedLabourers.length > 0) {
+                            jobData.assignedLabourers.forEach((labourerEntry) => {
+                                const labourerName = labourerEntry.labourer?.name ||
+                                    labourerEntry.labourer?.profile?.firstName ||
+                                    'Technician';
+                                const hoursWorked = labourerEntry.hoursWorked || 1;
 
-                            // Add parts/materials from job requirements with inventory lookup
-                            if (jobData.requirements?.materials && jobData.requirements.materials.length > 0) {
-                                jobData.requirements.materials.forEach((material) => {
-                                    const inventoryItem = allInventory.find(inv =>
-                                        inv.name.toLowerCase() === material.name.toLowerCase()
-                                    );
-
-                                    initialItems.push({
-                                        description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${material.name}`,
-                                        quantity: material.quantity || 1,
-                                        unitPrice: inventoryItem?.unitPrice || 0,
-                                        type: 'part',
-                                        inventoryItemId: inventoryItem?._id || null,
-                                        stockAvailable: inventoryItem?.currentStock || 0
-                                    });
-                                });
-                            }
-
-                            // Add default labor item if no items created
-                            if (initialItems.length === 0) {
                                 initialItems.push({
-                                    description: "Labor",
-                                    quantity: jobData.actualHours || jobData.estimatedHours || 1,
+                                    description: `Labor - ${labourerName}`,
+                                    quantity: parseFloat(hoursWorked.toFixed(2)),
                                     unitPrice: 2000,
                                     type: 'labor',
                                     inventoryItemId: null
                                 });
-                            }
-
-                            setItems(initialItems);
-                        } else {
-                            setItems([{ description: "Labor", quantity: 1, unitPrice: 2000, type: 'labor', inventoryItemId: null }]);
+                            });
                         }
-                    } catch (jobError) {
-                        console.warn("No job found for this booking:", jobError.message);
-                        setItems([{ description: "Labor", quantity: 1, unitPrice: 2000, type: 'labor', inventoryItemId: null }]);
+
+                        // Add parts/materials from job requirements
+                        if (jobData.requirements?.materials && Array.isArray(jobData.requirements.materials) && jobData.requirements.materials.length > 0) {
+                            jobData.requirements.materials.forEach((material) => {
+                                const materialName = material.name || 'Unnamed Part';
+                                const materialQty = material.quantity || 1;
+
+                                // Try to find matching inventory item
+                                const inventoryItem = allInventory.find(inv =>
+                                    inv.name.toLowerCase().trim() === materialName.toLowerCase().trim()
+                                );
+
+                                initialItems.push({
+                                    description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${materialName}`,
+                                    quantity: materialQty,
+                                    unitPrice: inventoryItem?.unitPrice || 0,
+                                    type: 'part',
+                                    inventoryItemId: inventoryItem?._id || null,
+                                    stockAvailable: inventoryItem?.currentStock || 0
+                                });
+                            });
+                        }
+
+                        // Add a default labor item if no items were created
+                        if (initialItems.length === 0) {
+                            initialItems.push({
+                                description: "Labor",
+                                quantity: jobData.actualHours || jobData.estimatedHours || 1,
+                                unitPrice: 2000,
+                                type: 'labor',
+                                inventoryItemId: null
+                            });
+                        }
+
+                        // Auto-populate notes from job
+                        if (jobData.notes) {
+                            setNotes(jobData.notes);
+                        }
+                    } else {
+                        // No job found, add default labor item
+                        initialItems.push({
+                            description: "Labor",
+                            quantity: 1,
+                            unitPrice: 2000,
+                            type: 'labor',
+                            inventoryItemId: null
+                        });
                     }
+
+                    setItems(initialItems);
                 }
             } catch (e) {
-                if (!ignore) setMessage({ text: e.message || "Failed to load booking", type: "error" });
+                if (!ignore) {
+                    setMessage({ text: e.message || "Failed to load booking", type: "error" });
+                    // Set a default item even on error
+                    setItems([{ description: "Labor", quantity: 1, unitPrice: 2000, type: 'labor', inventoryItemId: null }]);
+                }
             } finally {
                 if (!ignore) setIsLoading(false);
             }
@@ -192,7 +232,6 @@ export default function CreateInvoice() {
             if ((it.quantity ?? 0) <= 0) return `Line ${i + 1}: quantity must be greater than 0`;
             if ((it.unitPrice ?? 0) < 0) return `Line ${i + 1}: unit price must be >= 0`;
 
-            // Check stock availability for parts
             if (it.type === 'part' && it.inventoryItemId && it.stockAvailable !== undefined) {
                 if (it.quantity > it.stockAvailable) {
                     return `Line ${i + 1}: insufficient stock (available: ${it.stockAvailable})`;
@@ -207,6 +246,21 @@ export default function CreateInvoice() {
         if (!invoiceStatus) return "Invoice status is required";
 
         return "";
+    }
+
+    function handlePaymentMethodChange(method) {
+        setPaymentMethod(method);
+
+        if (method === 'card') {
+            setShowCardPayment(true);
+            setShowQRPayment(false);
+        } else if (method === 'digital') {
+            setShowQRPayment(true);
+            setShowCardPayment(false);
+        } else {
+            setShowCardPayment(false);
+            setShowQRPayment(false);
+        }
     }
 
     async function submit() {
@@ -238,7 +292,7 @@ export default function CreateInvoice() {
                 discount: Math.max(0, discount || 0),
                 total: total(),
                 paymentMethod,
-                status: invoiceStatus, // Added status field
+                status: invoiceStatus,
                 notes: notes.trim()
             };
 
@@ -254,6 +308,62 @@ export default function CreateInvoice() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsSubmitting(false);
+        }
+    }
+
+    function autoFillFromJob() {
+        if (!job) {
+            setMessage({ text: "No job data available to auto-fill", type: "error" });
+            return;
+        }
+
+        const jobItems = [];
+
+        // Add labor from assigned labourers
+        if (job.assignedLabourers && Array.isArray(job.assignedLabourers) && job.assignedLabourers.length > 0) {
+            job.assignedLabourers.forEach((labourerEntry) => {
+                const labourerName = labourerEntry.labourer?.name ||
+                    labourerEntry.labourer?.profile?.firstName ||
+                    'Technician';
+                const hoursWorked = labourerEntry.hoursWorked || 1;
+
+                jobItems.push({
+                    description: `Labor - ${labourerName}`,
+                    quantity: parseFloat(hoursWorked.toFixed(2)),
+                    unitPrice: 2000,
+                    type: 'labor',
+                    inventoryItemId: null
+                });
+            });
+        }
+
+        // Add materials from job requirements
+        if (job.requirements?.materials && Array.isArray(job.requirements.materials) && job.requirements.materials.length > 0) {
+            job.requirements.materials.forEach((material) => {
+                const materialName = material.name || 'Unnamed Part';
+                const materialQty = material.quantity || 1;
+
+                const inventoryItem = inventoryItems.find(inv =>
+                    inv.name.toLowerCase().trim() === materialName.toLowerCase().trim()
+                );
+
+                jobItems.push({
+                    description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${materialName}`,
+                    quantity: materialQty,
+                    unitPrice: inventoryItem?.unitPrice || 0,
+                    type: 'part',
+                    inventoryItemId: inventoryItem?._id || null,
+                    stockAvailable: inventoryItem?.currentStock
+                });
+            });
+        }
+
+        if (jobItems.length > 0) {
+            setItems(jobItems);
+            setMessage({ text: "Invoice items auto-filled from job data", type: "success" });
+            setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+        } else {
+            setMessage({ text: "No items found in job data", type: "error" });
         }
     }
 
@@ -339,9 +449,32 @@ export default function CreateInvoice() {
         verticalAlign: 'top'
     };
 
+    const modalOverlay = {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+    };
+
+    const modalContent = {
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        padding: '32px',
+        maxWidth: '500px',
+        width: '90%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+    };
+
     return (
         <div style={wrap}>
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
                 <div>
                     <h1 style={{ fontSize: 32, fontWeight: 700, color: '#1e293b', margin: 0 }}>Create Invoice</h1>
@@ -364,7 +497,6 @@ export default function CreateInvoice() {
                 </Link>
             </div>
 
-            {/* Messages */}
             {message.text && (
                 <div style={{
                     ...card,
@@ -386,12 +518,11 @@ export default function CreateInvoice() {
                 </div>
             ) : (
                 <>
-                    {/* Booking & Job Info */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 20 }}>
                         {booking && (
                             <div style={card}>
                                 <h2 style={sectionTitle}>
-                                    <span>📋</span> Booking Details
+                                    📋 Booking Details
                                 </h2>
                                 <div style={{ display: 'grid', gap: 14, fontSize: 14 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -419,7 +550,7 @@ export default function CreateInvoice() {
                         {job && (
                             <div style={card}>
                                 <h2 style={sectionTitle}>
-                                    <span>🔧</span> Job Details
+                                    🔧 Job Details
                                 </h2>
                                 <div style={{ display: 'grid', gap: 14, fontSize: 14 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -443,10 +574,9 @@ export default function CreateInvoice() {
                         )}
                     </div>
 
-                    {/* Invoice Items */}
                     <div style={card}>
                         <h2 style={sectionTitle}>
-                            <span>💰</span> Invoice Items
+                            💰 Invoice Items
                         </h2>
 
                         <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -458,41 +588,10 @@ export default function CreateInvoice() {
                             </button>
                             {job && (
                                 <button
-                                    onClick={() => {
-                                        const jobItems = [];
-                                        if (job.assignedLabourers) {
-                                            job.assignedLabourers.forEach((labourer) => {
-                                                jobItems.push({
-                                                    description: `Labor - ${labourer.labourer?.name || 'Technician'}`,
-                                                    quantity: labourer.hoursWorked || 1,
-                                                    unitPrice: 2000,
-                                                    type: 'labor',
-                                                    inventoryItemId: null
-                                                });
-                                            });
-                                        }
-                                        if (job.requirements?.materials) {
-                                            job.requirements.materials.forEach((material) => {
-                                                const inventoryItem = inventoryItems.find(inv =>
-                                                    inv.name.toLowerCase() === material.name.toLowerCase()
-                                                );
-                                                jobItems.push({
-                                                    description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${material.name}`,
-                                                    quantity: material.quantity || 1,
-                                                    unitPrice: inventoryItem?.unitPrice || 0,
-                                                    type: 'part',
-                                                    inventoryItemId: inventoryItem?._id || null,
-                                                    stockAvailable: inventoryItem?.currentStock
-                                                });
-                                            });
-                                        }
-                                        if (jobItems.length > 0) {
-                                            setItems(jobItems);
-                                        }
-                                    }}
+                                    onClick={autoFillFromJob}
                                     style={{ ...button, backgroundColor: '#3b82f6', color: 'white' }}
                                 >
-                                    Auto-fill from Job
+                                    🔄 Auto-fill from Job
                                 </button>
                             )}
                         </div>
@@ -613,11 +712,10 @@ export default function CreateInvoice() {
                         </div>
                     </div>
 
-                    {/* Charges & Summary */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 20 }}>
                         <div style={card}>
                             <h2 style={sectionTitle}>
-                                <span>⚙️</span> Additional Charges & Payment
+                                ⚙️ Additional Charges & Payment
                             </h2>
                             <div style={{ display: 'grid', gap: 18 }}>
                                 <div>
@@ -662,7 +760,7 @@ export default function CreateInvoice() {
                                     <label style={label}>Payment Method</label>
                                     <select
                                         value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
+                                        onChange={(e) => handlePaymentMethodChange(e.target.value)}
                                         style={control}
                                     >
                                         <option value="cash">Cash</option>
@@ -699,7 +797,7 @@ export default function CreateInvoice() {
 
                         <div style={card}>
                             <h2 style={sectionTitle}>
-                                <span>📊</span> Invoice Summary
+                                📊 Invoice Summary
                             </h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 15 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -786,11 +884,10 @@ export default function CreateInvoice() {
                         </div>
                     </div>
 
-                    {/* Invoice Preview */}
                     {showPreview && (
                         <div style={{ ...card, backgroundColor: '#f8fafc', padding: 32 }}>
                             <h2 style={sectionTitle}>
-                                <span>📄</span> Invoice Preview
+                                📄 Invoice Preview
                             </h2>
                             <div style={{
                                 backgroundColor: 'white',
@@ -799,7 +896,6 @@ export default function CreateInvoice() {
                                 border: '2px dashed #cbd5e1',
                                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                             }}>
-                                {/* Invoice Header */}
                                 <div style={{ textAlign: 'center', marginBottom: 32, borderBottom: '2px solid #e2e8f0', paddingBottom: 24 }}>
                                     <h3 style={{ fontSize: 28, margin: 0, fontWeight: 700, color: '#1e293b' }}>INVOICE</h3>
                                     <p style={{ color: '#64748b', margin: '8px 0 0 0', fontSize: 15 }}>
@@ -815,7 +911,6 @@ export default function CreateInvoice() {
                                     </p>
                                 </div>
 
-                                {/* Customer Info */}
                                 <div style={{
                                     display: 'grid',
                                     gridTemplateColumns: '1fr 1fr',
@@ -842,7 +937,6 @@ export default function CreateInvoice() {
                                     </div>
                                 </div>
 
-                                {/* Items Table */}
                                 <table style={{ width: '100%', marginBottom: 24, fontSize: 14 }}>
                                     <thead>
                                     <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -876,7 +970,6 @@ export default function CreateInvoice() {
                                     </tbody>
                                 </table>
 
-                                {/* Summary */}
                                 <div style={{
                                     marginTop: 24,
                                     paddingTop: 20,
@@ -913,7 +1006,6 @@ export default function CreateInvoice() {
                                     </div>
                                 </div>
 
-                                {/* Notes */}
                                 {notes && (
                                     <div style={{
                                         marginTop: 32,
@@ -927,7 +1019,6 @@ export default function CreateInvoice() {
                                     </div>
                                 )}
 
-                                {/* Footer */}
                                 <div style={{
                                     marginTop: 40,
                                     paddingTop: 20,
@@ -938,6 +1029,269 @@ export default function CreateInvoice() {
                                 }}>
                                     Thank you for your business!
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Card Payment Modal */}
+                    {showCardPayment && (
+                        <div style={modalOverlay} onClick={() => setShowCardPayment(false)}>
+                            <div style={modalContent} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                                    <h2 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>
+                                        💳 Card Payment
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowCardPayment(false)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            fontSize: 28,
+                                            cursor: 'pointer',
+                                            color: '#64748b',
+                                            lineHeight: 1
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: '#f8fafc',
+                                    padding: 20,
+                                    borderRadius: 12,
+                                    marginBottom: 24,
+                                    border: '2px solid #e2e8f0'
+                                }}>
+                                    <div style={{ fontSize: 14, color: '#64748b', marginBottom: 8 }}>Amount to Pay</div>
+                                    <div style={{ fontSize: 32, fontWeight: 700, color: '#3b82f6' }}>
+                                        {toMoney(total())}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: 20 }}>
+                                    <div>
+                                        <label style={label}>Card Number</label>
+                                        <input
+                                            type="text"
+                                            placeholder="1234 5678 9012 3456"
+                                            maxLength="19"
+                                            value={cardDetails.cardNumber}
+                                            onChange={(e) => {
+                                                let value = e.target.value.replace(/\s/g, '');
+                                                if (value.length > 16) value = value.slice(0, 16);
+                                                value = value.replace(/(\d{4})/g, '$1 ').trim();
+                                                setCardDetails({ ...cardDetails, cardNumber: value });
+                                            }}
+                                            style={{ ...control, fontSize: 16, letterSpacing: '0.05em' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={label}>Cardholder Name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="JOHN DOE"
+                                            value={cardDetails.cardName}
+                                            onChange={(e) => setCardDetails({ ...cardDetails, cardName: e.target.value.toUpperCase() })}
+                                            style={{ ...control, textTransform: 'uppercase' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                        <div>
+                                            <label style={label}>Expiry Date</label>
+                                            <input
+                                                type="text"
+                                                placeholder="MM/YY"
+                                                maxLength="5"
+                                                value={cardDetails.expiryDate}
+                                                onChange={(e) => {
+                                                    let value = e.target.value.replace(/\D/g, '');
+                                                    if (value.length >= 2) {
+                                                        value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                                                    }
+                                                    setCardDetails({ ...cardDetails, expiryDate: value });
+                                                }}
+                                                style={control}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={label}>CVV</label>
+                                            <input
+                                                type="password"
+                                                placeholder="123"
+                                                maxLength="4"
+                                                value={cardDetails.cvv}
+                                                onChange={(e) => {
+                                                    const value = e.target.value.replace(/\D/g, '');
+                                                    setCardDetails({ ...cardDetails, cvv: value });
+                                                }}
+                                                style={control}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    marginTop: 24,
+                                    padding: 16,
+                                    backgroundColor: '#eff6ff',
+                                    borderRadius: 8,
+                                    border: '1px solid #bfdbfe'
+                                }}>
+                                    <div style={{ fontSize: 13, color: '#1e40af', display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <span>🔒</span>
+                                        <span>Your payment information is secure and encrypted</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                                    <button
+                                        onClick={() => setShowCardPayment(false)}
+                                        style={{
+                                            ...button,
+                                            backgroundColor: '#f1f5f9',
+                                            color: '#475569',
+                                            flex: 1,
+                                            padding: 14
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setMessage({ text: "Card payment details captured", type: "success" });
+                                            setShowCardPayment(false);
+                                        }}
+                                        style={{
+                                            ...button,
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            flex: 1,
+                                            padding: 14
+                                        }}
+                                    >
+                                        Confirm Payment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* QR Code Payment Modal */}
+                    {showQRPayment && (
+                        <div style={modalOverlay} onClick={() => setShowQRPayment(false)}>
+                            <div style={modalContent} onClick={(e) => e.stopPropagation()}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                                    <h2 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>
+                                        📱 Digital Payment
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowQRPayment(false)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            fontSize: 28,
+                                            cursor: 'pointer',
+                                            color: '#64748b',
+                                            lineHeight: 1
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: '#f8fafc',
+                                    padding: 20,
+                                    borderRadius: 12,
+                                    marginBottom: 24,
+                                    border: '2px solid #e2e8f0'
+                                }}>
+                                    <div style={{ fontSize: 14, color: '#64748b', marginBottom: 8 }}>Amount to Pay</div>
+                                    <div style={{ fontSize: 32, fontWeight: 700, color: '#10b981' }}>
+                                        {toMoney(total())}
+                                    </div>
+                                </div>
+
+                                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                    <div style={{
+                                        backgroundColor: 'white',
+                                        padding: 24,
+                                        borderRadius: 16,
+                                        display: 'inline-block',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                    }}>
+                                        <img
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                                                JSON.stringify({
+                                                    merchantName: 'Your Business Name',
+                                                    amount: total(),
+                                                    currency: 'LKR',
+                                                    invoiceId: booking?.bookingId || 'N/A',
+                                                    paymentUrl: `${window.location.origin}/payment/${bookingId}`
+                                                })
+                                            )}`}
+                                            alt="Payment QR Code"
+                                            style={{ width: 200, height: 200, display: 'block' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                    <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b', marginBottom: 8 }}>
+                                        Scan QR Code to Pay
+                                    </div>
+                                    <div style={{ fontSize: 14, color: '#64748b' }}>
+                                        Use any UPI app, mobile banking app, or digital wallet
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(4, 1fr)',
+                                    gap: 12,
+                                    marginBottom: 24,
+                                    padding: 16,
+                                    backgroundColor: '#f8fafc',
+                                    borderRadius: 12
+                                }}>
+                                    <div style={{ textAlign: 'center', fontSize: 24 }}>💳</div>
+                                    <div style={{ textAlign: 'center', fontSize: 24 }}>📱</div>
+                                    <div style={{ textAlign: 'center', fontSize: 24 }}>💰</div>
+                                    <div style={{ textAlign: 'center', fontSize: 24 }}>🏦</div>
+                                </div>
+
+                                <div style={{
+                                    padding: 16,
+                                    backgroundColor: '#f0fdf4',
+                                    borderRadius: 8,
+                                    border: '1px solid #bbf7d0',
+                                    marginBottom: 24
+                                }}>
+                                    <div style={{ fontSize: 13, color: '#166534', display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <span>✓</span>
+                                        <span>Payment is secure and instant</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setMessage({ text: "Digital payment QR code displayed to customer", type: "success" });
+                                        setShowQRPayment(false);
+                                    }}
+                                    style={{
+                                        ...button,
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        width: '100%',
+                                        padding: 14
+                                    }}
+                                >
+                                    Payment Completed
+                                </button>
                             </div>
                         </div>
                     )}
