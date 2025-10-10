@@ -111,7 +111,7 @@ export default function CreateBooking() {
         description: "",
         priority: "medium",
     });
-    const [errors, setErrors] = useState<Partial<Record<keyof BookingForm, string>>>({}); // Store inline errors
+    const [errors, setErrors] = useState<Partial<Record<keyof BookingForm | 'searchNicOrEmail' | 'searchVehicleReg', string>>>({}); // Store inline errors
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -126,6 +126,8 @@ export default function CreateBooking() {
     const [isRegisteringCustomer, setIsRegisteringCustomer] = useState(false);
     const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
     const [searchNicOrEmail, setSearchNicOrEmail] = useState("");
+    const [isSearchingVehicle, setIsSearchingVehicle] = useState(false);
+    const [searchVehicleReg, setSearchVehicleReg] = useState("");
     const [currentTime, setCurrentTime] = useState(new Date());
 
     // Update current time every minute
@@ -146,6 +148,13 @@ export default function CreateBooking() {
         if (!/^(?:\d{9}[Vv]|\d{12}|[^\s@]+@[^\s@]+\.[^\s@]+)$/.test(value)) {
             return "Enter a valid NIC (e.g., 123456789V or 123456789012) or email";
         }
+        return "";
+    };
+
+    // Validate vehicle search input
+    const validateSearchVehicleReg = (value: string) => {
+        if (!value.trim()) return "Please enter vehicle registration number to search";
+        if (value.length < 2) return "Registration number must be at least 2 characters";
         return "";
     };
 
@@ -186,10 +195,50 @@ export default function CreateBooking() {
         }
     }
 
+    // Search for existing vehicle
+    async function searchExistingVehicle() {
+        const error = validateSearchVehicleReg(searchVehicleReg);
+        if (error) {
+            toast.error(error);
+            return;
+        }
+
+        setIsSearchingVehicle(true);
+        try {
+            const response = await http.get(`/vehicles/registration/${encodeURIComponent(searchVehicleReg.trim().toUpperCase())}`);
+            const vehicle = response.data?.vehicle;
+
+            if (vehicle) {
+                setForm(f => ({
+                    ...f,
+                    registrationNumber: vehicle.registrationNumber || "",
+                    vehicleMake: vehicle.make || "",
+                    vehicleModel: vehicle.model || "",
+                    fuelType: vehicle.fuelType || "petrol",
+                    transmission: vehicle.transmission || "manual",
+                    vehicle: vehicle._id || vehicle.id || "",
+                }));
+                setErrors({}); // Clear errors on successful vehicle load
+                toast.success("Vehicle found and form pre-filled!");
+                setSearchVehicleReg("");
+            } else {
+                toast.error("No vehicle found with that registration number");
+            }
+        } catch (e: any) {
+            if (e?.response?.status === 404) {
+                toast.error("No vehicle found with that registration number");
+            } else {
+                toast.error(e?.message || "Failed to search vehicle");
+            }
+        } finally {
+            setIsSearchingVehicle(false);
+        }
+    }
+
     // Inline validation for form fields
     function update<K extends keyof BookingForm>(key: K, value: BookingForm[K]) {
         setForm(f => ({ ...f, [key]: value }));
-        const validator = validators[key];
+        const validator = validators[key as keyof typeof validators];
         if (validator) {
             const error = validator(value as string);
             setErrors(prev => ({ ...prev, [key]: error }));
@@ -199,7 +248,7 @@ export default function CreateBooking() {
     // Inline validation for customer registration form
     function updateCustomer<K extends keyof CustomerRegForm>(key: K, value: CustomerRegForm[K]) {
         setCustomerForm(f => ({ ...f, [key]: value }));
-        const validator = validators[key];
+        const validator = validators[key as keyof typeof validators];
         if (validator) {
             const error = validator(value as string);
             setCustomerErrors(prev => ({ ...prev, [key]: error }));
@@ -377,8 +426,6 @@ export default function CreateBooking() {
         borderRadius: "8px",
         fontSize: "14px",
         backgroundColor: "white",
-        borderColor: (key: keyof BookingForm | keyof CustomerRegForm) =>
-            (errors[key] || customerErrors[key]) ? "#ef4444" : "#d1d5db",
     };
 
     const labelStyle = {
@@ -573,77 +620,124 @@ export default function CreateBooking() {
                     )}
 
                     {step === 2 && (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-                            <div>
-                                <label style={labelStyle}>Vehicle Registration Number *</label>
-                                <input
-                                    placeholder="Enter registration number (e.g., ABC-1234)"
-                                    value={form.registrationNumber}
-                                    onChange={(e) => update("registrationNumber", e.target.value.toUpperCase())}
-                                    style={{ ...inputStyle, borderColor: errors.registrationNumber ? "#ef4444" : "#d1d5db" }}
-                                    required
-                                />
-                                {errors.registrationNumber && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.registrationNumber}</p>}
+                        <>
+                            <div style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "8px", marginBottom: "24px", border: "1px solid #e2e8f0" }}>
+                                <h3 style={{ fontSize: "14px", fontWeight: 600, color: "#475569", marginBottom: "12px" }}>
+                                    Search Existing Vehicle (Optional)
+                                </h3>
+                                <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ ...labelStyle, fontSize: "13px" }}>Enter Vehicle Registration Number</label>
+                                        <input
+                                            placeholder="Enter vehicle registration number (e.g., ABC-1234)"
+                                            value={searchVehicleReg}
+                                            onChange={(e) => {
+                                                setSearchVehicleReg(e.target.value.toUpperCase());
+                                                const error = validateSearchVehicleReg(e.target.value);
+                                                setErrors(prev => ({ ...prev, searchVehicleReg: error }));
+                                            }}
+                                            style={{ ...inputStyle, borderColor: errors.searchVehicleReg ? "#ef4444" : "#d1d5db" }}
+                                        />
+                                        {errors.searchVehicleReg && (
+                                            <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.searchVehicleReg}</p>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={searchExistingVehicle}
+                                        disabled={isSearchingVehicle || !!errors.searchVehicleReg}
+                                        style={{
+                                            padding: "11px 16px",
+                                            backgroundColor: isSearchingVehicle || errors.searchVehicleReg ? "#9ca3af" : "#3b82f6",
+                                            color: "white",
+                                            border: "none",
+                                            borderRadius: "8px",
+                                            fontSize: "14px",
+                                            fontWeight: 500,
+                                            cursor: isSearchingVehicle || errors.searchVehicleReg ? "not-allowed" : "pointer",
+                                            whiteSpace: "nowrap"
+                                        }}
+                                    >
+                                        {isSearchingVehicle ? "Searching..." : "Search"}
+                                    </button>
+                                </div>
+                                <p style={{ fontSize: "12px", color: "#64748b", marginTop: "8px", marginBottom: "0" }}>
+                                    If found, vehicle details will be automatically filled in the form below.
+                                </p>
                             </div>
-                            <div>
-                                <label style={labelStyle}>Vehicle Make *</label>
-                                <input
-                                    placeholder="Enter vehicle make (e.g., Toyota, Honda, BMW)"
-                                    value={form.vehicleMake}
-                                    onChange={(e) => update("vehicleMake", e.target.value)}
-                                    style={{ ...inputStyle, borderColor: errors.vehicleMake ? "#ef4444" : "#d1d5db" }}
-                                    required
-                                />
-                                {errors.vehicleMake && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleMake}</p>}
+
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+                                <div>
+                                    <label style={labelStyle}>Vehicle Registration Number *</label>
+                                    <input
+                                        placeholder="Enter registration number (e.g., ABC-1234)"
+                                        value={form.registrationNumber}
+                                        onChange={(e) => update("registrationNumber", e.target.value.toUpperCase())}
+                                        style={{ ...inputStyle, borderColor: errors.registrationNumber ? "#ef4444" : "#d1d5db" }}
+                                        required
+                                    />
+                                    {errors.registrationNumber && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.registrationNumber}</p>}
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Vehicle Make *</label>
+                                    <input
+                                        placeholder="Enter vehicle make (e.g., Toyota, Honda, BMW)"
+                                        value={form.vehicleMake}
+                                        onChange={(e) => update("vehicleMake", e.target.value)}
+                                        style={{ ...inputStyle, borderColor: errors.vehicleMake ? "#ef4444" : "#d1d5db" }}
+                                        required
+                                    />
+                                    {errors.vehicleMake && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleMake}</p>}
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Vehicle Model *</label>
+                                    <input
+                                        placeholder="Enter vehicle model (e.g., Camry, Civic, X3)"
+                                        value={form.vehicleModel}
+                                        onChange={(e) => update("vehicleModel", e.target.value)}
+                                        style={{ ...inputStyle, borderColor: errors.vehicleModel ? "#ef4444" : "#d1d5db" }}
+                                        required
+                                    />
+                                    {errors.vehicleModel && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleModel}</p>}
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Fuel Type *</label>
+                                    <select
+                                        value={form.fuelType}
+                                        onChange={(e) => update("fuelType", e.target.value)}
+                                        style={inputStyle}
+                                        required
+                                    >
+                                        <option value="petrol">Petrol</option>
+                                        <option value="diesel">Diesel</option>
+                                        <option value="hybrid">Hybrid</option>
+                                        <option value="electric">Electric</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>Transmission *</label>
+                                    <select
+                                        value={form.transmission}
+                                        onChange={(e) => update("transmission", e.target.value)}
+                                        style={inputStyle}
+                                        required
+                                    >
+                                        <option value="manual">Manual</option>
+                                        <option value="automatic">Automatic</option>
+                                        <option value="cvt">CVT</option>
+                                    </select>
+                                </div>
+                                <div style={{ gridColumn: "1 / -1" }}>
+                                    <label style={labelStyle}>Description</label>
+                                    <textarea
+                                        placeholder="Add details about the issue or requested service"
+                                        value={form.description}
+                                        onChange={(e) => update("description", e.target.value)}
+                                        style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label style={labelStyle}>Vehicle Model *</label>
-                                <input
-                                    placeholder="Enter vehicle model (e.g., Camry, Civic, X3)"
-                                    value={form.vehicleModel}
-                                    onChange={(e) => update("vehicleModel", e.target.value)}
-                                    style={{ ...inputStyle, borderColor: errors.vehicleModel ? "#ef4444" : "#d1d5db" }}
-                                    required
-                                />
-                                {errors.vehicleModel && <p style={{ color: "#ef4444", fontSize: "12px", marginTop: "4px" }}>{errors.vehicleModel}</p>}
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Fuel Type *</label>
-                                <select
-                                    value={form.fuelType}
-                                    onChange={(e) => update("fuelType", e.target.value)}
-                                    style={inputStyle}
-                                    required
-                                >
-                                    <option value="petrol">Petrol</option>
-                                    <option value="diesel">Diesel</option>
-                                    <option value="hybrid">Hybrid</option>
-                                    <option value="electric">Electric</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={labelStyle}>Transmission *</label>
-                                <select
-                                    value={form.transmission}
-                                    onChange={(e) => update("transmission", e.target.value)}
-                                    style={inputStyle}
-                                    required
-                                >
-                                    <option value="manual">Manual</option>
-                                    <option value="automatic">Automatic</option>
-                                    <option value="cvt">CVT</option>
-                                </select>
-                            </div>
-                            <div style={{ gridColumn: "1 / -1" }}>
-                                <label style={labelStyle}>Description</label>
-                                <textarea
-                                    placeholder="Add details about the issue or requested service"
-                                    value={form.description}
-                                    onChange={(e) => update("description", e.target.value)}
-                                    style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
-                                />
-                            </div>
-                        </div>
+                        </>
                     )}
 
                     {step === 3 && (
