@@ -28,9 +28,9 @@ export default function ServiceAdvisorGoodsRequests() {
       if (jobIdFilter && jobIdFilter !== 'all') params.set("jobId", jobIdFilter);
 
       // Get all inventory items - we'll use existing inventory endpoint for now
-      const response = await http.get(`/inventory?${params.toString()}`);
+      const response = await http.get(`/goods-requests/my-requests?${params.toString()}`);
       console.log(response.data);
-      setRows(response.data?.items || response.data || []);
+      setRows(response.data?.goodsRequests || response.data || []);
     } catch (error: any) {
       setMsg({ text: error.message || "Failed to load inventory items", type: "error" });
     } finally {
@@ -51,10 +51,9 @@ export default function ServiceAdvisorGoodsRequests() {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = (
-        item.name?.toLowerCase().includes(searchLower) ||
-        item.itemId?.toLowerCase().includes(searchLower) ||
-        item.category?.toLowerCase().includes(searchLower) ||
-        item.jobId?.toLowerCase().includes(searchLower)
+        item.item.name?.toLowerCase().includes(searchLower) ||
+        item.item.itemId?.toLowerCase().includes(searchLower) ||
+        item.job.jobId?.toLowerCase().includes(searchLower)
       );
       if (!matchesSearch) return false;
     }
@@ -126,24 +125,6 @@ export default function ServiceAdvisorGoodsRequests() {
           }}>
             {filteredRows.length} Total Items
           </div>
-          <Link
-            to="/jobs"
-            style={{
-              padding: "10px 16px",
-              backgroundColor: "#10b981",
-              color: "white",
-              borderRadius: "8px",
-              textDecoration: "none",
-              fontSize: "14px",
-              fontWeight: 500,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px"
-            }}
-          >
-            <span>+</span>
-            Request from Job
-          </Link>
         </div>
       </div>
 
@@ -181,7 +162,7 @@ export default function ServiceAdvisorGoodsRequests() {
             </label>
             <input
               type="text"
-              placeholder="Search by item name, item ID, category..."
+              placeholder="Search by item name, item ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -327,17 +308,7 @@ export default function ServiceAdvisorGoodsRequests() {
                     fontSize: "14px",
                     borderBottom: "1px solid #e5e7eb"
                   }}>
-                    Category
-                  </th>
-                  <th style={{
-                    padding: "12px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: "#374151",
-                    fontSize: "14px",
-                    borderBottom: "1px solid #e5e7eb"
-                  }}>
-                    Stock Level
+                    Quantity
                   </th>
                 </tr>
               </thead>
@@ -345,6 +316,7 @@ export default function ServiceAdvisorGoodsRequests() {
                 {filteredRows.map((item: any) => {
                   // console.log(item);
                   const statusColor = getStatusColor(item.status);
+                  console.log(item);
 
                   return (
                     <tr key={item._id || item.itemId} style={{
@@ -356,21 +328,21 @@ export default function ServiceAdvisorGoodsRequests() {
                         fontWeight: 500,
                         color: "#1f2937"
                       }}>
-                        {item.itemId || item._id?.slice(-6) || 'N/A'}
+                        {item.item.itemId || 'N/A'}
                       </td>
                       <td style={{
                         padding: "12px",
                         fontSize: "14px",
                         fontWeight: 500
                       }}>
-                        {item.name || 'Unnamed Item'}
+                        {item.item.name || 'N/A'}
                       </td>
                       <td style={{
                         padding: "12px",
                         fontSize: "14px",
                         color: "#6b7280"
                       }}>
-                        {item.jobId || item.assignedJobId || '-'}
+                        {item.job.jobId || '-'}
                       </td>
                       <td style={{
                         padding: "12px",
@@ -386,13 +358,6 @@ export default function ServiceAdvisorGoodsRequests() {
                         }}>
                           {item.status?.charAt(0).toUpperCase() + item.status?.slice(1) || 'Available'}
                         </span>
-                      </td>
-                      <td style={{
-                        padding: "12px",
-                        fontSize: "14px",
-                        color: "#6b7280"
-                      }}>
-                        {item.category || 'General'}
                       </td>
                       <td style={{
                         padding: "12px",

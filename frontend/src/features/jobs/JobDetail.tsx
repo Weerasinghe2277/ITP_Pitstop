@@ -271,11 +271,10 @@ export default function JobDetail() {
             const currentStatus = job.status;
             if (!allowedTransitions[currentStatus]?.includes(status)) {
                 setMsg({
-                    text: `Invalid status transition from ${currentStatus} to ${status}. ${
-                        allowedTransitions[currentStatus]
-                            ? `Allowed transitions: ${allowedTransitions[currentStatus].join(", ")}`
-                            : "No transitions allowed from current status"
-                    }`,
+                    text: `Invalid status transition from ${currentStatus} to ${status}. ${allowedTransitions[currentStatus]
+                        ? `Allowed transitions: ${allowedTransitions[currentStatus].join(", ")}`
+                        : "No transitions allowed from current status"
+                        }`,
                     type: "error"
                 });
                 return;
@@ -611,10 +610,9 @@ export default function JobDetail() {
                         color:
                             msg.type === "error" ? "#991b1b" :
                                 msg.type === "info" ? "#1e40af" : "#166534",
-                        border: `1px solid ${
-                            msg.type === "error" ? "#fecaca" :
-                                msg.type === "info" ? "#93c5fd" : "#bbf7d0"
-                        }`,
+                        border: `1px solid ${msg.type === "error" ? "#fecaca" :
+                            msg.type === "info" ? "#93c5fd" : "#bbf7d0"
+                            }`,
                     }}
                 >
                     {msg.text}
@@ -731,7 +729,7 @@ export default function JobDetail() {
             )}
 
             {/* Cost & Hours Breakdown */}
-            <div style={card}>
+            {/* <div style={card}>
                 <h2 style={sectionTitle}>Cost & Hours Breakdown</h2>
                 <div style={grid}>
                     <div style={field}>
@@ -759,7 +757,7 @@ export default function JobDetail() {
                         <span style={value}>Rs. {job.labourCost?.toFixed(2) || "0.00"}</span>
                     </div>
                 </div>
-            </div>
+            </div> */}
 
             {/* Assigned Technicians */}
             {job.assignedLabourers && job.assignedLabourers.length > 0 && (
@@ -798,8 +796,8 @@ export default function JobDetail() {
                                             </span>
                                         </div>
                                         <div style={field}>
-                                            <span style={label}>Hours Worked</span>
-                                            <span style={{ ...value, fontSize: 13 }}>{assignment.hoursWorked || 0} hrs</span>
+                                            <span style={label}>Total Time Worked</span>
+                                            <span style={{ ...value, fontSize: 13 }}>{(parseInt((assignment.hoursWorked * 60) / 60)) + 'h ' + ((assignment.hoursWorked * 60) % 60) + 'min' || 0}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -871,9 +869,10 @@ export default function JobDetail() {
                                         <div>
                                             <strong>End:</strong> {new Date(log.endTime).toLocaleString()}
                                         </div>
-                                        <div>
-                                            <strong>Hours:</strong> {log.hoursWorked?.toFixed(2) || "0.00"}
-                                        </div>
+                                        {/* <div>
+                                            <strong>Hours:</strong> {
+                                                ((new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 3600000).toFixed(2) || 0}
+                                        </div> */}
                                         {log.loggedAt && (
                                             <div style={{ fontSize: 12, fontStyle: "italic" }}>
                                                 Logged: {new Date(log.loggedAt).toLocaleString()}

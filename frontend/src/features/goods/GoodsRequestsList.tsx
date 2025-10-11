@@ -332,15 +332,7 @@ export default function GoodsRequestsList({ mode }) {
                             <div style={infoBox}>
                                 <div style={label}>Job ID</div>
                                 <div style={value}>
-                                    {(() => {
-                                        if (!x.job) return "—";
-                                        if (typeof x.job === 'string') return x.job;
-                                        if (x.job.$oid) return x.job.$oid;
-                                        if (x.job._id?.$oid) return x.job._id.$oid;
-                                        if (x.job._id) return x.job._id;
-                                        if (x.job.jobId) return x.job.jobId;
-                                        return JSON.stringify(x.job);
-                                    })()}
+                                    {x.job.jobId || 'N/A'}
                                 </div>
                             </div>
                             <div style={infoBox}>
@@ -360,12 +352,12 @@ export default function GoodsRequestsList({ mode }) {
                             <div style={infoBox}>
                                 <div style={label}>Total Items</div>
                                 <div style={value}>
-                                    {Array.isArray(x.items) ? `${x.items.length} item${x.items.length === 1 ? "" : "s"}` : "—"}
+                                    {x.quantity || 'N/A'}
                                 </div>
                             </div>
                             <div style={infoBox}>
-                                <div style={label}>Version</div>
-                                <div style={value}>{x.__v !== undefined ? `v${x.__v}` : "—"}</div>
+                                <div style={label}>Item Name</div>
+                                <div style={value}>{x.item?.name || "—"}</div>
                             </div>
                         </div>
 

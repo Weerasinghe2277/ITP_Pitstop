@@ -13,7 +13,7 @@ export default function EditItem() {
     category: Enums.InventoryCategory[0],
     unitPrice: 0,
     unit: Enums.InventoryUnit[0],
-    reorderLevel: 0,
+    minimumStock: 0,
     currentStock: 0,
     notes: "",
   });
@@ -30,13 +30,14 @@ export default function EditItem() {
     try {
       const response = await http.get(`/inventory/${id}`);
       const item = response.data?.item;
+      console.log(item);
       if (item) {
         setForm({
           name: item.name || "",
           category: item.category || Enums.InventoryCategory[0],
           unitPrice: item.unitPrice || 0,
           unit: item.unit || Enums.InventoryUnit[0],
-          reorderLevel: item.reorderLevel || 0,
+          minimumStock: item.minimumStock || 0,
           currentStock: item.currentStock || 0,
           notes: item.notes || "",
         });
@@ -58,7 +59,7 @@ export default function EditItem() {
     if (!form.category?.trim()) return "Category is required";
     if (form.unitPrice < 0) return "Unit price must be >= 0";
     if (!form.unit?.trim()) return "Unit is required";
-    if (form.reorderLevel < 0) return "Reorder level must be >= 0";
+    if (form.minimumStock < 0) return "Reorder level must be >= 0";
     if (form.currentStock < 0) return "Stock must be >= 0";
     return "";
   }
@@ -78,7 +79,7 @@ export default function EditItem() {
         category: form.category,
         unitPrice: form.unitPrice,
         unit: form.unit,
-        reorderLevel: form.reorderLevel,
+        minimumStock: form.minimumStock,
         currentStock: form.currentStock,
         notes: form.notes,
       });
@@ -318,8 +319,8 @@ export default function EditItem() {
               <input
                 type="number"
                 min="0"
-                value={form.reorderLevel}
-                onChange={(e) => update("reorderLevel", parseInt(e.target.value) || 0)}
+                value={form.minimumStock}
+                onChange={(e) => update("minimumStock", parseInt(e.target.value) || 0)}
                 placeholder="0"
                 style={inputStyle}
                 required
