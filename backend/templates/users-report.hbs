@@ -1,4 +1,4 @@
-{{#if summary}}
+{{!-- {{#if summary}}
 <div class="table-section">
   <h2 class="table-title">Users Summary</h2>
   <div class="summary-cards">
@@ -25,12 +25,12 @@
     </div>
   </div>
 </div>
-{{/if}}
+{{/if}} --}}
 
 {{#if roleDistribution.length}}
 <div class="table-section">
   <h2 class="table-title">Role Distribution</h2>
-  <table class="data-table">
+  <table class="data-table cols-5">
     <thead>
       <tr>
         <th>Role</th>
@@ -43,10 +43,10 @@
     <tbody>
       {{#each roleDistribution}}
       <tr>
-        <td><span class="role-badge">{{role}}</span></td>
+        <td>{{role}}</td>
         <td>{{count}}</td>
-        <td class="status-active">{{active}}</td>
-        <td class="status-inactive">{{inactive}}</td>
+        <td>{{active}}</td>
+        <td>{{inactive}}</td>
         <td>{{percentage}}%</td>
       </tr>
       {{/each}}
@@ -55,10 +55,9 @@
 </div>
 {{/if}}
 
-{{#if users.length}}
 <div class="table-section">
   <h2 class="table-title">User Details</h2>
-  <table class="data-table">
+  <table class="data-table cols-9">
     <thead>
       <tr>
         <th>User ID</th>
@@ -75,19 +74,13 @@
     <tbody>
       {{#each users}}
       <tr>
-        <td class="user-id">{{userId}}</td>
-        <td class="user-name">{{firstName}} {{lastName}}</td>
-        <td class="user-email">{{email}}</td>
-        <td><span class="role-badge">{{role}}</span></td>
+        <td>{{userId}}</td>
+        <td>{{firstName}} {{lastName}}</td>
+        <td>{{email}}</td>
+        <td>{{role}}</td>
         <td>{{#if phone}}{{phone}}{{else}}-{{/if}}</td>
         <td>{{#if specialization}}{{specialization}}{{else}}-{{/if}}</td>
-        <td>
-          {{#if isActive}}
-          <span class="status-badge active">Active</span>
-          {{else}}
-          <span class="status-badge inactive">Inactive</span>
-          {{/if}}
-        </td>
+        <td>{{#if isActive}}Active{{else}}Inactive{{/if}}</td>
         <td>{{formatDate createdAt}}</td>
         <td>{{#if lastLogin}}{{formatDate lastLogin}}{{else}}-{{/if}}</td>
       </tr>
@@ -95,154 +88,3 @@
     </tbody>
   </table>
 </div>
-{{/if}}
-
-<style>
-  .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
-    margin-bottom: 25px;
-  }
-
-  .summary-card {
-    background: var(--header-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
-    text-align: center;
-  }
-
-  .summary-card h4 {
-    margin: 0 0 8px 0;
-    font-size: 10px;
-    color: var(--secondary-color);
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .summary-card .value {
-    font-size: 18px;
-    font-weight: bold;
-    color: var(--primary-color);
-    margin-bottom: 4px;
-  }
-
-  .summary-card small {
-    font-size: 8px;
-    color: var(--secondary-color);
-  }
-
-  .role-badge {
-    background: var(--primary-color);
-    color: white;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 9px;
-    font-weight: 500;
-    text-transform: uppercase;
-  }
-
-  .status-badge {
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 9px;
-    font-weight: 500;
-    text-transform: uppercase;
-  }
-
-  .status-badge.active {
-    background: #dcfce7;
-    color: #16a34a;
-  }
-
-  .status-badge.inactive {
-    background: #fee2e2;
-    color: #dc2626;
-  }
-
-  .status-active {
-    color: #16a34a;
-    font-weight: 600;
-  }
-
-  .status-inactive {
-    color: #dc2626;
-    font-weight: 600;
-  }
-
-  .user-id {
-    font-family: 'Courier New', monospace;
-    font-size: 9px;
-    background: #f3f4f6;
-    padding: 2px 4px;
-    border-radius: 3px;
-  }
-
-  .user-name {
-    font-weight: 600;
-  }
-
-  .user-email {
-    font-size: 9px;
-    color: var(--secondary-color);
-  }
-
-  .data-table th {
-    background: var(--table-header-bg);
-    color: white;
-    font-size: 9px;
-    text-transform: uppercase;
-    font-weight: 600;
-    padding: 8px;
-    border: 1px solid var(--table-header-border);
-  }
-
-  .data-table td {
-    padding: 6px 8px;
-    border: 1px solid var(--table-border);
-    font-size: 9px;
-    vertical-align: middle;
-  }
-
-  .data-table tr:nth-child(even) {
-    background: #f9fafb;
-  }
-
-  .data-table tr:hover {
-    background: var(--header-bg);
-  }
-
-  .table-title {
-    color: var(--primary-color);
-    font-size: 14px;
-    font-weight: 700;
-    margin: 20px 0 15px 0;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--border-color);
-  }
-
-  .table-section {
-    margin-bottom: 30px;
-    page-break-inside: avoid;
-  }
-
-  @media print {
-    .summary-cards {
-      grid-template-columns: repeat(5, 1fr);
-    }
-
-    .table-section {
-      page-break-inside: avoid;
-    }
-
-    .data-table {
-      font-size: 8px !important;
-    }
-
-    .data-table th,
-    .data-table td {
-      padding: 4px 6px;
-    }
-  }
-</style>
