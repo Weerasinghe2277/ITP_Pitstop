@@ -72,6 +72,7 @@ import PaymentsReport from "./features/reports/api/PaymentsReport";
 import JobsReport from "./features/reports/api/JobsReport";
 import LeavesReport from "./features/reports/api/LeavesReport";
 import InventoryReport from "./features/reports/api/InventoryReport";
+import UsersReport from "./features/reports/api/UsersReport";
 
 const router = createBrowserRouter([
     { path: "/login", element: <Login /> },
@@ -423,6 +424,14 @@ const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["manager", "admin"]}>
                         <InventoryReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/users",
+                element: (
+                    <ProtectedRoute roles={["manager", "admin"]}>
+                        <UsersReport />
                     </ProtectedRoute>
                 ),
             },

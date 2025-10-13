@@ -5,6 +5,7 @@ import {
   generateJobsReport,
   generateLeavesReport,
   generateInventoryReport,
+  generateUsersReport,
   getAvailableReports,
   generateDashboardReport
 } from '../controllers/reportsController.js';
@@ -53,6 +54,13 @@ router.get('/leaves', authenticate, authorize('admin', 'manager'), generateLeave
  * @access  Manager, Admin (Note: Inventory Manager role might not exist, using manager instead)
  */
 router.get('/inventory', authenticate, authorize('manager', 'admin'), generateInventoryReport);
+
+/**
+ * @route   GET /api/reports/users
+ * @desc    Generate users report
+ * @access  Admin, Manager
+ */
+router.get('/users', authenticate, authorize('admin', 'manager'), generateUsersReport);
 
 /**
  * @route   GET /api/reports/dashboard

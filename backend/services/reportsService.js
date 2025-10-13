@@ -117,12 +117,12 @@ class ReportsService {
       if (!date || date === 'Never' || date === null || date === undefined) {
         return 'N/A';
       }
-      
+
       const dateObj = new Date(date);
       if (isNaN(dateObj.getTime())) {
         return 'Invalid Date';
       }
-      
+
       return moment(date).format('MMM DD, YYYY');
     });
 
@@ -130,12 +130,12 @@ class ReportsService {
       if (!date || date === 'Never' || date === null || date === undefined) {
         return 'N/A';
       }
-      
+
       const dateObj = new Date(date);
       if (isNaN(dateObj.getTime())) {
         return 'Invalid Date';
       }
-      
+
       return moment(date).format('MMM DD, YYYY [at] h:mm A');
     });
 
@@ -191,13 +191,13 @@ class ReportsService {
       });
 
       const page = await browser.newPage();
-      
+
       await page.setViewport({
         width: 1200,
         height: 800,
         deviceScaleFactor: 1
       });
-      
+
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
       const pdfOptions = {
@@ -289,9 +289,9 @@ class ReportsService {
       return {
         bookings: bookings.map(booking => ({
           bookingId: booking.bookingId || booking._id.toString().slice(-6).toUpperCase(),
-          customerName: booking.customer ? 
+          customerName: booking.customer ?
             `${booking.customer.profile?.firstName || 'N/A'} ${booking.customer.profile?.lastName || 'N/A'}` : 'N/A',
-          vehicleInfo: booking.vehicle ? 
+          vehicleInfo: booking.vehicle ?
             `${booking.vehicle.make || 'N/A'} ${booking.vehicle.model || 'N/A'} (${booking.vehicle.year || 'N/A'})` : 'N/A',
           serviceType: booking.serviceType ? booking.serviceType.charAt(0).toUpperCase() + booking.serviceType.slice(1) : 'N/A',
           scheduledDate: booking.scheduledDate,
@@ -368,7 +368,7 @@ class ReportsService {
         invoices: invoices.map(invoice => ({
           invoiceId: invoice.invoiceId || invoice._id.toString().slice(-6).toUpperCase(),
           bookingId: invoice.booking?.bookingId || 'N/A',
-          customerName: invoice.customer ? 
+          customerName: invoice.customer ?
             `${invoice.customer.profile?.firstName || 'N/A'} ${invoice.customer.profile?.lastName || 'N/A'}` : 'N/A',
           issueDate: invoice.issueDate || invoice.createdAt,
           dueDate: invoice.dueDate,
@@ -460,7 +460,7 @@ class ReportsService {
           jobId: job.jobId || job._id.toString().slice(-6).toUpperCase(),
           title: job.title,
           category: job.category ? job.category.charAt(0).toUpperCase() + job.category.slice(1) : 'N/A',
-          technicianName: job.assignedLabourers && job.assignedLabourers.length > 0 ? 
+          technicianName: job.assignedLabourers && job.assignedLabourers.length > 0 ?
             job.assignedLabourers.map(assignment => {
               const labourer = assignment.labourer;
               return `${labourer?.profile?.firstName || 'N/A'} ${labourer?.profile?.lastName || 'N/A'}`;
@@ -560,14 +560,14 @@ class ReportsService {
       return {
         leaveRequests: leaveRequests.map(leave => ({
           requestId: leave.requestId || leave._id.toString().slice(-6).toUpperCase(),
-          employeeName: leave.employee ? 
+          employeeName: leave.employee ?
             `${leave.employee.profile?.firstName || 'N/A'} ${leave.employee.profile?.lastName || 'N/A'}` : 'N/A',
           leaveType: leave.leaveType ? leave.leaveType.charAt(0).toUpperCase() + leave.leaveType.slice(1) : 'N/A',
           startDate: leave.startDate,
           endDate: leave.endDate,
           totalDays: leave.totalDays || 0,
           status: leave.status,
-          approvedByName: leave.approvedBy ? 
+          approvedByName: leave.approvedBy ?
             `${leave.approvedBy.profile?.firstName || 'N/A'} ${leave.approvedBy.profile?.lastName || 'N/A'}` : 'N/A'
         })),
         summary: {
@@ -673,6 +673,107 @@ class ReportsService {
   }
 
   /**
+   * Generate Users Report Data
+   */
+  async generateUsersReport(filters = {}) {
+    try {
+      let query = {};
+
+      // Apply filters
+      if (filters.role) {
+        query.role = filters.role;
+      }
+
+      if (filters.status) {
+        query.isActive = filters.status === 'active';
+      }
+
+      if (filters.specialization) {
+        query['profile.specialization'] = { $regex: filters.specialization, $options: 'i' };
+      }
+
+      if (filters.dateFrom || filters.dateTo) {
+        query.createdAt = {};
+        if (filters.dateFrom) {
+          query.createdAt.$gte = filters.dateFrom;
+        }
+        if (filters.dateTo) {
+          query.createdAt.$lte = filters.dateTo;
+        }
+      }
+
+      const users = await User.find(query)
+        .sort({ createdAt: -1 })
+        .lean();
+
+      // Generate summary statistics
+      const totalUsers = users.length;
+      const activeUsers = users.filter(u => u.isActive).length;
+      const inactiveUsers = totalUsers - activeUsers;
+
+      // Group by role
+      const usersByRole = users.reduce((acc, user) => {
+        const role = user.role || 'unknown';
+        if (!acc[role]) {
+          acc[role] = { count: 0, active: 0, inactive: 0 };
+        }
+        acc[role].count++;
+        if (user.isActive) {
+          acc[role].active++;
+        } else {
+          acc[role].inactive++;
+        }
+        return acc;
+      }, {});
+
+      const roleStats = Object.entries(usersByRole).map(([role, data]) => ({
+        role: role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' '),
+        count: data.count,
+        active: data.active,
+        inactive: data.inactive,
+        percentage: totalUsers > 0 ? ((data.count / totalUsers) * 100).toFixed(1) : 0
+      }));
+
+      // Get recent registrations (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const recentRegistrations = users.filter(u => new Date(u.createdAt) >= thirtyDaysAgo).length;
+
+      // Calculate user engagement metrics
+      const usersWithProfiles = users.filter(u => u.profile && (u.profile.firstName || u.profile.lastName)).length;
+      const profileCompletionRate = totalUsers > 0 ? ((usersWithProfiles / totalUsers) * 100).toFixed(1) : 0;
+
+      return {
+        users: users.map(user => ({
+          userId: user.userId || user._id.toString().slice(-6).toUpperCase(),
+          email: user.email,
+          firstName: user.profile?.firstName || '',
+          lastName: user.profile?.lastName || '',
+          role: user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ') : 'N/A',
+          phone: user.profile?.phone || 'N/A',
+          specialization: user.profile?.specialization || 'N/A',
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin || null,
+          loyaltyPoints: user.loyaltyPoints || 0
+        })),
+        summary: {
+          totalUsers,
+          activeUsers,
+          inactiveUsers,
+          recentRegistrations,
+          profileCompletionRate
+        },
+        roleDistribution: roleStats,
+        activeUsersPercentage: totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0
+      };
+    } catch (error) {
+      console.error('Error generating users report:', error);
+      throw new Error('Failed to generate users report');
+    }
+  }
+
+  /**
    * Helper method to group data and calculate percentages
    */
   groupAndCalculatePercentage(data, field, total) {
@@ -703,7 +804,8 @@ class ReportsService {
         payments: 'Payments Report',
         jobs: 'Jobs Report',
         leaves: 'Leave Requests Report',
-        inventory: 'Inventory Report'
+        inventory: 'Inventory Report',
+        users: 'Users Report'
       };
 
       const reportSubtitles = {
@@ -711,7 +813,8 @@ class ReportsService {
         payments: 'Financial summary of invoices and payments',
         jobs: 'Technical work assignments and completion status',
         leaves: 'Employee leave requests and approvals',
-        inventory: 'Parts and supplies inventory analysis'
+        inventory: 'Parts and supplies inventory analysis',
+        users: 'System user accounts and role distribution'
       };
 
       const templateData = {
@@ -719,8 +822,8 @@ class ReportsService {
         reportSubtitle: reportSubtitles[reportType] || 'System report',
         generatedBy,
         generatedDate: moment().format('MMMM DD, YYYY'),
-        reportPeriod: filters.dateFrom && filters.dateTo ? 
-          `${moment(filters.dateFrom).format('MMM DD, YYYY')} - ${moment(filters.dateTo).format('MMM DD, YYYY')}` : 
+        reportPeriod: filters.dateFrom && filters.dateTo ?
+          `${moment(filters.dateFrom).format('MMM DD, YYYY')} - ${moment(filters.dateTo).format('MMM DD, YYYY')}` :
           'All Time',
         totalRecords: reportData[Object.keys(reportData)[0]]?.length || 0,
         reportType: reportType.charAt(0).toUpperCase() + reportType.slice(1),

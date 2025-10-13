@@ -69,6 +69,7 @@ import PaymentsReport from "../features/reports/api/PaymentsReport";
 import JobsReport from "../features/reports/api/JobsReport";
 import LeavesReport from "../features/reports/api/LeavesReport";
 import InventoryReport from "../features/reports/api/InventoryReport";
+import UsersReport from "../features/reports/api/UsersReport";
 
 const routes: RouteObject[] = [
     { path: "/login", element: <Login /> },
@@ -95,6 +96,14 @@ const routes: RouteObject[] = [
                 element: (
                     <ProtectedRoute>
                         <Dashboard />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "users-report-test",
+                element: (
+                    <ProtectedRoute roles={["manager", "admin"]}>
+                        <UsersReport />
                     </ProtectedRoute>
                 ),
             },
@@ -403,6 +412,14 @@ const routes: RouteObject[] = [
                 element: (
                     <ProtectedRoute roles={["admin", "manager"]}>
                         <LeavesReport />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "reports/api/users",
+                element: (
+                    <ProtectedRoute roles={["manager", "admin"]}>
+                        <UsersReport />
                     </ProtectedRoute>
                 ),
             },
