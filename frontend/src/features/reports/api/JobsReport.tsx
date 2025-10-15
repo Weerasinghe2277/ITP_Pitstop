@@ -56,14 +56,14 @@ const JobsReport = () => {
 
     const buildQueryParams = () => {
         const queryParams = new URLSearchParams();
-        
+
         // Add non-empty filters to query parameters
         (Object.keys(filters) as Array<keyof JobFilters>).forEach(key => {
             if (filters[key]) {
                 queryParams.append(key, filters[key]);
             }
         });
-        
+
         return queryParams.toString();
     };
 
@@ -100,7 +100,7 @@ const JobsReport = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(downloadUrl);
-                
+
                 setReportData({ message: 'PDF downloaded successfully!' });
             } else {
                 // Handle JSON response
@@ -163,7 +163,7 @@ const JobsReport = () => {
                     marginBottom: '20px',
                 }}>
                     <h3 style={{ marginBottom: '16px', color: '#374151' }}>Filters</h3>
-                    
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -428,7 +428,6 @@ const JobsReport = () => {
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Vehicle</th>
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Status</th>
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Priority</th>
-                                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Hours Est./Act.</th>
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Created</th>
                                                     </tr>
                                                 </thead>
@@ -445,18 +444,18 @@ const JobsReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         job.status === 'completed' ? '#dcfce7' :
-                                                                        job.status === 'in_progress' ? '#fef3c7' :
-                                                                        job.status === 'pending' ? '#dbeafe' :
-                                                                        job.status === 'on_hold' ? '#fef2f2' :
-                                                                        job.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
-                                                                    color: 
+                                                                            job.status === 'in_progress' ? '#fef3c7' :
+                                                                                job.status === 'pending' ? '#dbeafe' :
+                                                                                    job.status === 'on_hold' ? '#fef2f2' :
+                                                                                        job.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
+                                                                    color:
                                                                         job.status === 'completed' ? '#16a34a' :
-                                                                        job.status === 'in_progress' ? '#d97706' :
-                                                                        job.status === 'pending' ? '#2563eb' :
-                                                                        job.status === 'on_hold' ? '#dc2626' :
-                                                                        job.status === 'cancelled' ? '#6b7280' : '#374151',
+                                                                            job.status === 'in_progress' ? '#d97706' :
+                                                                                job.status === 'pending' ? '#2563eb' :
+                                                                                    job.status === 'on_hold' ? '#dc2626' :
+                                                                                        job.status === 'cancelled' ? '#6b7280' : '#374151',
                                                                 }}>
                                                                     {job.status.replace('_', ' ')}
                                                                 </span>
@@ -467,20 +466,17 @@ const JobsReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         job.priority === 'urgent' ? '#fee2e2' :
-                                                                        job.priority === 'high' ? '#fed7aa' :
-                                                                        job.priority === 'medium' ? '#fef3c7' : '#f3f4f6',
-                                                                    color: 
+                                                                            job.priority === 'high' ? '#fed7aa' :
+                                                                                job.priority === 'medium' ? '#fef3c7' : '#f3f4f6',
+                                                                    color:
                                                                         job.priority === 'urgent' ? '#dc2626' :
-                                                                        job.priority === 'high' ? '#ea580c' :
-                                                                        job.priority === 'medium' ? '#d97706' : '#374151',
+                                                                            job.priority === 'high' ? '#ea580c' :
+                                                                                job.priority === 'medium' ? '#d97706' : '#374151',
                                                                 }}>
                                                                     {job.priority}
                                                                 </span>
-                                                            </td>
-                                                            <td style={{ padding: '12px' }}>
-                                                                {job.estimatedHours || 0}h / {job.actualHours || 0}h
                                                             </td>
                                                             <td style={{ padding: '12px' }}>
                                                                 {new Date(job.createdAt).toLocaleDateString()}

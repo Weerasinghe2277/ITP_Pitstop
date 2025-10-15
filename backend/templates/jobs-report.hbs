@@ -74,7 +74,7 @@
 
 <div class="table-section">
     <h2 class="table-title">Job Details</h2>
-    <table class="data-table cols-10">
+    <table class="data-table cols-8">
         <thead>
             <tr>
                 <th>Job ID</th>
@@ -83,8 +83,6 @@
                 <th>Assigned Technician</th>
                 <th>Status</th>
                 <th>Priority</th>
-                <th>Estimated Hours</th>
-                <th>Actual Hours</th>
                 <th>Created Date</th>
                 <th>Completion Date</th>
             </tr>
@@ -98,8 +96,6 @@
                 <td>{{technicianName}}</td>
                 <td><span class="status {{status}}">{{status}}</span></td>
                 <td><span class="status {{priority}}">{{priority}}</span></td>
-                <td>{{estimatedHours}}</td>
-                <td>{{actualHours}}</td>
                 <td>{{formatDate createdAt}}</td>
                 <td>{{formatDate completedAt}}</td>
             </tr>
