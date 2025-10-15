@@ -56,19 +56,17 @@ export default function Layout() {
             sections.push({ path: "/jobs/my", label: "My Jobs", icon: "👨‍🔧" });
         }
 
-        // Goods Requests
-        if (isServiceAdvisor || isAdmin || isManager) {
-            sections.push({ path: "/goods", label: "Goods Requests", icon: "📦" });
-        }
+        // Goods Requests - HIDDEN
+        // if (isServiceAdvisor || isAdmin || isManager) {
+        //     sections.push({ path: "/goods", label: "Goods Requests", icon: "📦" });
+        // }
 
-        // Admin sections
+        // Admin sections - PARTIALLY HIDDEN (Users and Administration header hidden)
         if (isAdmin) {
-            sections.push(
-                { type: "divider", label: "Administration" },
-                { path: "/users", label: "Users", icon: "👥" },
-                { path: "/leave/manage", label: "Manage Leave", icon: "📋" },
-                { path: "/reports", label: "Reports", icon: "📈" }
-            );
+            // sections.push({ type: "divider", label: "Administration" }); // HIDDEN
+            // sections.push({ path: "/users", label: "Users", icon: "👥" }); // HIDDEN
+            sections.push({ path: "/leave/manage", label: "Manage Leave", icon: "📋" });
+            sections.push({ path: "/reports", label: "Reports", icon: "📈" });
         }
 
         // Inventory - Remove for technicians and service advisors
@@ -273,7 +271,7 @@ export default function Layout() {
                 <nav style={{ flex: 1, overflowY: "auto" }}>
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                         {availableSections.map((section, index) => {
-                            if (section.type === "divider") {
+                            if ('type' in section && section.type === "divider") {
                                 return sidebarOpen ? (
                                     <li key={`divider-${index}`} style={{
                                         padding: "1rem 1rem 0.5rem",

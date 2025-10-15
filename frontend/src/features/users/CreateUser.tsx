@@ -36,21 +36,135 @@ export default function CreateUser() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ text: "", type: "" });
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     const provinces = ["Western", "Central", "Southern", "Northern", "Eastern", "North Western", "North Central", "Uva", "Sabaragamuwa"];
     const relationships = ["spouse", "parent", "sibling", "friend", "other"];
 
-    function update(path, value) {
+    // Calculate the maximum allowed birth date (18 years ago from today)
+    const getMaxBirthDate = () => {
+        const today = new Date();
+        const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+        return maxDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    };
+
+    // Get today's date for join date max constraint
+    const getTodaysDate = () => {
+        const today = new Date();
+        return today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    };
+
+    function validateField(path: string, value: any) {
+        let error = "";
+        
+        switch (path) {
+            case "email":
+                if (!value?.trim()) error = "Email is required";
+                else if (!/^\S+@\S+\.\S+$/.test(value)) error = "Enter a valid email";
+                break;
+            case "password":
+                if (!value?.trim()) error = "Password is required";
+                else if (value.length < 6) error = "Password must be at least 6 characters";
+                break;
+            case "role":
+                if (!value?.trim()) error = "Role is required";
+                else if (!Enums.Roles.includes(value)) error = "Invalid role";
+                break;
+            case "profile.firstName":
+                if (!value?.trim()) error = "First name is required";
+                break;
+            case "profile.lastName":
+                if (!value?.trim()) error = "Last name is required";
+                break;
+            case "profile.phoneNumber":
+                if (!value?.trim()) error = "Phone number is required";
+                break;
+            case "profile.nic":
+                if (!value?.trim()) error = "NIC is required";
+                break;
+            case "profile.dateOfBirth":
+                if (!value?.trim()) {
+                    error = "Date of birth is required";
+                } else {
+                    const dob = new Date(value);
+                    const today = new Date();
+                    let age = today.getFullYear() - dob.getFullYear();
+                    const monthDiff = today.getMonth() - dob.getMonth();
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+                        age--;
+                    }
+                    if (age < 18) error = "User must be at least 18 years old";
+                }
+                break;
+            case "profile.address.street":
+                if (!value?.trim()) error = "Street address is required";
+                break;
+            case "profile.address.city":
+                if (!value?.trim()) error = "City is required";
+                break;
+            case "profile.address.province":
+                if (!value?.trim()) error = "Province is required";
+                else if (!provinces.includes(value)) error = "Invalid province";
+                break;
+            case "profile.address.postalCode":
+                if (!value?.trim()) error = "Postal code is required";
+                break;
+            case "customerDetails.emergencyContact.name":
+                if (!value?.trim()) error = "Emergency contact name is required";
+                break;
+            case "customerDetails.emergencyContact.phoneNumber":
+                if (!value?.trim()) error = "Emergency contact phone number is required";
+                break;
+            case "customerDetails.emergencyContact.relationship":
+                if (!value?.trim()) error = "Emergency contact relationship is required";
+                else if (!relationships.includes(value)) error = "Invalid emergency contact relationship";
+                break;
+            case "employeeDetails.baseSalary":
+                if (!value) error = "Base salary is required";
+                else if (isNaN(Number(value)) || Number(value) <= 0) error = "Base salary must be a positive number";
+                break;
+            case "employeeDetails.joinDate":
+                if (!value?.trim()) error = "Join date is required";
+                break;
+            case "employeeDetails.department":
+                if (value && !Enums.JobCategory.includes(value)) error = "Invalid department";
+                break;
+        }
+        
+        if (error) {
+            setFieldErrors(prev => ({ ...prev, [path]: error }));
+        } else {
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[path];
+                return newErrors;
+            });
+        }
+    }
+
+    function update(path: string, value: any) {
         const paths = path.split('.');
         setForm(prev => {
             let newForm = { ...prev };
-            let current = newForm;
+            let current: any = newForm;
             for (let i = 0; i < paths.length - 1; i++) {
                 current = current[paths[i]] = { ...current[paths[i]] };
             }
             current[paths[paths.length - 1]] = value;
             return newForm;
         });
+        
+        // Clear field error when user starts typing
+        if (fieldErrors[path]) {
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[path];
+                return newErrors;
+            });
+        }
+        
+        // Validate field on change
+        validateField(path, value);
     } // Controlled inputs keep state as the single source of truth for the form.
 
     function validate() {
@@ -76,7 +190,7 @@ export default function CreateUser() {
         if (!form.customerDetails.emergencyContact.relationship.trim()) return "Emergency contact relationship is required";
         if (!relationships.includes(form.customerDetails.emergencyContact.relationship)) return "Invalid emergency contact relationship";
         if (!form.employeeDetails.baseSalary) return "Base salary is required";
-        if (isNaN(form.employeeDetails.baseSalary) || Number(form.employeeDetails.baseSalary) <= 0) return "Base salary must be a positive number";
+        if (isNaN(Number(form.employeeDetails.baseSalary)) || Number(form.employeeDetails.baseSalary) <= 0) return "Base salary must be a positive number";
         if (!form.employeeDetails.joinDate.trim()) return "Join date is required";
         if (form.employeeDetails.department && !Enums.JobCategory.includes(form.employeeDetails.department)) return "Invalid department";
 
@@ -88,12 +202,12 @@ export default function CreateUser() {
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
             age--;
         }
-        if (age < 16) return "User must be at least 16 years old";
+        if (age < 18) return "User must be at least 18 years old";
 
         return "";
     } // Simple client validation is straightforward with controlled state.
 
-    async function submit(e) {
+    async function submit(e: React.FormEvent) {
         e.preventDefault();
         const v = validate();
         if (v) {
@@ -141,12 +255,31 @@ export default function CreateUser() {
                     department: ""
                 }
             });
-        } catch (e) {
+        } catch (e: any) {
             setMessage({ text: e.message || "Failed to create user", type: "error" });
         } finally {
             setIsSubmitting(false);
         }
     } // useState manages form and submit state for predictable updates in function components.
+
+    function renderFieldError(fieldPath: string) {
+        const error = fieldErrors[fieldPath];
+        if (!error) return null;
+        
+        return (
+            <div style={{
+                color: "#dc2626",
+                fontSize: "12px",
+                marginTop: "4px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px"
+            }}>
+                <span>⚠</span>
+                {error}
+            </div>
+        );
+    }
 
     // Styles
     const wrap = {
@@ -197,6 +330,11 @@ export default function CreateUser() {
         fontSize: "14px",
         backgroundColor: "white",
     };
+    const controlError = {
+        ...control,
+        borderColor: "#dc2626",
+        boxShadow: "0 0 0 1px #dc2626",
+    };
     const submitBtn = {
         padding: "12px 20px",
         backgroundColor: "#3b82f6",
@@ -241,10 +379,11 @@ export default function CreateUser() {
                             placeholder="user@example.com"
                             value={form.email}
                             onChange={(e) => update("email", e.target.value)}
-                            style={control}
+                            style={fieldErrors["email"] ? controlError : control}
                             autoComplete="email"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("email")}
                     </div>
 
                     <div>
@@ -254,10 +393,11 @@ export default function CreateUser() {
                             placeholder="Password"
                             value={form.password}
                             onChange={(e) => update("password", e.target.value)}
-                            style={control}
+                            style={fieldErrors["password"] ? controlError : control}
                             autoComplete="new-password"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("password")}
                     </div>
 
                     <div>
@@ -265,7 +405,7 @@ export default function CreateUser() {
                         <select
                             value={form.role}
                             onChange={(e) => update("role", e.target.value)}
-                            style={control}
+                            style={fieldErrors["role"] ? controlError : control}
                             disabled={isSubmitting}
                         >
                             <option value="">Select Role</option>
@@ -273,6 +413,7 @@ export default function CreateUser() {
                                 <option key={x} value={x}>{x}</option>
                             ))}
                         </select>
+                        {renderFieldError("role")}
                     </div>
                 </div>
 
@@ -284,10 +425,11 @@ export default function CreateUser() {
                             placeholder="First name"
                             value={form.profile.firstName}
                             onChange={(e) => update("profile.firstName", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.firstName"] ? controlError : control}
                             autoComplete="given-name"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.firstName")}
                     </div>
 
                     <div>
@@ -296,10 +438,11 @@ export default function CreateUser() {
                             placeholder="Last name"
                             value={form.profile.lastName}
                             onChange={(e) => update("profile.lastName", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.lastName"] ? controlError : control}
                             autoComplete="family-name"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.lastName")}
                     </div>
 
                     <div>
@@ -309,10 +452,11 @@ export default function CreateUser() {
                             placeholder="0771234567"
                             value={form.profile.phoneNumber}
                             onChange={(e) => update("profile.phoneNumber", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.phoneNumber"] ? controlError : control}
                             autoComplete="tel"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.phoneNumber")}
                     </div>
 
                     <div>
@@ -321,9 +465,10 @@ export default function CreateUser() {
                             placeholder="123456789V"
                             value={form.profile.nic}
                             onChange={(e) => update("profile.nic", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.nic"] ? controlError : control}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.nic")}
                     </div>
 
                     <div>
@@ -332,9 +477,11 @@ export default function CreateUser() {
                             type="date"
                             value={form.profile.dateOfBirth}
                             onChange={(e) => update("profile.dateOfBirth", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.dateOfBirth"] ? controlError : control}
+                            max={getMaxBirthDate()}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.dateOfBirth")}
                     </div>
                 </div>
 
@@ -346,10 +493,11 @@ export default function CreateUser() {
                             placeholder="123 Main Street"
                             value={form.profile.address.street}
                             onChange={(e) => update("profile.address.street", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.address.street"] ? controlError : control}
                             autoComplete="street-address"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.address.street")}
                     </div>
 
                     <div>
@@ -358,10 +506,11 @@ export default function CreateUser() {
                             placeholder="Colombo"
                             value={form.profile.address.city}
                             onChange={(e) => update("profile.address.city", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.address.city"] ? controlError : control}
                             autoComplete="address-level2"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.address.city")}
                     </div>
 
                     <div>
@@ -369,7 +518,7 @@ export default function CreateUser() {
                         <select
                             value={form.profile.address.province}
                             onChange={(e) => update("profile.address.province", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.address.province"] ? controlError : control}
                             disabled={isSubmitting}
                         >
                             <option value="">Select Province</option>
@@ -377,6 +526,7 @@ export default function CreateUser() {
                                 <option key={province} value={province}>{province}</option>
                             ))}
                         </select>
+                        {renderFieldError("profile.address.province")}
                     </div>
 
                     <div>
@@ -385,10 +535,11 @@ export default function CreateUser() {
                             placeholder="10100"
                             value={form.profile.address.postalCode}
                             onChange={(e) => update("profile.address.postalCode", e.target.value)}
-                            style={control}
+                            style={fieldErrors["profile.address.postalCode"] ? controlError : control}
                             autoComplete="postal-code"
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("profile.address.postalCode")}
                     </div>
                 </div>
 
@@ -400,9 +551,10 @@ export default function CreateUser() {
                             placeholder="Jane Doe"
                             value={form.customerDetails.emergencyContact.name}
                             onChange={(e) => update("customerDetails.emergencyContact.name", e.target.value)}
-                            style={control}
+                            style={fieldErrors["customerDetails.emergencyContact.name"] ? controlError : control}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("customerDetails.emergencyContact.name")}
                     </div>
 
                     <div>
@@ -412,9 +564,10 @@ export default function CreateUser() {
                             placeholder="0777654321"
                             value={form.customerDetails.emergencyContact.phoneNumber}
                             onChange={(e) => update("customerDetails.emergencyContact.phoneNumber", e.target.value)}
-                            style={control}
+                            style={fieldErrors["customerDetails.emergencyContact.phoneNumber"] ? controlError : control}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("customerDetails.emergencyContact.phoneNumber")}
                     </div>
 
                     <div>
@@ -422,7 +575,7 @@ export default function CreateUser() {
                         <select
                             value={form.customerDetails.emergencyContact.relationship}
                             onChange={(e) => update("customerDetails.emergencyContact.relationship", e.target.value)}
-                            style={control}
+                            style={fieldErrors["customerDetails.emergencyContact.relationship"] ? controlError : control}
                             disabled={isSubmitting}
                         >
                             <option value="">Select Relationship</option>
@@ -430,6 +583,7 @@ export default function CreateUser() {
                                 <option key={relationship} value={relationship}>{relationship}</option>
                             ))}
                         </select>
+                        {renderFieldError("customerDetails.emergencyContact.relationship")}
                     </div>
                 </div>
 
@@ -442,9 +596,10 @@ export default function CreateUser() {
                             placeholder="50000"
                             value={form.employeeDetails.baseSalary}
                             onChange={(e) => update("employeeDetails.baseSalary", e.target.value)}
-                            style={control}
+                            style={fieldErrors["employeeDetails.baseSalary"] ? controlError : control}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("employeeDetails.baseSalary")}
                     </div>
 
                     <div>
@@ -453,9 +608,11 @@ export default function CreateUser() {
                             type="date"
                             value={form.employeeDetails.joinDate}
                             onChange={(e) => update("employeeDetails.joinDate", e.target.value)}
-                            style={control}
+                            style={fieldErrors["employeeDetails.joinDate"] ? controlError : control}
+                            max={getTodaysDate()}
                             disabled={isSubmitting}
                         />
+                        {renderFieldError("employeeDetails.joinDate")}
                     </div>
 
                     <div>
@@ -463,7 +620,7 @@ export default function CreateUser() {
                         <select
                             value={form.employeeDetails.department}
                             onChange={(e) => update("employeeDetails.department", e.target.value)}
-                            style={control}
+                            style={fieldErrors["employeeDetails.department"] ? controlError : control}
                             disabled={isSubmitting}
                         >
                             <option value="">Select Department (Optional)</option>
@@ -471,6 +628,7 @@ export default function CreateUser() {
                                 <option key={category} value={category}>{category}</option>
                             ))}
                         </select>
+                        {renderFieldError("employeeDetails.department")}
                     </div>
                 </div>
 
