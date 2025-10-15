@@ -302,6 +302,10 @@ export default function GoodsRequestsList({ mode }) {
 
             {!isLoading && rows.map((x) => {
                 const isExpanded = expandedRows.has(x._id);
+
+                // Safely get jobId from multiple possible locations
+                const jobId = x.job?.jobId || x.jobId || null;
+
                 return (
                     <div key={x._id} style={requestCard}>
                         {/* Request Header */}
@@ -332,7 +336,22 @@ export default function GoodsRequestsList({ mode }) {
                             <div style={infoBox}>
                                 <div style={label}>Job ID</div>
                                 <div style={value}>
-                                    {x.job.jobId || 'N/A'}
+                                    {jobId ? (
+                                        <span style={{
+                                            padding: "4px 8px",
+                                            backgroundColor: "#dbeafe",
+                                            color: "#1e40af",
+                                            borderRadius: "4px",
+                                            fontSize: "13px",
+                                            fontWeight: 600
+                                        }}>
+                                            {jobId}
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: "#9ca3af", fontStyle: "italic" }}>
+                                            No Job Assigned
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                             <div style={infoBox}>
