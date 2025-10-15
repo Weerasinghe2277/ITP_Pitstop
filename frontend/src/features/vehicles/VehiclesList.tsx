@@ -254,20 +254,6 @@ export default function VehiclesList() {
                     >
                         Export CSV
                     </button>
-                    <Link
-                        to="/vehicles/new"
-                        style={{
-                            padding: '8px 16px',
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontSize: '14px',
-                            fontWeight: '500'
-                        }}
-                    >
-                        Add Vehicle
-                    </Link>
                 </div>
             </div>
 
