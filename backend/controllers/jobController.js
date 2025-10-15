@@ -128,11 +128,11 @@ const createJob = asyncWrapper(async (req, res, next) => {
   if (requirements.materials && Array.isArray(requirements.materials) && requirements.materials.length > 0) {
     try {
       // Transform requirements.material to match GoodsRequest schema
-      const items = requirements.materials.map(item => ({
-        item: item.itemId,
-        quantity: item.requestedQuantity || 1,
-        purpose: `Required for job: ${job.title}`
-      }));
+      // const items = requirements.materials.map(item => ({
+      //   item: item.itemId,
+      //   quantity: item.quantity || 1,
+      //   purpose: `Required for job: ${job.title}`
+      // }));
 
       requirements.materials.forEach(async (material, index) => {
         // const item = {
@@ -156,7 +156,7 @@ const createJob = asyncWrapper(async (req, res, next) => {
           job: job._id,
           requestedBy: userId,
           item: material.itemId,
-          quantity: material.requestedQuantity || 1,
+          quantity: material.quantity || 1,
           purpose: `Required for job: ${job.title}`,
           notes: `Automatically created for job: ${job.title}`
         });

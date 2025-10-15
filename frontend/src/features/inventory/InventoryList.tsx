@@ -84,14 +84,14 @@ export default function InventoryList() {
                         filteredItems = items.filter((item: InventoryItem) => item.currentStock === 0);
                     } else if (stockFilter === 'low') {
                         filteredItems = items.filter((item: InventoryItem) =>
-                            item.currentStock > 0 && item.currentStock <= (item.minimumStock || 10)
+                            item.currentStock > 0 && item.currentStock <= item.minimumStock
                         );
                     }
 
                     // Calculate stats from all items
                     const totalItemsCount = items.length;
                     const lowStock = items.filter((item: InventoryItem) =>
-                        item.currentStock > 0 && item.currentStock <= (item.minimumStock || 10)
+                        item.currentStock > 0 && item.currentStock <= item.minimumStock
                     ).length;
                     const outOfStock = items.filter((item: InventoryItem) => item.currentStock === 0).length;
                     const totalValue = items.reduce((sum: number, item: InventoryItem) =>

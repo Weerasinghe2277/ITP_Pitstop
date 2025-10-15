@@ -62,7 +62,7 @@ const InventoryItemSchema = new mongoose.Schema({
   // },
   status: {
     type: String,
-    enum: ["active", "inactive", "discontinued"],
+    enum: ["active", "inactive", "discontinued", "out_of_stock", "low_stock"],
     default: "active",
   },
   // assignedJobId: {

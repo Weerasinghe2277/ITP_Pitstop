@@ -29,126 +29,145 @@ export default function CreateInvoice() {
         cvv: ''
     });
 
+    const getInvoiceData = async () => {
+        setIsLoading(true);
+        // Load booking data
+        const bookingResponse = await http.get(`/bookings/${bookingId}`);
+        const bookingData = bookingResponse.data?.booking || bookingResponse.data || null;
+        setBooking(bookingData);
+
+        // Load inventory items first
+        const inventoryResponse = await http.get("/inventory");
+        const allInventory = inventoryResponse.data?.items || inventoryResponse.data || [];
+        // if (!ignore) {
+        setInventoryItems(allInventory);
+        // }
+        // if (!ignore) {
+        // }
+        setIsLoading(false);
+    }
     useEffect(() => {
-        let ignore = false;
-        async function load() {
-            setIsLoading(true);
-            setMessage({ text: "", type: "" });
-            try {
-                // Load inventory items first
-                const inventoryResponse = await http.get("/inventory");
-                const allInventory = inventoryResponse.data?.items || inventoryResponse.data || [];
-                if (!ignore) {
-                    setInventoryItems(allInventory);
-                }
+        getInvoiceData();
+        // let ignore = false;
+        // async function load() {
+        //     setIsLoading(true);
+        //     setMessage({ text: "", type: "" });
+        //     try {
+        // // Load inventory items first
+        // const inventoryResponse = await http.get("/inventory");
+        // const allInventory = inventoryResponse.data?.items || inventoryResponse.data || [];
+        // if (!ignore) {
+        //     setInventoryItems(allInventory);
+        // }
 
-                // Load booking data
-                const bookingResponse = await http.get(`/bookings/${bookingId}`);
-                const bookingData = bookingResponse.data?.booking || bookingResponse.data || null;
-                if (!ignore) {
-                    setBooking(bookingData);
-                }
+        //         // Load booking data
+        //         const bookingResponse = await http.get(`/bookings/${bookingId}`);
+        //         const bookingData = bookingResponse.data?.booking || bookingResponse.data || null;
+        //         if (!ignore) {
+        //             setBooking(bookingData);
+        //         }
 
-                // Load job data for this booking
-                let jobData = null;
-                try {
-                    const jobResponse = await http.get(`/jobs/booking/${bookingId}`);
-                    jobData = jobResponse.data?.job || jobResponse.data?.jobs?.[0] || null;
+        //         // Load job data for this booking
+        //         let jobData = null;
+        //         try {
+        //             const jobResponse = await http.get(`/jobs/booking/${bookingId}`);
+        //             jobData = jobResponse.data?.job || jobResponse.data?.jobs?.[0] || null;
 
-                    if (!ignore) {
-                        setJob(jobData);
-                    }
-                } catch (jobError) {
-                    console.warn("No job found for this booking:", jobError.message);
-                }
+        //             if (!ignore) {
+        //                 setJob(jobData);
+        //             }
+        //         } catch (jobError) {
+        //             console.warn("No job found for this booking:", jobError.message);
+        //         }
 
-                // Initialize items based on job data
-                if (!ignore) {
-                    const initialItems = [];
+        //         // Initialize items based on job data
+        //         if (!ignore) {
+        //             const initialItems = [];
 
-                    if (jobData) {
-                        // Add labor items from assigned labourers
-                        if (jobData.assignedLabourers && Array.isArray(jobData.assignedLabourers) && jobData.assignedLabourers.length > 0) {
-                            jobData.assignedLabourers.forEach((labourerEntry) => {
-                                const labourerName = labourerEntry.labourer?.name ||
-                                    labourerEntry.labourer?.profile?.firstName ||
-                                    'Technician';
-                                const hoursWorked = labourerEntry.hoursWorked || 1;
+        //             if (jobData) {
+        //                 // Add labor items from assigned labourers
+        //                 if (jobData.assignedLabourers && Array.isArray(jobData.assignedLabourers) && jobData.assignedLabourers.length > 0) {
+        //                     jobData.assignedLabourers.forEach((labourerEntry) => {
+        //                         const labourerName = labourerEntry.labourer?.name ||
+        //                             labourerEntry.labourer?.profile?.firstName ||
+        //                             'Technician';
+        //                         const hoursWorked = labourerEntry.hoursWorked || 1;
 
-                                initialItems.push({
-                                    description: `Labor - ${labourerName}`,
-                                    quantity: parseFloat(hoursWorked.toFixed(2)),
-                                    unitPrice: 2000,
-                                    type: 'labor',
-                                    inventoryItemId: null
-                                });
-                            });
-                        }
+        //                         initialItems.push({
+        //                             description: `Labor - ${labourerName}`,
+        //                             quantity: parseFloat(hoursWorked.toFixed(2)),
+        //                             unitPrice: 2000,
+        //                             type: 'labor',
+        //                             inventoryItemId: null
+        //                         });
+        //                     });
+        //                 }
 
-                        // Add parts/materials from job requirements
-                        if (jobData.requirements?.materials && Array.isArray(jobData.requirements.materials) && jobData.requirements.materials.length > 0) {
-                            jobData.requirements.materials.forEach((material) => {
-                                const materialName = material.name || 'Unnamed Part';
-                                const materialQty = material.quantity || 1;
+        //                 // Add parts/materials from job requirements
+        //                 if (jobData.requirements?.materials && Array.isArray(jobData.requirements.materials) && jobData.requirements.materials.length > 0) {
+        //                     jobData.requirements.materials.forEach((material) => {
+        //                         const materialName = material.name || 'Unnamed Part';
+        //                         const materialQty = material.quantity || 1;
 
-                                // Try to find matching inventory item
-                                const inventoryItem = allInventory.find(inv =>
-                                    inv.name.toLowerCase().trim() === materialName.toLowerCase().trim()
-                                );
+        //                         // Try to find matching inventory item
+        //                         const inventoryItem = allInventory.find(inv =>
+        //                             inv.name.toLowerCase().trim() === materialName.toLowerCase().trim()
+        //                         );
 
-                                initialItems.push({
-                                    description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${materialName}`,
-                                    quantity: materialQty,
-                                    unitPrice: inventoryItem?.unitPrice || 0,
-                                    type: 'part',
-                                    inventoryItemId: inventoryItem?._id || null,
-                                    stockAvailable: inventoryItem?.currentStock || 0
-                                });
-                            });
-                        }
+        //                         initialItems.push({
+        //                             description: inventoryItem ? `Part - ${inventoryItem.name}` : `Part - ${materialName}`,
+        //                             quantity: materialQty,
+        //                             unitPrice: inventoryItem?.unitPrice || 0,
+        //                             type: 'part',
+        //                             inventoryItemId: inventoryItem?._id || null,
+        //                             stockAvailable: inventoryItem?.currentStock || 0
+        //                         });
+        //                     });
+        //                 }
 
-                        // Add a default labor item if no items were created
-                        if (initialItems.length === 0) {
-                            initialItems.push({
-                                description: "Labor",
-                                quantity: jobData.actualHours || jobData.estimatedHours || 1,
-                                unitPrice: 2000,
-                                type: 'labor',
-                                inventoryItemId: null
-                            });
-                        }
+        //                 // Add a default labor item if no items were created
+        //                 if (initialItems.length === 0) {
+        //                     initialItems.push({
+        //                         description: "Labor",
+        //                         quantity: jobData.actualHours || jobData.estimatedHours || 1,
+        //                         unitPrice: 2000,
+        //                         type: 'labor',
+        //                         inventoryItemId: null
+        //                     });
+        //                 }
 
-                        // Auto-populate notes from job
-                        if (jobData.notes) {
-                            setNotes(jobData.notes);
-                        }
-                    } else {
-                        // No job found, add default labor item
-                        initialItems.push({
-                            description: "Labor",
-                            quantity: 1,
-                            unitPrice: 2000,
-                            type: 'labor',
-                            inventoryItemId: null
-                        });
-                    }
+        //                 // Auto-populate notes from job
+        //                 if (jobData.notes) {
+        //                     setNotes(jobData.notes);
+        //                 }
+        //             } else {
+        //                 // No job found, add default labor item
+        //                 initialItems.push({
+        //                     description: "Labor",
+        //                     quantity: 1,
+        //                     unitPrice: 2000,
+        //                     type: 'labor',
+        //                     inventoryItemId: null
+        //                 });
+        //             }
 
-                    setItems(initialItems);
-                }
-            } catch (e) {
-                if (!ignore) {
-                    setMessage({ text: e.message || "Failed to load booking", type: "error" });
-                    // Set a default item even on error
-                    setItems([{ description: "Labor", quantity: 1, unitPrice: 2000, type: 'labor', inventoryItemId: null }]);
-                }
-            } finally {
-                if (!ignore) setIsLoading(false);
-            }
-        }
-        load();
-        return () => {
-            ignore = true;
-        };
+        //             setItems(initialItems);
+        //         }
+        //     } catch (e) {
+        //         if (!ignore) {
+        //             setMessage({ text: e.message || "Failed to load booking", type: "error" });
+        //             // Set a default item even on error
+        //             setItems([{ description: "Labor", quantity: 1, unitPrice: 2000, type: 'labor', inventoryItemId: null }]);
+        //         }
+        //     } finally {
+        //         if (!ignore) setIsLoading(false);
+        //     }
+        // }
+        // load();
+        // return () => {
+        //     ignore = true;
+        // };
+
     }, [bookingId]);
 
     function updateItem(index, patch) {
@@ -599,114 +618,114 @@ export default function CreateInvoice() {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={tableStyle}>
                                 <thead>
-                                <tr>
-                                    <th style={{ ...thStyle, minWidth: 250 }}>Description</th>
-                                    <th style={{ ...thStyle, minWidth: 130 }}>Type</th>
-                                    <th style={{ ...thStyle, minWidth: 90 }}>Qty</th>
-                                    <th style={{ ...thStyle, minWidth: 120 }}>Unit Price</th>
-                                    <th style={{ ...thStyle, minWidth: 120 }}>Total</th>
-                                    <th style={{ ...thStyle, width: 100 }}></th>
-                                </tr>
+                                    <tr>
+                                        <th style={{ ...thStyle, minWidth: 250 }}>Description</th>
+                                        <th style={{ ...thStyle, minWidth: 130 }}>Type</th>
+                                        <th style={{ ...thStyle, minWidth: 90 }}>Qty</th>
+                                        <th style={{ ...thStyle, minWidth: 120 }}>Unit Price</th>
+                                        <th style={{ ...thStyle, minWidth: 120 }}>Total</th>
+                                        <th style={{ ...thStyle, width: 100 }}></th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {items.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', padding: 40, color: '#94a3b8' }}>
-                                            No items added. Click "Add Item" to get started.
-                                        </td>
-                                    </tr>
-                                )}
-                                {items.map((item, i) => (
-                                    <tr key={i}>
-                                        <td style={tdStyle}>
-                                            {item.type === 'part' ? (
+                                    {items.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ ...tdStyle, textAlign: 'center', padding: 40, color: '#94a3b8' }}>
+                                                No items added. Click "Add Item" to get started.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {items.map((item, i) => (
+                                        <tr key={i}>
+                                            <td style={tdStyle}>
+                                                {item.type === 'part' ? (
+                                                    <select
+                                                        value={item.inventoryItemId || ''}
+                                                        onChange={(e) => selectInventoryItem(i, e.target.value)}
+                                                        style={control}
+                                                    >
+                                                        <option value="">Select from inventory...</option>
+                                                        {inventoryItems.filter(inv => inv.status === 'active').map(inv => (
+                                                            <option key={inv._id} value={inv._id}>
+                                                                {inv.name} - {toMoney(inv.unitPrice)} (Stock: {inv.currentStock})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        value={item.description}
+                                                        onChange={(e) => updateItem(i, { description: e.target.value })}
+                                                        style={control}
+                                                        placeholder="Enter description"
+                                                    />
+                                                )}
+                                                {item.stockAvailable !== undefined && item.quantity > item.stockAvailable && (
+                                                    <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>
+                                                        ⚠ Only {item.stockAvailable} in stock
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={tdStyle}>
                                                 <select
-                                                    value={item.inventoryItemId || ''}
-                                                    onChange={(e) => selectInventoryItem(i, e.target.value)}
+                                                    value={item.type}
+                                                    onChange={(e) => {
+                                                        const newType = e.target.value;
+                                                        updateItem(i, {
+                                                            type: newType,
+                                                            inventoryItemId: newType === 'part' ? item.inventoryItemId : null
+                                                        });
+                                                    }}
                                                     style={control}
                                                 >
-                                                    <option value="">Select from inventory...</option>
-                                                    {inventoryItems.filter(inv => inv.status === 'active').map(inv => (
-                                                        <option key={inv._id} value={inv._id}>
-                                                            {inv.name} - {toMoney(inv.unitPrice)} (Stock: {inv.currentStock})
-                                                        </option>
-                                                    ))}
+                                                    <option value="service">Service</option>
+                                                    <option value="labor">Labor</option>
+                                                    <option value="part">Part</option>
+                                                    <option value="material">Material</option>
                                                 </select>
-                                            ) : (
+                                            </td>
+                                            <td style={tdStyle}>
                                                 <input
-                                                    value={item.description}
-                                                    onChange={(e) => updateItem(i, { description: e.target.value })}
+                                                    type="number"
+                                                    min={0.1}
+                                                    step="0.1"
+                                                    value={item.quantity}
+                                                    onChange={(e) => updateItem(i, { quantity: +e.target.value })}
                                                     style={control}
-                                                    placeholder="Enter description"
                                                 />
-                                            )}
-                                            {item.stockAvailable !== undefined && item.quantity > item.stockAvailable && (
-                                                <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>
-                                                    ⚠ Only {item.stockAvailable} in stock
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <select
-                                                value={item.type}
-                                                onChange={(e) => {
-                                                    const newType = e.target.value;
-                                                    updateItem(i, {
-                                                        type: newType,
-                                                        inventoryItemId: newType === 'part' ? item.inventoryItemId : null
-                                                    });
-                                                }}
-                                                style={control}
-                                            >
-                                                <option value="service">Service</option>
-                                                <option value="labor">Labor</option>
-                                                <option value="part">Part</option>
-                                                <option value="material">Material</option>
-                                            </select>
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <input
-                                                type="number"
-                                                min={0.1}
-                                                step="0.1"
-                                                value={item.quantity}
-                                                onChange={(e) => updateItem(i, { quantity: +e.target.value })}
-                                                style={control}
-                                            />
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                step="0.01"
-                                                value={item.unitPrice}
-                                                onChange={(e) => updateItem(i, { unitPrice: +e.target.value })}
-                                                style={control}
-                                                disabled={!!item.inventoryItemId}
-                                            />
-                                        </td>
-                                        <td style={{ ...tdStyle, fontWeight: 600 }}>
-                                            {toMoney((item.quantity || 0) * (item.unitPrice || 0))}
-                                        </td>
-                                        <td style={tdStyle}>
-                                            <button
-                                                onClick={() => removeLine(i)}
-                                                disabled={items.length <= 1}
-                                                style={{
-                                                    ...button,
-                                                    backgroundColor: '#ef4444',
-                                                    color: 'white',
-                                                    opacity: items.length <= 1 ? 0.5 : 1,
-                                                    cursor: items.length <= 1 ? 'not-allowed' : 'pointer',
-                                                    padding: '8px 14px',
-                                                    fontSize: '13px'
-                                                }}
-                                            >
-                                                Remove
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td style={tdStyle}>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.01"
+                                                    value={item.unitPrice}
+                                                    onChange={(e) => updateItem(i, { unitPrice: +e.target.value })}
+                                                    style={control}
+                                                    disabled={!!item.inventoryItemId}
+                                                />
+                                            </td>
+                                            <td style={{ ...tdStyle, fontWeight: 600 }}>
+                                                {toMoney((item.quantity || 0) * (item.unitPrice || 0))}
+                                            </td>
+                                            <td style={tdStyle}>
+                                                <button
+                                                    onClick={() => removeLine(i)}
+                                                    disabled={items.length <= 1}
+                                                    style={{
+                                                        ...button,
+                                                        backgroundColor: '#ef4444',
+                                                        color: 'white',
+                                                        opacity: items.length <= 1 ? 0.5 : 1,
+                                                        cursor: items.length <= 1 ? 'not-allowed' : 'pointer',
+                                                        padding: '8px 14px',
+                                                        fontSize: '13px'
+                                                    }}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -885,7 +904,7 @@ export default function CreateInvoice() {
                     </div>
 
                     {showPreview && (
-                        <div style={{ ...card, backgroundColor: '#f8fafc', padding: 32 }}>
+                        <div style={{ ...card, backgroundColor: '#090a0aff', padding: 32 }}>
                             <h2 style={sectionTitle}>
                                 📄 Invoice Preview
                             </h2>
@@ -939,34 +958,34 @@ export default function CreateInvoice() {
 
                                 <table style={{ width: '100%', marginBottom: 24, fontSize: 14 }}>
                                     <thead>
-                                    <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                                        <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Description</th>
-                                        <th style={{ padding: 12, textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Qty</th>
-                                        <th style={{ padding: 12, textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Unit Price</th>
-                                        <th style={{ padding: 12, textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Total</th>
-                                    </tr>
+                                        <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                                            <th style={{ padding: 12, textAlign: 'left', fontWeight: 600, color: '#64748b' }}>Description</th>
+                                            <th style={{ padding: 12, textAlign: 'center', fontWeight: 600, color: '#64748b' }}>Qty</th>
+                                            <th style={{ padding: 12, textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Unit Price</th>
+                                            <th style={{ padding: 12, textAlign: 'right', fontWeight: 600, color: '#64748b' }}>Total</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
-                                    {items.map((item, i) => (
-                                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: 12 }}>{item.description}</td>
-                                            <td style={{ padding: 12, textAlign: 'center' }}>{item.quantity}</td>
-                                            <td style={{ padding: 12, textAlign: 'right' }}>{toMoney(item.unitPrice)}</td>
-                                            <td style={{ padding: 12, textAlign: 'right', fontWeight: 600 }}>
-                                                {toMoney(item.quantity * item.unitPrice)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {laborCharges > 0 && (
-                                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                            <td style={{ padding: 12 }}>Additional Labor Charges</td>
-                                            <td style={{ padding: 12, textAlign: 'center' }}>—</td>
-                                            <td style={{ padding: 12, textAlign: 'right' }}>—</td>
-                                            <td style={{ padding: 12, textAlign: 'right', fontWeight: 600 }}>
-                                                {toMoney(laborCharges)}
-                                            </td>
-                                        </tr>
-                                    )}
+                                        {items.map((item, i) => (
+                                            <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: 12 }}>{item.description}</td>
+                                                <td style={{ padding: 12, textAlign: 'center' }}>{item.quantity}</td>
+                                                <td style={{ padding: 12, textAlign: 'right' }}>{toMoney(item.unitPrice)}</td>
+                                                <td style={{ padding: 12, textAlign: 'right', fontWeight: 600 }}>
+                                                    {toMoney(item.quantity * item.unitPrice)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {laborCharges > 0 && (
+                                            <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: 12 }}>Additional Labor Charges</td>
+                                                <td style={{ padding: 12, textAlign: 'center' }}>—</td>
+                                                <td style={{ padding: 12, textAlign: 'right' }}>—</td>
+                                                <td style={{ padding: 12, textAlign: 'right', fontWeight: 600 }}>
+                                                    {toMoney(laborCharges)}
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
 

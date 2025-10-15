@@ -330,7 +330,9 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
       const inventoryItem = await InventoryItem.findById(goodsRequest.item);
       if (inventoryItem) {
         const oldStock = inventoryItem.currentStock;
+        console.log('before stock update:', inventoryItem.name, oldStock);
         inventoryItem.currentStock -= goodsRequest.quantity;
+        console.log('after stock update:', inventoryItem.name, inventoryItem.currentStock);
 
         // Update inventory status based on stock levels
         if (inventoryItem.currentStock === 0) {
