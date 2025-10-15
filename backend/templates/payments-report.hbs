@@ -22,7 +22,7 @@
 </div>
 {{/if}} --}}
 
-{{#if paymentsByStatus.length}}
+{{!-- {{#if paymentsByStatus.length}}
 <div class="table-section">
     <h2 class="table-title">Payments by Status</h2>
     <table class="data-table">
@@ -39,29 +39,26 @@
             <tr>
                 <td><span class="status {{status}}">{{status}}</span></td>
                 <td>{{count}}</td>
-                <td>LKR {{formatCurrency totalAmount}}</td>
+                <td>LKR {{formatCurrency total}}</td>
                 <td>{{percentage}}%</td>
             </tr>
             {{/each}}
         </tbody>
     </table>
 </div>
-{{/if}}
+{{/if}} --}}
 
 <div class="table-section">
     <h2 class="table-title">Payment Details</h2>
-    <table class="data-table cols-9">
+    <table class="data-table cols-6">
         <thead>
             <tr>
                 <th>Invoice ID</th>
                 <th>Booking ID</th>
                 <th>Customer</th>
                 <th>Issue Date</th>
-                <th>Due Date</th>
                 <th>Subtotal</th>
                 <th>Tax</th>
-                <th>Total Amount</th>
-                <th>Payment Status</th>
             </tr>
         </thead>
         <tbody>
@@ -71,11 +68,8 @@
                 <td>{{bookingId}}</td>
                 <td>{{customerName}}</td>
                 <td>{{formatDate issueDate}}</td>
-                <td>{{formatDate dueDate}}</td>
                 <td>LKR {{formatCurrency subtotal}}</td>
                 <td>LKR {{formatCurrency tax}}</td>
-                <td>LKR {{formatCurrency totalAmount}}</td>
-                <td><span class="status {{paymentStatus}}">{{paymentStatus}}</span></td>
             </tr>
             {{/each}}
         </tbody>
