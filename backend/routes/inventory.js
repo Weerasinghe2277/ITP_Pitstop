@@ -1,17 +1,17 @@
 import express from "express";
 import {
-  createInventoryItem,
-  getAllInventoryItems,
-  getInventoryItemById,
-  getInventoryItemByItemId,
-  updateInventoryItem,
-  updateStock,
-  deleteInventoryItem,
-  getLowStockItems,
-  getInventoryStats,
-  getItemsByCategory,
-  bulkUpdateStock,
-  searchInventoryItems
+    createInventoryItem,
+    getAllInventoryItems,
+    getInventoryItemById,
+    getInventoryItemByItemId,
+    updateInventoryItem,
+    updateStock,
+    deleteInventoryItem,
+    getLowStockItems,
+    getInventoryStats,
+    getItemsByCategory,
+    bulkUpdateStock,
+    searchInventoryItems
 } from "../controllers/InventoryItemcon.js";
 import { authenticate, authorize } from "../middleware/auth.js";
 
@@ -21,7 +21,7 @@ const router = express.Router();
 router.get(
     "/search",
     authenticate,
-    authorize("admin", "manager", "service_advisor", "technician", "cashier"),
+    authorize("cashier", "admin", "manager", "service_advisor", "technician"),
     searchInventoryItems
 );
 
@@ -44,15 +44,15 @@ router.get(
 router.get(
     "/category/:category",
     authenticate,
-    authorize("admin", "manager", "service_advisor", "technician", "cashier"),
+    authorize("cashier", "admin", "manager", "service_advisor", "technician"),
     getItemsByCategory
 );
 
-// Main CRUD routes - UPDATED: Added cashier role for GET
+// Main CRUD routes - cashier can GET all items
 router.route("/")
     .get(
         authenticate,
-        authorize("admin", "manager", "service_advisor", "technician", "cashier"),
+        authorize("cashier", "admin", "manager", "service_advisor", "technician"),
         getAllInventoryItems
     )
     .post(
@@ -61,7 +61,7 @@ router.route("/")
         createInventoryItem
     );
 
-// Bulk operations
+// Bulk operations - admin and manager only
 router.patch(
     "/bulk-update-stock",
     authenticate,
@@ -69,19 +69,19 @@ router.patch(
     bulkUpdateStock
 );
 
-// Item by itemId (custom ID like ITM00001)
+// Item by itemId (custom ID like ITM00001) - cashier can GET
 router.route("/item/:itemId")
     .get(
         authenticate,
-        authorize("admin", "manager", "service_advisor", "technician", "cashier"),
+        authorize("cashier", "admin", "manager", "service_advisor", "technician"),
         getInventoryItemByItemId
     );
 
-// Item management by database ID
+// Item management by database ID - cashier can GET, admin/manager can modify
 router.route("/:id")
     .get(
         authenticate,
-        authorize("admin", "manager", "service_advisor", "technician", "cashier"),
+        authorize("cashier", "admin", "manager", "service_advisor", "technician"),
         getInventoryItemById
     )
     .patch(
@@ -95,7 +95,7 @@ router.route("/:id")
         deleteInventoryItem
     );
 
-// Stock management operations
+// Stock management operations - admin and manager only
 router.patch(
     "/:id/stock",
     authenticate,
