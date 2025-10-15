@@ -25,10 +25,10 @@ const createVehicle = asyncWrapper(async (req, res, next) => {
   }
 
   // Check if vehicle with same registration number already exists
-  const existingVehicle = await Vehicle.findOne({ 
-    registrationNumber: registrationNumber.toUpperCase() 
+  const existingVehicle = await Vehicle.findOne({
+    registrationNumber: registrationNumber.toUpperCase()
   });
-  
+
   if (existingVehicle) {
     return next(createCustomError("Vehicle with this registration number already exists", 400));
   }
@@ -136,17 +136,17 @@ const getAllVehicles = asyncWrapper(async (req, res) => {
 
   // Calculate pagination
   const skip = (page - 1) * limit;
-  
+
   // Build sort object
   const sort = {};
   sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
   // Execute query with population
   const vehicles = await Vehicle.find(query)
-    .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier')
-    .sort(sort)
-    .limit(limit * 1)
-    .skip(skip);
+      .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier')
+      .sort(sort)
+      .limit(limit * 1)
+      .skip(skip);
 
   // Get total count for pagination
   const total = await Vehicle.countDocuments(query);
@@ -166,7 +166,7 @@ const getVehicleById = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
 
   const vehicle = await Vehicle.findById(id)
-    .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier customerDetails.emergencyContact');
+      .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier customerDetails.emergencyContact');
 
   if (!vehicle) {
     return next(createCustomError(`No vehicle found with id: ${id}`, 404));
@@ -182,8 +182,8 @@ const getVehicleById = asyncWrapper(async (req, res, next) => {
 const getVehicleByRegistration = asyncWrapper(async (req, res, next) => {
   const { registrationNumber } = req.params;
 
-  const vehicle = await Vehicle.findOne({ 
-    registrationNumber: registrationNumber.toUpperCase() 
+  const vehicle = await Vehicle.findOne({
+    registrationNumber: registrationNumber.toUpperCase()
   }).populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email customerDetails.membershipTier');
 
   if (!vehicle) {
@@ -221,10 +221,10 @@ const getVehiclesByOwner = asyncWrapper(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const vehicles = await Vehicle.find(query)
-    .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email')
-    .sort({ createdAt: -1 })
-    .limit(limit * 1)
-    .skip(skip);
+      .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip(skip);
 
   const total = await Vehicle.countDocuments(query);
 
@@ -243,37 +243,70 @@ const updateVehicle = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const updateData = { ...req.body };
 
+  console.log("Updating vehicle with ID:", id);
+  console.log("Update data received:", updateData);
+
+  // Find the vehicle first to check if it exists
+  const existingVehicle = await Vehicle.findById(id);
+  if (!existingVehicle) {
+    return next(createCustomError(`No vehicle found with id: ${id}`, 404));
+  }
+
   // Prevent updating certain fields
   delete updateData.vehicleId;
   delete updateData.owner;
+  delete updateData._id;
 
   // Handle registration number case conversion
   if (updateData.registrationNumber) {
     updateData.registrationNumber = updateData.registrationNumber.toUpperCase();
-    
+
     // Check if new registration number already exists (excluding current vehicle)
-    const existingVehicle = await Vehicle.findOne({
+    const duplicateVehicle = await Vehicle.findOne({
       registrationNumber: updateData.registrationNumber,
       _id: { $ne: id }
     });
-    
-    if (existingVehicle) {
+
+    if (duplicateVehicle) {
       return next(createCustomError("Vehicle with this registration number already exists", 400));
     }
   }
 
-  const vehicle = await Vehicle.findByIdAndUpdate(
-    id,
-    updateData,
-    {
-      new: true,
-      runValidators: true,
+  // Validate year if provided
+  if (updateData.year) {
+    const year = parseInt(updateData.year);
+    if (year < 1900 || year > new Date().getFullYear() + 1) {
+      return next(createCustomError("Please provide a valid year", 400));
     }
+    updateData.year = year;
+  }
+
+  // Validate status if provided
+  if (updateData.status && !["active", "maintenance", "inactive", "scrapped"].includes(updateData.status)) {
+    return next(createCustomError("Invalid status value", 400));
+  }
+
+  // Validate fuelType if provided
+  if (updateData.fuelType && !["petrol", "diesel", "electric", "hybrid"].includes(updateData.fuelType)) {
+    return next(createCustomError("Invalid fuel type", 400));
+  }
+
+  // Validate transmission if provided
+  if (updateData.transmission && !["manual", "automatic"].includes(updateData.transmission)) {
+    return next(createCustomError("Invalid transmission type", 400));
+  }
+
+  // Update the vehicle
+  const vehicle = await Vehicle.findByIdAndUpdate(
+      id,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
   ).populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email');
 
-  if (!vehicle) {
-    return next(createCustomError(`No vehicle found with id: ${id}`, 404));
-  }
+  console.log("Vehicle updated successfully:", vehicle);
 
   res.status(200).json({
     success: true,
@@ -320,14 +353,14 @@ const updateVehicleStatus = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  if (!status || !["active", "inactive", "scrapped"].includes(status)) {
-    return next(createCustomError("Please provide a valid status (active, inactive, scrapped)", 400));
+  if (!status || !["active", "maintenance", "inactive", "scrapped"].includes(status)) {
+    return next(createCustomError("Please provide a valid status (active, maintenance, inactive, scrapped)", 400));
   }
 
   const vehicle = await Vehicle.findByIdAndUpdate(
-    id,
-    { status },
-    { new: true, runValidators: true }
+      id,
+      { status },
+      { new: true, runValidators: true }
   ).populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email');
 
   if (!vehicle) {
@@ -366,7 +399,7 @@ const deleteVehicle = asyncWrapper(async (req, res, next) => {
     // Soft delete - change status to inactive
     vehicle.status = "inactive";
     await vehicle.save();
-    
+
     res.status(200).json({
       success: true,
       message: "Vehicle deactivated successfully",
@@ -453,6 +486,7 @@ const getVehicleStats = asyncWrapper(async (req, res) => {
   // Total counts
   const totalVehicles = await Vehicle.countDocuments();
   const activeVehicles = await Vehicle.countDocuments({ status: "active" });
+  const maintenanceVehicles = await Vehicle.countDocuments({ status: "maintenance" });
   const inactiveVehicles = await Vehicle.countDocuments({ status: "inactive" });
   const scrappedVehicles = await Vehicle.countDocuments({ status: "scrapped" });
 
@@ -474,6 +508,7 @@ const getVehicleStats = asyncWrapper(async (req, res) => {
     stats: {
       totalVehicles,
       activeVehicles,
+      maintenanceVehicles,
       inactiveVehicles,
       scrappedVehicles,
       averageAge,
@@ -509,10 +544,10 @@ const searchVehicles = asyncWrapper(async (req, res) => {
   };
 
   const vehicles = await Vehicle.find(searchQuery)
-    .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email')
-    .select('vehicleId registrationNumber make model year owner')
-    .limit(limit * 1)
-    .sort({ registrationNumber: 1 });
+      .populate('owner', 'userId profile.firstName profile.lastName profile.phoneNumber email')
+      .select('vehicleId registrationNumber make model year owner')
+      .limit(limit * 1)
+      .sort({ registrationNumber: 1 });
 
   res.status(200).json({
     success: true,

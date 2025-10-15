@@ -13,6 +13,9 @@ export default function VehiclesList() {
     const [message, setMessage] = useState({ text: "", type: "" });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+    const [editingVehicle, setEditingVehicle] = useState(null);
+    const [editFormData, setEditFormData] = useState({});
+    const [isSaving, setIsSaving] = useState(false);
 
     // Statistics
     const [stats, setStats] = useState({
@@ -79,6 +82,83 @@ export default function VehiclesList() {
     const currentVehicles = filteredVehicles.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
 
+    // Edit vehicle functions
+    const handleEditClick = (vehicle) => {
+        setEditingVehicle(vehicle._id);
+        setEditFormData({
+            registrationNumber: vehicle.registrationNumber || "",
+            make: vehicle.make || "",
+            model: vehicle.model || "",
+            year: vehicle.year || "",
+            fuelType: vehicle.fuelType || "petrol",
+            transmission: vehicle.transmission || "automatic",
+            status: vehicle.status || "active"
+        });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingVehicle(null);
+        setEditFormData({});
+        setIsSaving(false);
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleSaveEdit = async (vehicleId) => {
+        // Validate required fields
+        if (!editFormData.registrationNumber?.trim() || !editFormData.make?.trim() || !editFormData.model?.trim()) {
+            setMessage({ text: "Registration, make, and model are required fields", type: "error" });
+            return;
+        }
+
+        setIsSaving(true);
+
+        try {
+            console.log("Updating vehicle:", vehicleId);
+            console.log("Update data:", editFormData);
+
+            // Make the API call using PATCH (not PUT)
+            const response = await http.patch(`/vehicles/${vehicleId}`, editFormData);
+
+            console.log("Update response:", response);
+
+            // Check if update was successful
+            if (response.status === 200 || response.data) {
+                setMessage({ text: "Vehicle updated successfully", type: "success" });
+
+                // Clear edit mode
+                setEditingVehicle(null);
+                setEditFormData({});
+
+                // Reload vehicles from server to get fresh data
+                await loadVehicles();
+            } else {
+                throw new Error("Update failed - no response data");
+            }
+        } catch (error) {
+            console.error("Update error:", error);
+            console.error("Error response:", error.response);
+
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || "Failed to update vehicle. Please try again.";
+
+            setMessage({
+                text: errorMessage,
+                type: "error"
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     async function exportVehicles() {
         try {
             const csvContent = [
@@ -117,7 +197,7 @@ export default function VehiclesList() {
         mutedText: "#6b7280",
     };
 
-    if (isLoading) {
+    if (isLoading && !editingVehicle) {
         return (
             <div style={{
                 display: 'flex',
@@ -209,7 +289,8 @@ export default function VehiclesList() {
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            fontSize: '18px'
+                            fontSize: '18px',
+                            color: 'inherit'
                         }}
                     >
                         ×
@@ -351,12 +432,23 @@ export default function VehiclesList() {
                             currentVehicles.map((vehicle, index) => (
                                 <tr key={vehicle._id} style={{
                                     borderBottom: `1px solid ${theme.border}`,
-                                    '&:hover': { backgroundColor: '#f9fafb' }
+                                    backgroundColor: editingVehicle === vehicle._id ? '#f0f9ff' : 'transparent'
                                 }}>
                                     <td style={tableCellStyle}>
+                                        {editingVehicle === vehicle._id ? (
+                                            <input
+                                                type="text"
+                                                name="registrationNumber"
+                                                value={editFormData.registrationNumber}
+                                                onChange={handleInputChange}
+                                                style={inputStyle}
+                                                required
+                                            />
+                                        ) : (
                                             <span style={{ fontWeight: '500', color: '#3b82f6' }}>
                                                 {vehicle.registrationNumber}
                                             </span>
+                                        )}
                                     </td>
                                     <td style={tableCellStyle}>
                                         {vehicle.owner ? (
@@ -373,19 +465,62 @@ export default function VehiclesList() {
                                         )}
                                     </td>
                                     <td style={tableCellStyle}>
-                                        <div>
+                                        {editingVehicle === vehicle._id ? (
+                                            <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                                                <input
+                                                    type="text"
+                                                    name="make"
+                                                    placeholder="Make"
+                                                    value={editFormData.make}
+                                                    onChange={handleInputChange}
+                                                    style={inputStyle}
+                                                    required
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name="model"
+                                                    placeholder="Model"
+                                                    value={editFormData.model}
+                                                    onChange={handleInputChange}
+                                                    style={inputStyle}
+                                                    required
+                                                />
+                                            </div>
+                                        ) : (
                                             <div style={{ fontWeight: '500' }}>
                                                 {vehicle.make} {vehicle.model}
                                             </div>
-                                            {vehicle.color && (
-                                                <div style={{ fontSize: '12px', color: theme.mutedText }}>
-                                                    {vehicle.color}
-                                                </div>
-                                            )}
-                                        </div>
+                                        )}
                                     </td>
-                                    <td style={tableCellStyle}>{vehicle.year}</td>
                                     <td style={tableCellStyle}>
+                                        {editingVehicle === vehicle._id ? (
+                                            <input
+                                                type="number"
+                                                name="year"
+                                                value={editFormData.year}
+                                                onChange={handleInputChange}
+                                                style={inputStyle}
+                                                min="1900"
+                                                max="2030"
+                                            />
+                                        ) : (
+                                            vehicle.year
+                                        )}
+                                    </td>
+                                    <td style={tableCellStyle}>
+                                        {editingVehicle === vehicle._id ? (
+                                            <select
+                                                name="fuelType"
+                                                value={editFormData.fuelType}
+                                                onChange={handleInputChange}
+                                                style={inputStyle}
+                                            >
+                                                <option value="petrol">Petrol</option>
+                                                <option value="diesel">Diesel</option>
+                                                <option value="electric">Electric</option>
+                                                <option value="hybrid">Hybrid</option>
+                                            </select>
+                                        ) : (
                                             <span style={{
                                                 padding: '4px 8px',
                                                 backgroundColor: '#f3f4f6',
@@ -395,40 +530,94 @@ export default function VehiclesList() {
                                             }}>
                                                 {vehicle.fuelType}
                                             </span>
+                                        )}
                                     </td>
                                     <td style={tableCellStyle}>
-                                        <StatusBadge value={vehicle.status} />
+                                        {editingVehicle === vehicle._id ? (
+                                            <select
+                                                name="status"
+                                                value={editFormData.status}
+                                                onChange={handleInputChange}
+                                                style={inputStyle}
+                                            >
+                                                <option value="active">Active</option>
+                                                <option value="maintenance">Maintenance</option>
+                                                <option value="inactive">Inactive</option>
+                                            </select>
+                                        ) : (
+                                            <StatusBadge value={vehicle.status} />
+                                        )}
                                     </td>
                                     <td style={tableCellStyle}>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <Link
-                                                to={`/vehicles/${vehicle._id}`}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    backgroundColor: '#3b82f6',
-                                                    color: 'white',
-                                                    textDecoration: 'none',
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px',
-                                                    fontWeight: '500'
-                                                }}
-                                            >
-                                                View
-                                            </Link>
-                                            <Link
-                                                to={`/bookings/new/${vehicle._id}`}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    backgroundColor: '#10b981',
-                                                    color: 'white',
-                                                    textDecoration: 'none',
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px',
-                                                    fontWeight: '500'
-                                                }}
-                                            >
-                                                Book
-                                            </Link>
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            {editingVehicle === vehicle._id ? (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleSaveEdit(vehicle._id)}
+                                                        disabled={isSaving}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            backgroundColor: isSaving ? '#9ca3af' : '#10b981',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '500',
+                                                            cursor: isSaving ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                    >
+                                                        {isSaving ? 'Saving...' : 'Save'}
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEdit}
+                                                        disabled={isSaving}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            backgroundColor: isSaving ? '#9ca3af' : '#6b7280',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '500',
+                                                            cursor: isSaving ? 'not-allowed' : 'pointer'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Link
+                                                        to={`/vehicles/${vehicle._id}`}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            backgroundColor: '#3b82f6',
+                                                            color: 'white',
+                                                            textDecoration: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '500'
+                                                        }}
+                                                    >
+                                                        View
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleEditClick(vehicle)}
+                                                        style={{
+                                                            padding: '4px 8px',
+                                                            backgroundColor: '#f59e0b',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: '500',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -558,4 +747,14 @@ const tableCellStyle = {
     fontSize: '14px',
     color: '#111827',
     verticalAlign: 'top'
+};
+
+const inputStyle = {
+    width: '100%',
+    padding: '6px 8px',
+    border: '1px solid #d1d5db',
+    borderRadius: '4px',
+    fontSize: '12px',
+    backgroundColor: '#ffffff',
+    boxSizing: 'border-box'
 };
