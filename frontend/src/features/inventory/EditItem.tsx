@@ -139,7 +139,7 @@ export default function EditItem() {
     setMessage({ text: "", type: "" });
 
     try {
-      // Build payload with only changed fields
+      // Build comprehensive payload - include ALL fields
       const payload: any = {
         name: form.name.trim(),
         category: form.category,
@@ -150,43 +150,42 @@ export default function EditItem() {
         status: form.status
       };
 
-      // Add optional fields only if they have values
-      if (form.partNumber?.trim()) {
-        payload.partNumber = form.partNumber.trim();
-      }
-      if (form.brand?.trim()) {
-        payload.brand = form.brand.trim();
-      }
-      if (form.description?.trim()) {
-        payload.description = form.description.trim();
-      }
-      if (form.notes?.trim()) {
-        payload.notes = form.notes.trim();
-      }
+      // Always include these fields (even if empty string, backend will handle)
+      payload.partNumber = form.partNumber?.trim() || "";
+      payload.brand = form.brand?.trim() || "";
+      payload.description = form.description?.trim() || "";
+      payload.notes = form.notes?.trim() || "";
 
-      // Add supplier info if any field is filled
-      if (form.supplier.name?.trim() ||
-          form.supplier.contactPerson?.trim() ||
-          form.supplier.phone?.trim() ||
-          form.supplier.email?.trim()) {
-        payload.supplier = {};
-        if (form.supplier.name?.trim()) payload.supplier.name = form.supplier.name.trim();
-        if (form.supplier.contactPerson?.trim()) payload.supplier.contactPerson = form.supplier.contactPerson.trim();
-        if (form.supplier.phone?.trim()) payload.supplier.phone = form.supplier.phone.trim();
-        if (form.supplier.email?.trim()) payload.supplier.email = form.supplier.email.trim();
-      }
+      // Always include supplier object with all fields
+      payload.supplier = {
+        name: form.supplier.name?.trim() || "",
+        contactPerson: form.supplier.contactPerson?.trim() || "",
+        phone: form.supplier.phone?.trim() || "",
+        email: form.supplier.email?.trim() || ""
+      };
 
-      await http.patch(`/inventory/${id}`, payload);
+      console.log("Sending payload:", payload);
+
+      const response = await http.patch(`/inventory/${id}`, payload);
+
+      console.log("Update response:", response.data);
 
       setMessage({
-        text: "✅ Item updated successfully!",
+        text: "✅ Item updated successfully! All fields saved to database.",
         type: "success"
       });
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Redirect after 1.5 seconds
-      setTimeout(() => navigate(`/inventory/${id}`), 1500);
+      // Reload the item to show updated data
+      setTimeout(() => {
+        loadItem();
+      }, 500);
+
+      // Redirect after showing success message
+      setTimeout(() => {
+        navigate(`/inventory/${id}`);
+      }, 2000);
     } catch (e: any) {
       console.error("Update failed:", e);
       const msg = e.response?.data?.message || e.message || "Update failed";
@@ -546,7 +545,18 @@ export default function EditItem() {
             </div>
 
             {/* Supplier Information */}
-            <h3 style={sectionTitle}>🏢 Supplier Information (Optional)</h3>
+            <h3 style={sectionTitle}>🏢 Supplier Information</h3>
+            <div style={{
+              padding: '12px',
+              background: '#f0fdf4',
+              borderRadius: '8px',
+              border: '1px solid #bbf7d0',
+              marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '12px', color: '#166534', fontWeight: 600 }}>
+                💡 All supplier fields will be saved to database (even if empty)
+              </div>
+            </div>
 
             <div style={{
               display: 'grid',
@@ -650,8 +660,8 @@ export default function EditItem() {
                     </>
                 ) : (
                     <>
-                      <span>✓</span>
-                      <span>Update Item</span>
+                      <span>💾</span>
+                      <span>Save All Changes</span>
                     </>
                 )}
               </button>
@@ -700,7 +710,7 @@ export default function EditItem() {
                   }}
               >
                 <span>↻</span>
-                <span>Reset</span>
+                <span>Reset to Original</span>
               </button>
             </div>
           </form>
@@ -716,7 +726,7 @@ export default function EditItem() {
                 paddingBottom: '12px',
                 borderBottom: '1px solid #e5e7eb'
               }}>
-                📊 Changes Summary
+                📊 Current Values
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <SummaryRow label="Item Name" value={form.name || "—"} />
@@ -724,8 +734,12 @@ export default function EditItem() {
                     label="Category"
                     value={form.category ? form.category.charAt(0).toUpperCase() + form.category.slice(1) : "—"}
                 />
-                {form.partNumber && <SummaryRow label="Part Number" value={form.partNumber} />}
-                {form.brand && <SummaryRow label="Brand" value={form.brand} />}
+                <SummaryRow
+                    label="Status"
+                    value={form.status ? form.status.charAt(0).toUpperCase() + form.status.slice(1) : "—"}
+                />
+                <SummaryRow label="Part Number" value={form.partNumber || "Not set"} />
+                <SummaryRow label="Brand" value={form.brand || "Not set"} />
                 <SummaryRow
                     label="Unit Price"
                     value={form.unitPrice > 0 ? `LKR ${parseFloat(String(form.unitPrice)).toFixed(2)}` : "—"}
@@ -774,17 +788,15 @@ export default function EditItem() {
                   )}
                 </div>
 
-                {form.supplier.name && (
-                    <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '6px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
-                        Supplier
-                      </div>
-                      <SummaryRow label="Name" value={form.supplier.name} small />
-                      {form.supplier.contactPerson && (
-                          <SummaryRow label="Contact" value={form.supplier.contactPerson} small />
-                      )}
-                    </div>
-                )}
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '6px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                    🏢 Supplier Information
+                  </div>
+                  <SummaryRow label="Name" value={form.supplier.name || "Not set"} small />
+                  <SummaryRow label="Contact" value={form.supplier.contactPerson || "Not set"} small />
+                  <SummaryRow label="Phone" value={form.supplier.phone || "Not set"} small />
+                  <SummaryRow label="Email" value={form.supplier.email || "Not set"} small />
+                </div>
 
                 {/* Total Value */}
                 {form.unitPrice > 0 && form.currentStock > 0 && (
@@ -809,12 +821,12 @@ export default function EditItem() {
             {/* Info Card */}
             <div style={{ ...card, marginTop: '16px', background: '#eff6ff', borderColor: '#bfdbfe' }}>
               <div style={{ fontSize: '13px', color: '#1e40af', lineHeight: '1.6' }}>
-                <div style={{ fontWeight: 600, marginBottom: '8px' }}>ℹ️ Update Tips:</div>
+                <div style={{ fontWeight: 600, marginBottom: '8px' }}>💾 Save Behavior:</div>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  <li>Changes are saved immediately</li>
+                  <li>All fields are saved to database</li>
+                  <li>Empty fields saved as empty strings</li>
+                  <li>Supplier info always included</li>
                   <li>Item ID cannot be changed</li>
-                  <li>Watch for low stock warnings</li>
-                  <li>Update supplier info as needed</li>
                 </ul>
               </div>
             </div>

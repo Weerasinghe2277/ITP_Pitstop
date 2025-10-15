@@ -15,6 +15,7 @@ export default function CreateItem() {
         brand: "",
         description: "",
         notes: "",
+        status: "active",
         supplier: {
             name: "",
             contactPerson: "",
@@ -60,12 +61,13 @@ export default function CreateItem() {
         const v = validate();
         if (v) {
             setMessage({ text: v, type: "error" });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
         setIsLoading(true);
         setMessage({ text: "", type: "" });
         try {
-            // Build payload
+            // Build comprehensive payload - include ALL fields
             const payload = {
                 name: form.name.trim(),
                 category: form.category,
@@ -73,39 +75,31 @@ export default function CreateItem() {
                 unit: form.unit,
                 minimumStock: parseInt(form.minimumStock),
                 currentStock: parseInt(form.currentStock),
-                status: "active"
+                status: form.status
             };
 
-            // Add optional fields only if they have values
-            if (form.partNumber?.trim()) {
-                payload.partNumber = form.partNumber.trim();
-            }
-            if (form.brand?.trim()) {
-                payload.brand = form.brand.trim();
-            }
-            if (form.description?.trim()) {
-                payload.description = form.description.trim();
-            }
-            if (form.notes?.trim()) {
-                payload.notes = form.notes.trim();
-            }
+            // Always include these fields (even if empty string)
+            payload.partNumber = form.partNumber?.trim() || "";
+            payload.brand = form.brand?.trim() || "";
+            payload.description = form.description?.trim() || "";
+            payload.notes = form.notes?.trim() || "";
 
-            // Add supplier info if any field is filled
-            if (form.supplier.name?.trim() ||
-                form.supplier.contactPerson?.trim() ||
-                form.supplier.phone?.trim() ||
-                form.supplier.email?.trim()) {
-                payload.supplier = {};
-                if (form.supplier.name?.trim()) payload.supplier.name = form.supplier.name.trim();
-                if (form.supplier.contactPerson?.trim()) payload.supplier.contactPerson = form.supplier.contactPerson.trim();
-                if (form.supplier.phone?.trim()) payload.supplier.phone = form.supplier.phone.trim();
-                if (form.supplier.email?.trim()) payload.supplier.email = form.supplier.email.trim();
-            }
+            // Always include complete supplier object with all fields
+            payload.supplier = {
+                name: form.supplier.name?.trim() || "",
+                contactPerson: form.supplier.contactPerson?.trim() || "",
+                phone: form.supplier.phone?.trim() || "",
+                email: form.supplier.email?.trim() || ""
+            };
+
+            console.log("Sending payload:", payload);
 
             const response = await http.post("/inventory", payload);
 
+            console.log("Create response:", response.data);
+
             setMessage({
-                text: `Item created successfully! Item ID: ${response.data?.item?.itemId || ''}`,
+                text: `✅ Item created successfully! All data saved to database. Item ID: ${response.data?.item?.itemId || ''}`,
                 type: "success"
             });
 
@@ -121,6 +115,7 @@ export default function CreateItem() {
                 brand: "",
                 description: "",
                 notes: "",
+                status: "active",
                 supplier: {
                     name: "",
                     contactPerson: "",
@@ -133,7 +128,7 @@ export default function CreateItem() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
             const errorMsg = e.response?.data?.message || e.message || "Failed to create item";
-            setMessage({ text: errorMsg, type: "error" });
+            setMessage({ text: `❌ Error: ${errorMsg}`, type: "error" });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } finally {
             setIsLoading(false);
@@ -152,6 +147,7 @@ export default function CreateItem() {
             brand: "",
             description: "",
             notes: "",
+            status: "active",
             supplier: {
                 name: "",
                 contactPerson: "",
@@ -321,6 +317,19 @@ export default function CreateItem() {
                         </div>
 
                         <div>
+                            <label style={label}>Status</label>
+                            <select
+                                value={form.status}
+                                onChange={(e) => update("status", e.target.value)}
+                                style={control}
+                            >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="discontinued">Discontinued</option>
+                            </select>
+                        </div>
+
+                        <div>
                             <label style={label}>Part Number</label>
                             <input
                                 placeholder="e.g., PN-12345"
@@ -459,7 +468,18 @@ export default function CreateItem() {
                     </div>
 
                     {/* Supplier Information */}
-                    <h3 style={sectionTitle}>🏢 Supplier Information (Optional)</h3>
+                    <h3 style={sectionTitle}>🏢 Supplier Information</h3>
+                    <div style={{
+                        padding: '12px',
+                        background: '#f0fdf4',
+                        borderRadius: '8px',
+                        border: '1px solid #bbf7d0',
+                        marginBottom: '16px'
+                    }}>
+                        <div style={{ fontSize: '12px', color: '#166534', fontWeight: 600 }}>
+                            💡 All supplier fields will be saved to database (even if empty)
+                        </div>
+                    </div>
 
                     <div
                         style={{
@@ -569,7 +589,7 @@ export default function CreateItem() {
                                 </>
                             ) : (
                                 <>
-                                    <span>✓</span>
+                                    <span>💾</span>
                                     <span>Create Item</span>
                                 </>
                             )}
@@ -621,8 +641,12 @@ export default function CreateItem() {
                                 label="Category"
                                 value={form.category ? form.category.charAt(0).toUpperCase() + form.category.slice(1) : "—"}
                             />
-                            {form.partNumber && <SummaryRow label="Part Number" value={form.partNumber} />}
-                            {form.brand && <SummaryRow label="Brand" value={form.brand} />}
+                            <SummaryRow
+                                label="Status"
+                                value={form.status ? form.status.charAt(0).toUpperCase() + form.status.slice(1) : "—"}
+                            />
+                            <SummaryRow label="Part Number" value={form.partNumber || "Not set"} />
+                            <SummaryRow label="Brand" value={form.brand || "Not set"} />
                             <SummaryRow
                                 label="Unit Price"
                                 value={form.unitPrice > 0 ? `LKR ${parseFloat(form.unitPrice).toFixed(2)}` : "—"}
@@ -675,17 +699,15 @@ export default function CreateItem() {
                                 )}
                             </div>
 
-                            {form.supplier.name && (
-                                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "14px", marginTop: "6px" }}>
-                                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "8px" }}>
-                                        Supplier
-                                    </div>
-                                    <SummaryRow label="Name" value={form.supplier.name} small />
-                                    {form.supplier.contactPerson && (
-                                        <SummaryRow label="Contact" value={form.supplier.contactPerson} small />
-                                    )}
+                            <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "14px", marginTop: "6px" }}>
+                                <div style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "8px" }}>
+                                    🏢 Supplier Information
                                 </div>
-                            )}
+                                <SummaryRow label="Name" value={form.supplier.name || "Not set"} small />
+                                <SummaryRow label="Contact" value={form.supplier.contactPerson || "Not set"} small />
+                                <SummaryRow label="Phone" value={form.supplier.phone || "Not set"} small />
+                                <SummaryRow label="Email" value={form.supplier.email || "Not set"} small />
+                            </div>
 
                             {/* Total Value */}
                             {form.unitPrice > 0 && form.currentStock > 0 && (
@@ -710,12 +732,12 @@ export default function CreateItem() {
                     {/* Help Card */}
                     <div style={{ ...card, marginTop: "16px", background: "#eff6ff", borderColor: "#bfdbfe" }}>
                         <div style={{ fontSize: "13px", color: "#1e40af", lineHeight: "1.6" }}>
-                            <div style={{ fontWeight: 600, marginBottom: "8px" }}>💡 Tips:</div>
+                            <div style={{ fontWeight: 600, marginBottom: "8px" }}>💾 Save Behavior:</div>
                             <ul style={{ margin: 0, paddingLeft: "20px" }}>
-                                <li>Set reorder level based on usage patterns</li>
-                                <li>Keep supplier info updated for easy ordering</li>
-                                <li>Use clear, searchable names</li>
-                                <li>Include brand and part numbers for accuracy</li>
+                                <li>All fields saved to database</li>
+                                <li>Empty fields saved as empty strings</li>
+                                <li>Supplier info always included</li>
+                                <li>Auto-generated Item ID</li>
                             </ul>
                         </div>
                     </div>
@@ -751,7 +773,7 @@ export default function CreateItem() {
 
 function SummaryRow({ label, value, highlight, small }) {
     return (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
             <span style={{
                 color: "#6b7280",
                 fontSize: small ? "12px" : "13px",
