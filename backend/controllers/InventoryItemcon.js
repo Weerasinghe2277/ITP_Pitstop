@@ -7,20 +7,42 @@ const createInventoryItem = asyncWrapper(async (req, res, next) => {
   const { name, category, unitPrice, unit } = req.body;
 
   // Validate required fields
-  if (!name || !category || !unitPrice || !unit) {
+  if (!name || !category || unitPrice === undefined || !unit) {
     return next(createCustomError("Name, category, unit price, and unit are required", 400));
   }
 
-  // Check if item with same name and part number already exists
+  // Validate category
+  if (!["parts", "tools", "fluids", "consumables"].includes(category)) {
+    return next(createCustomError("Invalid category. Must be: parts, tools, fluids, or consumables", 400));
+  }
+
+  // Validate unit
+  if (!["piece", "liter", "kg", "meter", "set"].includes(unit)) {
+    return next(createCustomError("Invalid unit. Must be: piece, liter, kg, meter, or set", 400));
+  }
+
+  // Validate unit price
+  if (unitPrice < 0) {
+    return next(createCustomError("Unit price cannot be negative", 400));
+  }
+
+  // Check if item with same name already exists (case-insensitive)
   const existingItem = await InventoryItem.findOne({
-    $and: [
-      { name: name.trim() },
-      req.body.partNumber ? { partNumber: req.body.partNumber.trim() } : {}
-    ]
+    name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
   });
 
   if (existingItem) {
-    return next(createCustomError("Item with this name and part number already exists", 400));
+    return next(createCustomError("Item with this name already exists", 400));
+  }
+
+  // If partNumber provided, check for duplicate
+  if (req.body.partNumber) {
+    const duplicatePartNumber = await InventoryItem.findOne({
+      partNumber: { $regex: new RegExp(`^${req.body.partNumber.trim()}$`, 'i') }
+    });
+    if (duplicatePartNumber) {
+      return next(createCustomError("Item with this part number already exists", 400));
+    }
   }
 
   const inventoryItem = await InventoryItem.create(req.body);
@@ -53,7 +75,7 @@ const getAllInventoryItems = asyncWrapper(async (req, res) => {
   if (category) query.category = category;
   if (status) query.status = status;
   if (brand) query.brand = new RegExp(brand, 'i');
-  if (jobId) query.assignedJobId = jobId; // Exact match for job ID since it's formatted like JOB00001
+  if (jobId) query.assignedJobId = jobId;
 
   // Filter for low stock items
   if (lowStock === 'true') {
@@ -61,27 +83,31 @@ const getAllInventoryItems = asyncWrapper(async (req, res) => {
   }
 
   // Add search functionality
-  if (search) {
+  if (search && search.trim().length > 0) {
     query.$or = [
-      { name: new RegExp(search, 'i') },
-      { description: new RegExp(search, 'i') },
-      { partNumber: new RegExp(search, 'i') },
-      { 'supplier.name': new RegExp(search, 'i') },
-      { assignedJobId: new RegExp(search, 'i') } // Include job ID in search
+      { name: new RegExp(search.trim(), 'i') },
+      { description: new RegExp(search.trim(), 'i') },
+      { partNumber: new RegExp(search.trim(), 'i') },
+      { itemId: new RegExp(search.trim(), 'i') },
+      { brand: new RegExp(search.trim(), 'i') },
+      { 'supplier.name': new RegExp(search.trim(), 'i') },
+      { assignedJobId: new RegExp(search.trim(), 'i') }
     ];
   }
 
   // Calculate pagination
-  const skip = (page - 1) * limit;
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
 
   // Build sort object
   const sortOptions = {};
   sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
   const items = await InventoryItem.find(query)
-    .limit(parseInt(limit))
-    .skip(skip)
-    .sort(sortOptions);
+      .limit(limitNum)
+      .skip(skip)
+      .sort(sortOptions);
 
   const total = await InventoryItem.countDocuments(query);
 
@@ -89,8 +115,8 @@ const getAllInventoryItems = asyncWrapper(async (req, res) => {
     success: true,
     count: items.length,
     total,
-    totalPages: Math.ceil(total / limit),
-    currentPage: parseInt(page),
+    totalPages: Math.ceil(total / limitNum),
+    currentPage: pageNum,
     items,
   });
 });
@@ -98,6 +124,10 @@ const getAllInventoryItems = asyncWrapper(async (req, res) => {
 // Get inventory item by ID
 const getInventoryItemById = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
+
+  if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(createCustomError("Invalid inventory item ID format", 400));
+  }
 
   const item = await InventoryItem.findById(id);
 
@@ -115,7 +145,11 @@ const getInventoryItemById = asyncWrapper(async (req, res, next) => {
 const getInventoryItemByItemId = asyncWrapper(async (req, res, next) => {
   const { itemId } = req.params;
 
-  const item = await InventoryItem.findOne({ itemId: itemId.toUpperCase() });
+  if (!itemId || itemId.trim().length === 0) {
+    return next(createCustomError("Item ID is required", 400));
+  }
+
+  const item = await InventoryItem.findOne({ itemId: itemId.toUpperCase().trim() });
 
   if (!item) {
     return next(createCustomError(`No inventory item found with itemId: ${itemId}`, 404));
@@ -131,19 +165,25 @@ const getInventoryItemByItemId = asyncWrapper(async (req, res, next) => {
 const updateInventoryItem = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
 
+  if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(createCustomError("Invalid inventory item ID format", 400));
+  }
+
   // Prevent updating auto-generated fields
-  const restrictedFields = ["itemId"];
+  const restrictedFields = ["itemId", "_id", "createdAt"];
   restrictedFields.forEach(field => delete req.body[field]);
 
-  // Validate category and unit if provided
+  // Validate category if provided
   if (req.body.category && !["parts", "tools", "fluids", "consumables"].includes(req.body.category)) {
     return next(createCustomError("Invalid category. Must be: parts, tools, fluids, or consumables", 400));
   }
 
+  // Validate unit if provided
   if (req.body.unit && !["piece", "liter", "kg", "meter", "set"].includes(req.body.unit)) {
     return next(createCustomError("Invalid unit. Must be: piece, liter, kg, meter, or set", 400));
   }
 
+  // Validate status if provided
   if (req.body.status && !["active", "inactive", "discontinued"].includes(req.body.status)) {
     return next(createCustomError("Invalid status. Must be: active, inactive, or discontinued", 400));
   }
@@ -162,12 +202,12 @@ const updateInventoryItem = asyncWrapper(async (req, res, next) => {
   }
 
   const item = await InventoryItem.findByIdAndUpdate(
-    id,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
+      id,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
   );
 
   if (!item) {
@@ -186,6 +226,10 @@ const updateStock = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { quantity, operation, reason } = req.body;
 
+  if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(createCustomError("Invalid inventory item ID format", 400));
+  }
+
   if (!quantity || !operation) {
     return next(createCustomError("Quantity and operation are required", 400));
   }
@@ -194,8 +238,9 @@ const updateStock = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Operation must be 'add' or 'subtract'", 400));
   }
 
-  if (quantity <= 0) {
-    return next(createCustomError("Quantity must be positive", 400));
+  const quantityNum = parseFloat(quantity);
+  if (isNaN(quantityNum) || quantityNum <= 0) {
+    return next(createCustomError("Quantity must be a positive number", 400));
   }
 
   const item = await InventoryItem.findById(id);
@@ -205,12 +250,12 @@ const updateStock = asyncWrapper(async (req, res, next) => {
   }
 
   if (operation === "add") {
-    item.currentStock += quantity;
+    item.currentStock += quantityNum;
   } else {
-    if (item.currentStock < quantity) {
-      return next(createCustomError("Insufficient stock for this operation", 400));
+    if (item.currentStock < quantityNum) {
+      return next(createCustomError(`Insufficient stock. Available: ${item.currentStock}, Requested: ${quantityNum}`, 400));
     }
-    item.currentStock -= quantity;
+    item.currentStock -= quantityNum;
   }
 
   await item.save();
@@ -227,7 +272,7 @@ const updateStock = asyncWrapper(async (req, res, next) => {
     },
     operation: {
       type: operation,
-      quantity,
+      quantity: quantityNum,
       reason: reason || "Manual stock adjustment",
       performedAt: new Date()
     }
@@ -237,6 +282,10 @@ const updateStock = asyncWrapper(async (req, res, next) => {
 // Delete inventory item
 const deleteInventoryItem = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
+
+  if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    return next(createCustomError("Invalid inventory item ID format", 400));
+  }
 
   const item = await InventoryItem.findByIdAndDelete(id);
 
@@ -257,20 +306,28 @@ const deleteInventoryItem = asyncWrapper(async (req, res, next) => {
 
 // Get low stock items
 const getLowStockItems = asyncWrapper(async (req, res) => {
-  const { category, limit = 20 } = req.query;
+  const { category, limit = 50 } = req.query;
 
   let query = {
     $expr: { $lte: ['$currentStock', '$minimumStock'] },
-    status: 'low_stock'
+    status: { $ne: 'discontinued' }
   };
 
   if (category) {
+    if (!["parts", "tools", "fluids", "consumables"].includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category"
+      });
+    }
     query.category = category;
   }
 
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+
   const lowStockItems = await InventoryItem.find(query)
-    .limit(parseInt(limit))
-    .sort({ currentStock: 1 });
+      .limit(limitNum)
+      .sort({ currentStock: 1, minimumStock: -1 });
 
   res.status(200).json({
     success: true,
@@ -284,13 +341,14 @@ const getLowStockItems = asyncWrapper(async (req, res) => {
 const getInventoryStats = asyncWrapper(async (req, res) => {
   // Category-wise stats
   const categoryStats = await InventoryItem.aggregate([
-    { $match: { status: 'active' } },
+    { $match: { status: { $ne: 'discontinued' } } },
     {
       $group: {
         _id: '$category',
         totalItems: { $sum: 1 },
         totalValue: { $sum: { $multiply: ['$currentStock', '$unitPrice'] } },
-        averageStock: { $avg: '$currentStock' }
+        averageStock: { $avg: '$currentStock' },
+        totalStock: { $sum: '$currentStock' }
       }
     },
     { $sort: { totalItems: -1 } }
@@ -309,12 +367,12 @@ const getInventoryStats = asyncWrapper(async (req, res) => {
   // Low stock count
   const lowStockCount = await InventoryItem.countDocuments({
     $expr: { $lte: ['$currentStock', '$minimumStock'] },
-    status: 'active'
+    status: { $ne: 'discontinued' }
   });
 
   // Total inventory value
   const totalValue = await InventoryItem.aggregate([
-    { $match: { status: 'active' } },
+    { $match: { status: { $ne: 'discontinued' } } },
     {
       $group: {
         _id: null,
@@ -326,9 +384,9 @@ const getInventoryStats = asyncWrapper(async (req, res) => {
 
   // Most expensive items
   const expensiveItems = await InventoryItem.find({ status: 'active' })
-    .sort({ unitPrice: -1 })
-    .limit(5)
-    .select('itemId name unitPrice currentStock');
+      .sort({ unitPrice: -1 })
+      .limit(5)
+      .select('itemId name unitPrice currentStock category');
 
   res.status(200).json({
     success: true,
@@ -349,18 +407,23 @@ const getInventoryStats = asyncWrapper(async (req, res) => {
 // Get items by category
 const getItemsByCategory = asyncWrapper(async (req, res, next) => {
   const { category } = req.params;
-  const { status = 'active', limit = 50 } = req.query;
+  const { status = 'active', limit = 50, sortBy = 'name', sortOrder = 'asc' } = req.query;
 
   if (!["parts", "tools", "fluids", "consumables"].includes(category)) {
     return next(createCustomError("Invalid category. Must be: parts, tools, fluids, or consumables", 400));
   }
 
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+
+  const sortOptions = {};
+  sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
   const items = await InventoryItem.find({
     category,
     status
   })
-    .limit(parseInt(limit))
-    .sort({ name: 1 });
+      .limit(limitNum)
+      .sort(sortOptions);
 
   res.status(200).json({
     success: true,
@@ -372,10 +435,14 @@ const getItemsByCategory = asyncWrapper(async (req, res, next) => {
 
 // Bulk update stock (for multiple items at once)
 const bulkUpdateStock = asyncWrapper(async (req, res, next) => {
-  const { items } = req.body; // Array of {itemId, quantity, operation}
+  const { items } = req.body;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
-    return next(createCustomError("Items array is required", 400));
+    return next(createCustomError("Items array is required and must not be empty", 400));
+  }
+
+  if (items.length > 50) {
+    return next(createCustomError("Maximum 50 items can be updated at once", 400));
   }
 
   const results = [];
@@ -386,7 +453,7 @@ const bulkUpdateStock = asyncWrapper(async (req, res, next) => {
       const { itemId, quantity, operation, reason } = stockUpdate;
 
       if (!itemId || !quantity || !operation) {
-        errors.push({ itemId, error: "ItemId, quantity, and operation are required" });
+        errors.push({ itemId: itemId || 'unknown', error: "ItemId, quantity, and operation are required" });
         continue;
       }
 
@@ -395,22 +462,28 @@ const bulkUpdateStock = asyncWrapper(async (req, res, next) => {
         continue;
       }
 
-      const item = await InventoryItem.findOne({ itemId: itemId.toUpperCase() });
+      const quantityNum = parseFloat(quantity);
+      if (isNaN(quantityNum) || quantityNum <= 0) {
+        errors.push({ itemId, error: "Quantity must be a positive number" });
+        continue;
+      }
+
+      const item = await InventoryItem.findOne({ itemId: itemId.toUpperCase().trim() });
 
       if (!item) {
         errors.push({ itemId, error: "Item not found" });
         continue;
       }
 
-      if (operation === "subtract" && item.currentStock < quantity) {
-        errors.push({ itemId, error: "Insufficient stock" });
+      if (operation === "subtract" && item.currentStock < quantityNum) {
+        errors.push({ itemId, error: `Insufficient stock. Available: ${item.currentStock}` });
         continue;
       }
 
       if (operation === "add") {
-        item.currentStock += quantity;
+        item.currentStock += quantityNum;
       } else {
-        item.currentStock -= quantity;
+        item.currentStock -= quantityNum;
       }
 
       await item.save();
@@ -419,21 +492,23 @@ const bulkUpdateStock = asyncWrapper(async (req, res, next) => {
         itemId: item.itemId,
         name: item.name,
         operation,
-        quantity,
+        quantity: quantityNum,
+        previousStock: operation === "add" ? item.currentStock - quantityNum : item.currentStock + quantityNum,
         newStock: item.currentStock,
-        isLowStock: item.currentStock <= item.minimumStock
+        isLowStock: item.currentStock <= item.minimumStock,
+        reason: reason || "Bulk stock update"
       });
 
     } catch (error) {
-      errors.push({ itemId: stockUpdate.itemId, error: error.message });
+      errors.push({ itemId: stockUpdate.itemId || 'unknown', error: error.message });
     }
   }
 
   res.status(200).json({
-    success: true,
-    message: "Bulk stock update completed",
+    success: errors.length === 0,
+    message: errors.length === 0 ? "Bulk stock update completed successfully" : "Bulk stock update completed with errors",
     processed: results.length,
-    errors: errors.length,
+    failed: errors.length,
     results,
     errors
   });
@@ -447,30 +522,36 @@ const searchInventoryItems = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Search query must be at least 2 characters long", 400));
   }
 
+  const searchTerm = q.trim();
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+
   let query = {
     $or: [
-      { name: new RegExp(q, 'i') },
-      { description: new RegExp(q, 'i') },
-      { partNumber: new RegExp(q, 'i') },
-      { itemId: new RegExp(q, 'i') },
-      { brand: new RegExp(q, 'i') },
-      { 'supplier.name': new RegExp(q, 'i') }
+      { name: new RegExp(searchTerm, 'i') },
+      { description: new RegExp(searchTerm, 'i') },
+      { partNumber: new RegExp(searchTerm, 'i') },
+      { itemId: new RegExp(searchTerm, 'i') },
+      { brand: new RegExp(searchTerm, 'i') },
+      { 'supplier.name': new RegExp(searchTerm, 'i') }
     ],
-    status: 'active'
+    status: { $ne: 'discontinued' }
   };
 
   if (category) {
+    if (!["parts", "tools", "fluids", "consumables"].includes(category)) {
+      return next(createCustomError("Invalid category", 400));
+    }
     query.category = category;
   }
 
   const items = await InventoryItem.find(query)
-    .limit(parseInt(limit))
-    .sort({ name: 1 })
-    .select('itemId name description category unitPrice currentStock minimumStock');
+      .limit(limitNum)
+      .sort({ name: 1 })
+      .select('itemId name description category unitPrice currentStock minimumStock unit status');
 
   res.status(200).json({
     success: true,
-    query: q,
+    query: searchTerm,
     count: items.length,
     items
   });
