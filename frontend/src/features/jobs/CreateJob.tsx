@@ -716,7 +716,7 @@ export default function CreateJob() {
                                 }}>
                                     <div style={{ fontWeight: 600, color: "#1e40af" }}>
                                         Total: Rs. {selectedItems.reduce((total, item) =>
-                                            total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0).toFixed(2)}
+                                        total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0).toFixed(2)}
                                     </div>
                                 </div>
                             </div>
