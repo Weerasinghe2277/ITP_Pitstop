@@ -38,13 +38,23 @@ export default function InventoryList() {
         totalValue: 0
     });
 
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(12);
+    const [totalItems, setTotalItems] = useState(0);
+
     // Debounce search input
     useEffect(() => {
         const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
         return () => clearTimeout(t);
     }, [q]);
 
-    // Fetch data when filters change
+    // Reset to first page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedQ, selectedCategory, stockFilter]);
+
+    // Fetch data when filters or page change
     useEffect(() => {
         let isCancelled = false;
         async function load() {
@@ -56,6 +66,10 @@ export default function InventoryList() {
                 if (selectedCategory) params.set('category', selectedCategory);
                 if (stockFilter === 'low') params.set('lowStock', 'true');
 
+                // Add pagination params - request a large limit to get all items
+                params.set('limit', '1000'); // Request up to 1000 items
+                params.set('page', '1');
+
                 const path = debouncedQ
                     ? `/inventory/search?q=${encodeURIComponent(debouncedQ)}&${params.toString()}`
                     : `/inventory?${params.toString()}`;
@@ -64,6 +78,7 @@ export default function InventoryList() {
                 if (!isCancelled) {
                     const items = r.data?.items || [];
 
+                    // Apply client-side filtering
                     let filteredItems = items;
                     if (stockFilter === 'out') {
                         filteredItems = items.filter((item: InventoryItem) => item.currentStock === 0);
@@ -73,9 +88,8 @@ export default function InventoryList() {
                         );
                     }
 
-                    setRows(filteredItems);
-
-                    const totalItems = items.length;
+                    // Calculate stats from all items
+                    const totalItemsCount = items.length;
                     const lowStock = items.filter((item: InventoryItem) =>
                         item.currentStock > 0 && item.currentStock <= (item.minimumStock || 10)
                     ).length;
@@ -84,7 +98,15 @@ export default function InventoryList() {
                         sum + (item.currentStock * item.unitPrice || 0), 0
                     );
 
-                    setStats({ total: totalItems, lowStock, outOfStock, totalValue });
+                    setStats({ total: totalItemsCount, lowStock, outOfStock, totalValue });
+                    setTotalItems(filteredItems.length);
+
+                    // Apply client-side pagination
+                    const startIdx = (currentPage - 1) * itemsPerPage;
+                    const endIdx = startIdx + itemsPerPage;
+                    const paginatedItems = filteredItems.slice(startIdx, endIdx);
+
+                    setRows(paginatedItems);
                 }
             } catch (e: any) {
                 if (!isCancelled) setMsg({ text: e.message || "Failed to load inventory", type: "error" });
@@ -96,7 +118,7 @@ export default function InventoryList() {
         return () => {
             isCancelled = true;
         };
-    }, [debouncedQ, selectedCategory, stockFilter]);
+    }, [debouncedQ, selectedCategory, stockFilter, currentPage, itemsPerPage]);
 
     // Delete item function
     async function handleDelete(id: string) {
@@ -106,6 +128,7 @@ export default function InventoryList() {
         try {
             await http.delete(`/inventory/${id}`);
             setRows((prev: any[]) => prev.filter((item) => item._id !== id));
+            setTotalItems(prev => prev - 1);
             setMsg({ text: "Item deleted successfully", type: "success" });
         } catch (e: any) {
             setMsg({ text: e.message || "Failed to delete item", type: "error" });
@@ -122,7 +145,6 @@ export default function InventoryList() {
     }
 
     // Helper functions
-
     function fmtCurrency(n: any) {
         if (typeof n !== "number") return "—";
         try {
@@ -131,6 +153,43 @@ export default function InventoryList() {
             return `LKR ${n.toFixed(2)}`;
         }
     }
+
+    // Pagination calculations
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+    // Generate page numbers to display
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+
+        if (totalPages <= maxVisible) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            if (currentPage <= 3) {
+                for (let i = 1; i <= 4; i++) pages.push(i);
+                pages.push('...');
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                pages.push(1);
+                pages.push('...');
+                for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                pages.push('...');
+                pages.push(currentPage - 1);
+                pages.push(currentPage);
+                pages.push(currentPage + 1);
+                pages.push('...');
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
 
     // Categories for filter buttons
     const categories = ['parts', 'fluids', 'tools', 'consumables'];
@@ -355,7 +414,7 @@ export default function InventoryList() {
                     </div>
 
                     {/* Stock Filters */}
-                    <div>
+                    <div style={{ marginBottom: '16px' }}>
                         <label style={{
                             display: 'block',
                             marginBottom: '8px',
@@ -392,6 +451,44 @@ export default function InventoryList() {
                                     {filter.icon} {filter.label}
                                 </button>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* Items per page selector */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingTop: '16px',
+                        borderTop: '1px solid #e5e7eb'
+                    }}>
+                        <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                            Showing {startItem}-{endItem} of {totalItems} items
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <label style={{ fontSize: '14px', color: '#6b7280' }}>Items per page:</label>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => {
+                                    setItemsPerPage(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '8px',
+                                    border: '2px solid #e5e7eb',
+                                    fontSize: '14px',
+                                    backgroundColor: 'white',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            >
+                                <option value={6}>6</option>
+                                <option value={12}>12</option>
+                                <option value={24}>24</option>
+                                <option value={48}>48</option>
+                                <option value={100}>100</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -440,7 +537,8 @@ export default function InventoryList() {
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                    gap: '20px'
+                    gap: '20px',
+                    marginBottom: '24px'
                 }}>
                     {rows.length === 0 && !isLoading && (
                         <div style={{
@@ -646,6 +744,102 @@ export default function InventoryList() {
                     })}
                 </div>
 
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap' as const
+                    }}>
+                        {/* Previous Button */}
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            style={{
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: currentPage === 1 ? '#f3f4f6' : '#3b82f6',
+                                color: currentPage === 1 ? '#9ca3af' : 'white',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            ◀ Previous
+                        </button>
+
+                        {/* Page Numbers */}
+                        {getPageNumbers().map((page, idx) => {
+                            if (page === '...') {
+                                return (
+                                    <span key={`ellipsis-${idx}`} style={{
+                                        padding: '10px 12px',
+                                        color: '#6b7280',
+                                        fontSize: '14px',
+                                        fontWeight: 600
+                                    }}>
+                                        ...
+                                    </span>
+                                );
+                            }
+
+                            return (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page as number)}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        backgroundColor: currentPage === page ? '#3b82f6' : '#f3f4f6',
+                                        color: currentPage === page ? 'white' : '#374151',
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        minWidth: '44px'
+                                    }}
+                                >
+                                    {page}
+                                </button>
+                            );
+                        })}
+
+                        {/* Next Button */}
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                            style={{
+                                padding: '10px 16px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: currentPage === totalPages ? '#f3f4f6' : '#3b82f6',
+                                color: currentPage === totalPages ? '#9ca3af' : 'white',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            Next ▶
+                        </button>
+                    </div>
+                )}
+
                 <style>
                     {`
                         @keyframes spin {
@@ -653,12 +847,16 @@ export default function InventoryList() {
                             100% { transform: rotate(360deg); }
                         }
                         
-                        button:hover, a:hover {
+                        button:hover:not(:disabled), a:hover {
                             transform: translateY(-1px);
                             box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
                         }
                         
-                        input:focus {
+                        button:disabled {
+                            cursor: not-allowed;
+                        }
+                        
+                        input:focus, select:focus {
                             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
                             border-color: #3b82f6 !important;
                         }
