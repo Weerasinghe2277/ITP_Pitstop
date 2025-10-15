@@ -54,16 +54,19 @@ const BookingsReport = () => {
         format: 'pdf'
     });
 
+    // Get today's date in YYYY-MM-DD format for max attribute
+    const today = new Date().toISOString().split('T')[0];
+
     const buildQueryParams = () => {
         const queryParams = new URLSearchParams();
-        
+
         // Add non-empty filters to query parameters
         (Object.keys(filters) as Array<keyof BookingFilters>).forEach(key => {
             if (filters[key]) {
                 queryParams.append(key, filters[key]);
             }
         });
-        
+
         return queryParams.toString();
     };
 
@@ -100,7 +103,7 @@ const BookingsReport = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(downloadUrl);
-                
+
                 setReportData({ message: 'PDF downloaded successfully!' });
             } else {
                 // Handle JSON response
@@ -163,7 +166,7 @@ const BookingsReport = () => {
                     marginBottom: '20px',
                 }}>
                     <h3 style={{ marginBottom: '16px', color: '#374151' }}>Filters</h3>
-                    
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -277,6 +280,7 @@ const BookingsReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateFrom}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -295,6 +299,7 @@ const BookingsReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateTo}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -455,16 +460,16 @@ const BookingsReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         booking.status === 'completed' ? '#dcfce7' :
-                                                                        booking.status === 'in_progress' ? '#fef3c7' :
-                                                                        booking.status === 'confirmed' ? '#dbeafe' :
-                                                                        booking.status === 'cancelled' ? '#fee2e2' : '#f3f4f6',
-                                                                    color: 
+                                                                            booking.status === 'in_progress' ? '#fef3c7' :
+                                                                                booking.status === 'confirmed' ? '#dbeafe' :
+                                                                                    booking.status === 'cancelled' ? '#fee2e2' : '#f3f4f6',
+                                                                    color:
                                                                         booking.status === 'completed' ? '#16a34a' :
-                                                                        booking.status === 'in_progress' ? '#d97706' :
-                                                                        booking.status === 'confirmed' ? '#2563eb' :
-                                                                        booking.status === 'cancelled' ? '#dc2626' : '#374151',
+                                                                            booking.status === 'in_progress' ? '#d97706' :
+                                                                                booking.status === 'confirmed' ? '#2563eb' :
+                                                                                    booking.status === 'cancelled' ? '#dc2626' : '#374151',
                                                                 }}>
                                                                     {booking.status}
                                                                 </span>
@@ -475,14 +480,14 @@ const BookingsReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         booking.priority === 'urgent' ? '#fee2e2' :
-                                                                        booking.priority === 'high' ? '#fed7aa' :
-                                                                        booking.priority === 'medium' ? '#fef3c7' : '#f3f4f6',
-                                                                    color: 
+                                                                            booking.priority === 'high' ? '#fed7aa' :
+                                                                                booking.priority === 'medium' ? '#fef3c7' : '#f3f4f6',
+                                                                    color:
                                                                         booking.priority === 'urgent' ? '#dc2626' :
-                                                                        booking.priority === 'high' ? '#ea580c' :
-                                                                        booking.priority === 'medium' ? '#d97706' : '#374151',
+                                                                            booking.priority === 'high' ? '#ea580c' :
+                                                                                booking.priority === 'medium' ? '#d97706' : '#374151',
                                                                 }}>
                                                                     {booking.priority}
                                                                 </span>

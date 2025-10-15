@@ -53,16 +53,19 @@ const LeavesReport = () => {
         format: 'pdf'
     });
 
+    // Get today's date in YYYY-MM-DD format for max attribute
+    const today = new Date().toISOString().split('T')[0];
+
     const buildQueryParams = () => {
         const queryParams = new URLSearchParams();
-        
+
         // Add non-empty filters to query parameters
         (Object.keys(filters) as Array<keyof LeaveFilters>).forEach(key => {
             if (filters[key]) {
                 queryParams.append(key, filters[key]);
             }
         });
-        
+
         return queryParams.toString();
     };
 
@@ -99,7 +102,7 @@ const LeavesReport = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(downloadUrl);
-                
+
                 setReportData({ message: 'PDF downloaded successfully!' });
             } else {
                 // Handle JSON response
@@ -162,7 +165,7 @@ const LeavesReport = () => {
                     marginBottom: '20px',
                 }}>
                     <h3 style={{ marginBottom: '16px', color: '#374151' }}>Filters</h3>
-                    
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -271,6 +274,7 @@ const LeavesReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateFrom}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -289,6 +293,7 @@ const LeavesReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateTo}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -461,16 +466,16 @@ const LeavesReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         leave.status === 'approved' ? '#dcfce7' :
-                                                                        leave.status === 'pending' ? '#fef3c7' :
-                                                                        leave.status === 'rejected' ? '#fee2e2' :
-                                                                        leave.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
-                                                                    color: 
+                                                                            leave.status === 'pending' ? '#fef3c7' :
+                                                                                leave.status === 'rejected' ? '#fee2e2' :
+                                                                                    leave.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
+                                                                    color:
                                                                         leave.status === 'approved' ? '#16a34a' :
-                                                                        leave.status === 'pending' ? '#d97706' :
-                                                                        leave.status === 'rejected' ? '#dc2626' :
-                                                                        leave.status === 'cancelled' ? '#6b7280' : '#374151',
+                                                                            leave.status === 'pending' ? '#d97706' :
+                                                                                leave.status === 'rejected' ? '#dc2626' :
+                                                                                    leave.status === 'cancelled' ? '#6b7280' : '#374151',
                                                                 }}>
                                                                     {leave.status}
                                                                 </span>

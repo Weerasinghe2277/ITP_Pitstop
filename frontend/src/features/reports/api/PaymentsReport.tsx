@@ -47,16 +47,19 @@ const PaymentsReport = () => {
         format: 'pdf'
     });
 
+    // Get today's date in YYYY-MM-DD format for max attribute
+    const today = new Date().toISOString().split('T')[0];
+
     const buildQueryParams = () => {
         const queryParams = new URLSearchParams();
-        
+
         // Add non-empty filters to query parameters
         (Object.keys(filters) as Array<keyof PaymentFilters>).forEach(key => {
             if (filters[key]) {
                 queryParams.append(key, filters[key]);
             }
         });
-        
+
         return queryParams.toString();
     };
 
@@ -93,7 +96,7 @@ const PaymentsReport = () => {
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(downloadUrl);
-                
+
                 setReportData({ message: 'PDF downloaded successfully!' });
             } else {
                 // Handle JSON response
@@ -156,7 +159,7 @@ const PaymentsReport = () => {
                     marginBottom: '20px',
                 }}>
                     <h3 style={{ marginBottom: '16px', color: '#374151' }}>Filters</h3>
-                    
+
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -244,6 +247,7 @@ const PaymentsReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateFrom}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -262,6 +266,7 @@ const PaymentsReport = () => {
                             <input
                                 type="date"
                                 value={filters.dateTo}
+                                max={today}
                                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                                 style={{
                                     width: '100%',
@@ -422,16 +427,16 @@ const PaymentsReport = () => {
                                                                     borderRadius: '4px',
                                                                     fontSize: '12px',
                                                                     fontWeight: '500',
-                                                                    backgroundColor: 
+                                                                    backgroundColor:
                                                                         payment.status === 'paid' ? '#dcfce7' :
-                                                                        payment.status === 'pending' ? '#fef3c7' :
-                                                                        payment.status === 'overdue' ? '#fee2e2' :
-                                                                        payment.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
-                                                                    color: 
+                                                                            payment.status === 'pending' ? '#fef3c7' :
+                                                                                payment.status === 'overdue' ? '#fee2e2' :
+                                                                                    payment.status === 'cancelled' ? '#f3f4f6' : '#f3f4f6',
+                                                                    color:
                                                                         payment.status === 'paid' ? '#16a34a' :
-                                                                        payment.status === 'pending' ? '#d97706' :
-                                                                        payment.status === 'overdue' ? '#dc2626' :
-                                                                        payment.status === 'cancelled' ? '#6b7280' : '#374151',
+                                                                            payment.status === 'pending' ? '#d97706' :
+                                                                                payment.status === 'overdue' ? '#dc2626' :
+                                                                                    payment.status === 'cancelled' ? '#6b7280' : '#374151',
                                                                 }}>
                                                                     {payment.status}
                                                                 </span>

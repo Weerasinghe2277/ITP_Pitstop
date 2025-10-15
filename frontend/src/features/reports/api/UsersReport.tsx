@@ -63,6 +63,9 @@ const UsersReport = () => {
     format: 'pdf'
   });
 
+  // Get today's date in YYYY-MM-DD format for max attribute
+  const today = new Date().toISOString().split('T')[0];
+
   const buildQueryParams = () => {
     const queryParams = new URLSearchParams();
 
@@ -296,6 +299,7 @@ const UsersReport = () => {
               <input
                 type="date"
                 value={filters.dateFrom}
+                max={today}
                 onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
                 style={{
                   width: '100%',
@@ -314,6 +318,7 @@ const UsersReport = () => {
               <input
                 type="date"
                 value={filters.dateTo}
+                max={today}
                 onChange={(e) => handleFilterChange('dateTo', e.target.value)}
                 style={{
                   width: '100%',
