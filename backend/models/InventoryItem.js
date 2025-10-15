@@ -13,7 +13,7 @@ const InventoryItemSchema = new mongoose.Schema({
     required: [true, "Item name is required"],
     trim: true,
   },
-  notes: {
+  description: {
     type: String,
     trim: true,
   },
@@ -50,26 +50,26 @@ const InventoryItemSchema = new mongoose.Schema({
     enum: ["piece", "liter", "kg", "meter", "set"],
     required: [true, "Unit is required"],
   },
-  // supplier: {
-  //   name: {
-  //     type: String,
-  //     trim: true,
-  //   },
-  //   contact: {
-  //     type: String,
-  //     trim: true,
-  //   },
-  // },
+  supplier: {
+    name: {
+      type: String,
+      trim: true,
+    },
+    contact: {
+      type: String,
+      trim: true,
+    },
+  },
   status: {
     type: String,
-    enum: ["active", "inactive", "discontinued", "out_of_stock", "low_stock"],
+    enum: ["active", "inactive", "discontinued"],
     default: "active",
   },
-  // assignedJobId: {
-  //   type: String,
-  //   trim: true,
-  //   default: null,
-  // },
+  assignedJobId: {
+    type: String,
+    trim: true,
+    default: null,
+  },
 }, {
   timestamps: true,
 });

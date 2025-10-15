@@ -12,7 +12,6 @@ import invoices from "./routes/invoices.js";
 import leaveRequests from "./routes/leaveRequests.js";
 import goodsRequests from "./routes/goodsRequests.js";
 import jobs from "./routes/jobs.js";
-import reports from "./routes/reports.js";
 
 dotenv.config();
 
@@ -53,7 +52,6 @@ app.use("/api/v1/invoices", invoices);
 app.use("/api/v1/leave-requests", leaveRequests);
 app.use("/api/v1/goods-requests", goodsRequests);
 app.use("/api/v1/jobs", jobs);
-app.use("/api/v1/reports", reports);
 
 app.use(notFound);
 app.use(errorHandlerMiddleware);
