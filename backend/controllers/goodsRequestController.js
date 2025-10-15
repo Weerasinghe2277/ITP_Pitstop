@@ -93,15 +93,15 @@ const getAllGoodsRequests = asyncWrapper(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const goodsRequests = await GoodsRequest.find(query)
-      .populate([
-        { path: "job", select: "jobId description priority status booking" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
-        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-        { path: "items.item", select: "itemId name category currentStock unitPrice" }
-      ])
-      .limit(limit * 1)
-      .skip(skip)
-      .sort({ createdAt: -1 });
+    .populate([
+      { path: "job", select: "jobId description priority status booking" },
+      { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
+      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+      { path: "items.item", select: "itemId name category currentStock unitPrice" }
+    ])
+    .limit(limit * 1)
+    .skip(skip)
+    .sort({ createdAt: -1 });
 
   const total = await GoodsRequest.countDocuments(query);
 
@@ -129,14 +129,14 @@ const getMyGoodsRequests = asyncWrapper(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const goodsRequests = await GoodsRequest.find(query)
-      .populate([
-        { path: "job", select: "jobId description priority status" },
-        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-        { path: "items.item", select: "itemId name category currentStock unitPrice" }
-      ])
-      .limit(limit * 1)
-      .skip(skip)
-      .sort({ createdAt: -1 });
+    .populate([
+      { path: "job", select: "jobId description priority status" },
+      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+      { path: "items.item", select: "itemId name category currentStock unitPrice" }
+    ])
+    .limit(limit * 1)
+    .skip(skip)
+    .sort({ createdAt: -1 });
 
   const total = await GoodsRequest.countDocuments(query);
 
@@ -156,12 +156,12 @@ const getGoodsRequestById = asyncWrapper(async (req, res, next) => {
   const { userId, role } = req.user;
 
   const goodsRequest = await GoodsRequest.findById(id)
-      .populate([
-        { path: "job", select: "jobId description priority status booking" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
-        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-        { path: "items.item", select: "itemId name category currentStock unitPrice stockLocation" }
-      ]);
+    .populate([
+      { path: "job", select: "jobId description priority status booking" },
+      { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
+      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+      { path: "items.item", select: "itemId name category currentStock unitPrice stockLocation" }
+    ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -218,9 +218,9 @@ const updateGoodsRequest = asyncWrapper(async (req, res, next) => {
   if (notes !== undefined) updateData.notes = notes;
 
   const updatedGoodsRequest = await GoodsRequest.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
+    id,
+    updateData,
+    { new: true, runValidators: true }
   ).populate([
     { path: "job", select: "jobId description priority status" },
     { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
@@ -279,11 +279,11 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-      .populate([
-        { path: "job", select: "jobId description" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName email" },
-        { path: "items.item", select: "itemId name currentStock" }
-      ]);
+    .populate([
+      { path: "job", select: "jobId description" },
+      { path: "requestedBy", select: "userId profile.firstName profile.lastName email" },
+      { path: "items.item", select: "itemId name currentStock" }
+    ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -394,10 +394,10 @@ const rejectGoodsRequest = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-      .populate([
-        { path: "job", select: "jobId description" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName email" }
-      ]);
+    .populate([
+      { path: "job", select: "jobId description" },
+      { path: "requestedBy", select: "userId profile.firstName profile.lastName email" }
+    ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -440,7 +440,7 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-      .populate("items.item", "itemId name currentStock");
+    .populate("items.item", "itemId name currentStock");
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -590,14 +590,14 @@ const getPendingGoodsRequests = asyncWrapper(async (req, res, next) => {
     console.log("Querying for pending goods requests...");
 
     const pendingRequests = await GoodsRequest.find({ status: "pending" })
-        .populate([
-          { path: "job", select: "jobId description priority status booking" },
-          { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
-          { path: "items.item", select: "itemId name category currentStock unitPrice" }
-        ])
-        .limit(limit * 1)
-        .skip(skip)
-        .lean(); // Convert to plain JavaScript objects to avoid potential serialization issues
+      .populate([
+        { path: "job", select: "jobId description priority status booking" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
+        { path: "items.item", select: "itemId name category currentStock unitPrice" }
+      ])
+      .limit(limit * 1)
+      .skip(skip)
+      .lean(); // Convert to plain JavaScript objects to avoid potential serialization issues
 
     console.log(`Found ${pendingRequests.length} pending goods requests`);
 
