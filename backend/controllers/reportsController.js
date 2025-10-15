@@ -34,7 +34,7 @@ const generateBookingsReport = asyncHandler(async (req, res) => {
   const reportData = await reportsService.generateBookingsReport(filters);
 
   if (format === 'pdf') {
-    const pdfBuffer = await reportsService.generateReportPDF('bookings', reportData, filters, `${req.user.profile?.firstName || 'User'} ${req.user.profile?.lastName || ''}`);
+    const pdfBuffer = await reportsService.generateReportPDF('bookings', reportData, filters, `${req.user.profile?.firstName || 'User'} ${req.user.profile?.lastName || ''}`, req.user.role);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="bookings-report-${new Date().toISOString().split('T')[0]}.pdf"`);

@@ -793,7 +793,7 @@ class ReportsService {
   /**
    * Generate PDF for any report type
    */
-  async generateReportPDF(reportType, reportData, filters, generatedBy = 'System Administrator') {
+  async generateReportPDF(reportType, reportData, filters, generatedBy = 'System Administrator', userRole = null) {
     try {
       const baseTemplate = await this.loadTemplate('base');
       const contentTemplate = await this.loadTemplate(`${reportType}-report`);
@@ -831,6 +831,8 @@ class ReportsService {
         timestamp: moment().format('MMMM DD, YYYY [at] h:mm A'),
         logoBase64: logoBase64,
         theme: this.getReportTheme(reportType),
+        userRole: userRole,
+        isCashier: userRole === 'cashier',
         ...reportData
       };
 

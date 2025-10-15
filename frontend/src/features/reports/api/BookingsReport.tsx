@@ -434,7 +434,9 @@ const BookingsReport = () => {
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Date</th>
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Status</th>
                                                         <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Priority</th>
-                                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Cost</th>
+                                                        {user?.role !== 'cashier' && (
+                                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Cost</th>
+                                                        )}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -485,9 +487,11 @@ const BookingsReport = () => {
                                                                     {booking.priority}
                                                                 </span>
                                                             </td>
-                                                            <td style={{ padding: '12px' }}>
-                                                                ${(booking.actualCost || booking.estimatedCost || 0).toLocaleString()}
-                                                            </td>
+                                                            {user?.role !== 'cashier' && (
+                                                                <td style={{ padding: '12px' }}>
+                                                                    ${(booking.actualCost || booking.estimatedCost || 0).toLocaleString()}
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     ))}
                                                 </tbody>

@@ -55,7 +55,9 @@
                 <th>Service Type</th>
                 <th>Count</th>
                 <th>Percentage</th>
+                {{#unless isCashier}}
                 <th>Average Cost</th>
+                {{/unless}}
             </tr>
         </thead>
         <tbody>
@@ -64,7 +66,9 @@
                 <td>{{serviceType}}</td>
                 <td>{{count}}</td>
                 <td>{{percentage}}%</td>
+                {{#unless ../isCashier}}
                 <td>LKR {{formatCurrency averageCost}}</td>
+                {{/unless}}
             </tr>
             {{/each}}
         </tbody>
@@ -74,7 +78,7 @@
 
 <div class="table-section">
     <h2 class="table-title">Bookings Details</h2>
-    <table class="data-table cols-8">
+    <table class="data-table {{#if isCashier}}cols-7{{else}}cols-8{{/if}}">
         <thead>
             <tr>
                 <th>Booking ID</th>
@@ -84,7 +88,9 @@
                 <th>Scheduled Date</th>
                 <th>Status</th>
                 <th>Priority</th>
+                {{#unless isCashier}}
                 <th>Estimated Cost</th>
+                {{/unless}}
             </tr>
         </thead>
         <tbody>
@@ -97,7 +103,9 @@
                 <td>{{formatDate scheduledDate}}</td>
                 <td><span class="status {{status}}">{{status}}</span></td>
                 <td><span class="status {{priority}}">{{priority}}</span></td>
+                {{#unless ../isCashier}}
                 <td>LKR {{formatCurrency estimatedCost}}</td>
+                {{/unless}}
             </tr>
             {{/each}}
         </tbody>
