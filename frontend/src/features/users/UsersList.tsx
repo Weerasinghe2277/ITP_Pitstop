@@ -1,5 +1,5 @@
 // src/features/users/UsersList.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
 import { Link } from "react-router-dom";
 import { Enums } from "../../lib/validators";
@@ -15,21 +15,47 @@ export default function UsersList() {
     const [viewUser, setViewUser] = useState(null);
     const [editUser, setEditUser] = useState(null);
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+
     // Debounce search input
     useEffect(() => {
         const t = setTimeout(() => setDebouncedQ(q.trim()), 400);
         return () => clearTimeout(t);
     }, [q]);
 
-    // Load users once
+    // Load users with server-side pagination
     useEffect(() => {
         let cancelled = false;
         async function load() {
             setIsLoading(true);
             setMsg({ text: "", type: "" });
             try {
-                const r = await http.get("/users");
-                if (!cancelled) setRows(r.data?.users || []);
+                const params = new URLSearchParams({
+                    page: currentPage.toString(),
+                    limit: itemsPerPage.toString(),
+                });
+
+                // Add search parameter if exists
+                if (debouncedQ.trim()) {
+                    params.append('search', debouncedQ.trim());
+                }
+
+                // Add role filter if not 'all'
+                if (role && role !== 'all') {
+                    params.append('role', role);
+                }
+
+                const r = await http.get(`/users?${params.toString()}`);
+                if (!cancelled) {
+                    setRows(r.data?.users || []);
+                    // Update pagination info from server response
+                    setTotalItems(r.data?.total || 0);
+                    setTotalPages(r.data?.totalPages || 1);
+                }
             } catch (e) {
                 if (!cancelled) setMsg({ text: e.message || "Failed to load users", type: "error" });
             } finally {
@@ -40,15 +66,44 @@ export default function UsersList() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [currentPage, itemsPerPage, debouncedQ, role]);
+
+    // Reload data function
+    const reloadData = async () => {
+        setIsLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page: currentPage.toString(),
+                limit: itemsPerPage.toString(),
+            });
+
+            if (debouncedQ.trim()) {
+                params.append('search', debouncedQ.trim());
+            }
+
+            if (role && role !== 'all') {
+                params.append('role', role);
+            }
+
+            const r = await http.get(`/users?${params.toString()}`);
+            setRows(r.data?.users || []);
+            setTotalItems(r.data?.total || 0);
+            setTotalPages(r.data?.totalPages || 1);
+        } catch (e) {
+            setMsg({ text: e.message || "Failed to reload users", type: "error" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Delete user function
     const handleDelete = async (userId, userName) => {
         try {
             await http.delete(`/users/${userId}`);
-            setRows(prev => prev.filter(u => u._id !== userId));
             setMsg({ text: `User ${userName} deleted successfully`, type: "success" });
             setDeleteConfirm(null);
+            // Reload data to reflect changes
+            await reloadData();
         } catch (e) {
             setMsg({ text: e.message || "Failed to delete user", type: "error" });
         }
@@ -57,11 +112,12 @@ export default function UsersList() {
     // Update user function
     const handleUpdate = async (userId, updatedData) => {
         try {
-            const response = await http.put(`/users/${userId}`, updatedData);
-            setRows(prev => prev.map(u => u._id === userId ? { ...u, ...response.data } : u));
+            await http.put(`/users/${userId}`, updatedData);
             setMsg({ text: "User updated successfully", type: "success" });
             setEditUser(null);
             setViewUser(null); // Close view modal after successful update
+            // Reload data to reflect changes
+            await reloadData();
         } catch (e) {
             setMsg({ text: e.message || "Failed to update user", type: "error" });
         }
@@ -73,24 +129,24 @@ export default function UsersList() {
         setEditUser(user);
     };
 
-    // Filter + search
-    const filtered = useMemo(() => {
-        const needle = debouncedQ.toLowerCase();
-        let list = rows;
-        if (role !== "all") list = list.filter(u => String(u.role || "").toLowerCase() === role);
-        if (needle) {
-            list = list.filter(u => {
-                const id = String(u.userId || u._id || "").toLowerCase();
-                const email = String(u.email || "").toLowerCase();
-                const name = [
-                    u.profile?.firstName || "",
-                    u.profile?.lastName || "",
-                ].join(" ").toLowerCase();
-                return id.includes(needle) || email.includes(needle) || name.includes(needle);
-            });
-        }
-        return list;
-    }, [rows, debouncedQ, role]);
+    // Since we're using server-side pagination, rows already contains the paginated results
+    const paginatedResults = rows;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [debouncedQ, role]);
+
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+    };
+
+    const handleItemsPerPageChange = (newItemsPerPage) => {
+        setItemsPerPage(newItemsPerPage);
+        setCurrentPage(1);
+    };
 
     // Styles (keeping existing styles)
     const wrap = {
@@ -241,6 +297,71 @@ export default function UsersList() {
         cursor: "pointer",
     };
 
+    // Pagination styles
+    const paginationWrap = {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: "20px",
+        padding: "16px",
+        backgroundColor: "white",
+        borderRadius: "8px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+        border: "1px solid #e5e7eb",
+        flexWrap: "wrap",
+        gap: "16px",
+    };
+
+    const paginationInfo = {
+        color: "#6b7280",
+        fontSize: "14px",
+        minWidth: "200px",
+    };
+
+    const paginationControls = {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        flexWrap: "wrap",
+    };
+
+    const pageBtn = {
+        padding: "8px 12px",
+        backgroundColor: "white",
+        color: "#374151",
+        border: "1px solid #d1d5db",
+        borderRadius: "6px",
+        fontSize: "14px",
+        cursor: "pointer",
+        minWidth: "40px",
+        textAlign: "center",
+        transition: "all 0.2s",
+    };
+
+    const activePage = {
+        ...pageBtn,
+        backgroundColor: "#3b82f6",
+        color: "white",
+        borderColor: "#3b82f6",
+    };
+
+    const disabledBtn = {
+        ...pageBtn,
+        backgroundColor: "#f9fafb",
+        color: "#9ca3af",
+        cursor: "not-allowed",
+        borderColor: "#e5e7eb",
+    };
+
+    const itemsPerPageSelect = {
+        padding: "6px 8px",
+        border: "1px solid #d1d5db",
+        borderRadius: "6px",
+        fontSize: "14px",
+        backgroundColor: "white",
+        cursor: "pointer",
+    };
+
     return (
         <div style={wrap}>
             {/* Header */}
@@ -313,67 +434,136 @@ export default function UsersList() {
                                 Users list with CRUD operations
                             </caption>
                             <thead>
-                            <tr>
-                                <th scope="col" style={thStyle}>UserId</th>
-                                <th scope="col" style={thStyle}>Name</th>
-                                <th scope="col" style={thStyle}>Email</th>
-                                <th scope="col" style={thStyle}>Role</th>
-                                <th scope="col" style={thStyle}>Actions</th>
-                            </tr>
+                                <tr>
+                                    <th scope="col" style={thStyle}>UserId</th>
+                                    <th scope="col" style={thStyle}>Name</th>
+                                    <th scope="col" style={thStyle}>Email</th>
+                                    <th scope="col" style={thStyle}>Role</th>
+                                    <th scope="col" style={thStyle}>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {filtered.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        No users found
-                                    </td>
-                                </tr>
-                            )}
-                            {filtered.map((u) => {
-                                const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
-                                return (
-                                    <tr key={u._id}>
-                                        <td style={tdStyle}>
-                                            <div style={{ display: "flex", flexDirection: "column" }}>
-                                                <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
-                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
-                                                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td style={tdStyle}>{name || "—"}</td>
-                                        <td style={tdStyle}>{u.email || "—"}</td>
-                                        <td style={tdStyle}>{u.role || "—"}</td>
-                                        <td style={tdStyle}>
-                                            <div style={actionBtnGroup}>
-                                                <button
-                                                    onClick={() => setViewUser(u)}
-                                                    style={viewBtn}
-                                                    aria-label={`View user ${name || u.email}`}
-                                                >
-                                                    View
-                                                </button>
-                                                <button
-                                                    onClick={() => setEditUser(u)}
-                                                    style={editBtn}
-                                                    aria-label={`Edit user ${name || u.email}`}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
-                                                    style={deleteBtn}
-                                                    aria-label={`Delete user ${name || u.email}`}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
+                                {totalItems === 0 && (
+                                    <tr>
+                                        <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                            No users found
                                         </td>
                                     </tr>
-                                );
-                            })}
+                                )}
+                                {paginatedResults.map((u) => {
+                                    const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
+                                    return (
+                                        <tr key={u._id}>
+                                            <td style={tdStyle}>
+                                                <div style={{ display: "flex", flexDirection: "column" }}>
+                                                    <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
+                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td style={tdStyle}>{name || "—"}</td>
+                                            <td style={tdStyle}>{u.email || "—"}</td>
+                                            <td style={tdStyle}>{u.role || "—"}</td>
+                                            <td style={tdStyle}>
+                                                <div style={actionBtnGroup}>
+                                                    <button
+                                                        onClick={() => setViewUser(u)}
+                                                        style={viewBtn}
+                                                        aria-label={`View user ${name || u.email}`}
+                                                    >
+                                                        View
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditUser(u)}
+                                                        style={editBtn}
+                                                        aria-label={`Edit user ${name || u.email}`}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
+                                                        style={deleteBtn}
+                                                        aria-label={`Delete user ${name || u.email}`}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!isLoading && totalItems > 0 && (
+                <div style={paginationWrap}>
+                    <div style={paginationInfo}>
+                        Showing {startIndex + 1}-{Math.min(endIndex, totalItems)} of {totalItems} users
+                    </div>
+
+                    <div style={paginationControls}>
+                        <label style={{ fontSize: "14px", color: "#6b7280", marginRight: "8px" }}>
+                            Show:
+                        </label>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                            style={itemsPerPageSelect}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                        </select>
+
+                        <span style={{ fontSize: "14px", color: "#6b7280", margin: "0 16px" }}>
+                            Page {currentPage} of {totalPages}
+                        </span>
+
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            style={currentPage === 1 ? disabledBtn : pageBtn}
+                        >
+                            Previous
+                        </button>
+
+                        {/* Page numbers */}
+                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                            let pageNum;
+                            if (totalPages <= 5) {
+                                pageNum = i + 1;
+                            } else if (currentPage <= 3) {
+                                pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
+                            } else {
+                                pageNum = currentPage - 2 + i;
+                            }
+
+                            return (
+                                <button
+                                    key={pageNum}
+                                    onClick={() => handlePageChange(pageNum)}
+                                    style={currentPage === pageNum ? activePage : pageBtn}
+                                >
+                                    {pageNum}
+                                </button>
+                            );
+                        })}
+
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            style={currentPage === totalPages ? disabledBtn : pageBtn}
+                        >
+                            Next
+                        </button>
                     </div>
                 </div>
             )}
