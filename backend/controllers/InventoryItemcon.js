@@ -261,7 +261,7 @@ const getLowStockItems = asyncWrapper(async (req, res) => {
 
   let query = {
     $expr: { $lte: ['$currentStock', '$minimumStock'] },
-    status: 'active'
+    status: 'low_stock'
   };
 
   if (category) {

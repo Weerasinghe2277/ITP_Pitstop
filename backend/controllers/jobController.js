@@ -9,7 +9,7 @@ import asyncWrapper from "../middleware/async.js";
 const createJob = asyncWrapper(async (req, res, next) => {
   const { bookingId } = req.params;
   const { userId, role } = req.user;
-  const { requestedItems, assignedTechnician, assignedLabourers, ...jobFields } = req.body;
+  const { requirements, assignedTechnician, assignedLabourers, ...jobFields } = req.body;
 
   // Check if user is inspector or manager
   if (!["service_advisor", "manager", "admin"].includes(role)) {
@@ -124,30 +124,54 @@ const createJob = asyncWrapper(async (req, res, next) => {
 
   // Create goods request if inventory items were requested
   let goodsRequest = null;
-  if (requestedItems && Array.isArray(requestedItems) && requestedItems.length > 0) {
+  // console.log(requestedItems)
+  if (requirements.materials && Array.isArray(requirements.materials) && requirements.materials.length > 0) {
     try {
-      // Transform requestedItems to match GoodsRequest schema
-      const items = requestedItems.map(item => ({
-        item: item.itemId,
-        quantity: item.requestedQuantity || 1,
-        purpose: `Required for job: ${job.title}`
-      }));
+      // Transform requirements.material to match GoodsRequest schema
+      // const items = requirements.materials.map(item => ({
+      //   item: item.itemId,
+      //   quantity: item.quantity || 1,
+      //   purpose: `Required for job: ${job.title}`
+      // }));
 
-      goodsRequest = await GoodsRequest.create({
-        job: job._id,
-        requestedBy: userId,
-        items,
-        notes: `Automatically created for job: ${job.title}`
+      requirements.materials.forEach(async (material, index) => {
+        // const item = {
+        // item: material.itemId,
+        // quantity: material.requestedQuantity || 1,
+        // purpose: `Required for job: ${job.title}`
+        // }
+        // const existing = items.find(item => item.item.equals(mat.itemId));
+        // if (existing) {
+        //   existing.quantity += mat.requestedQuantity || 1;
+        // } else {
+        //   items.push({
+        //     item: mat.itemId,
+        //     quantity: mat.requestedQuantity || 1,
+        //     purpose: `Required for job: ${job.title}`
+        //   });
+        // }
+
+        goodsRequest = await GoodsRequest.create({
+          requestId: job._id + "_GR_" + (index + 1),
+          job: job._id,
+          requestedBy: userId,
+          item: material.itemId,
+          quantity: material.quantity || 1,
+          purpose: `Required for job: ${job.title}`,
+          notes: `Automatically created for job: ${job.title}`
+        });
+
+        // Populate the goods request
+        await goodsRequest.populate([
+          { path: "job", select: "jobId title" },
+          { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
+          // { path: "items.item", select: "name category currentStock unitPrice" }
+          { path: "item", select: "name category currentStock unitPrice" }
+        ]);
+
+        console.log("Goods request created");
+
       });
-
-      // Populate the goods request
-      await goodsRequest.populate([
-        { path: "job", select: "jobId title" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
-        { path: "items.item", select: "name category currentStock unitPrice" }
-      ]);
-
-      console.log("Goods request created");
     } catch (error) {
       console.error("Failed to create goods request:", error);
       // Don't fail the job creation if goods request fails
@@ -224,22 +248,22 @@ const getAllJobs = asyncWrapper(async (req, res) => {
   sortOptions[sortBy] = sortOrder === "desc" ? -1 : 1;
 
   const jobs = await Job.find(query)
-      .populate([
-        {
-          path: "booking",
-          select: "bookingId customer vehicle serviceType scheduledDate",
-          populate: [
-            { path: "customer", select: "userId profile.firstName profile.lastName" },
-            { path: "vehicle", select: "registrationNumber make model" }
-          ]
-        },
-        { path: "createdBy", select: "userId profile.firstName profile.lastName" },
-        { path: "inspectedBy", select: "userId profile.firstName profile.lastName" },
-        { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.specializations employeeDetails.department employeeDetails.employeeId" },
-      ])
-      .limit(limit * 1)
-      .skip(skip)
-      .sort(sortOptions);
+    .populate([
+      {
+        path: "booking",
+        select: "bookingId customer vehicle serviceType scheduledDate",
+        populate: [
+          { path: "customer", select: "userId profile.firstName profile.lastName" },
+          { path: "vehicle", select: "registrationNumber make model" }
+        ]
+      },
+      { path: "createdBy", select: "userId profile.firstName profile.lastName" },
+      { path: "inspectedBy", select: "userId profile.firstName profile.lastName" },
+      { path: "assignedLabourers.labourer", select: "userId profile.firstName profile.lastName employeeDetails.specializations employeeDetails.department employeeDetails.employeeId" },
+    ])
+    .limit(limit * 1)
+    .skip(skip)
+    .sort(sortOptions);
 
   const total = await Job.countDocuments(query);
 
@@ -418,18 +442,18 @@ const updateJobStatus = asyncWrapper(async (req, res, next) => {
 
         // Update the booking status
         const updatedBooking = await Booking.findByIdAndUpdate(
-            job.booking._id,
-            {
-              status: bookingStatus,
-              $push: {
-                notes: {
-                  note: `Status updated to ${bookingStatus} via job ${job.jobId} status change`,
-                  createdBy: userId,
-                  createdAt: new Date()
-                }
+          job.booking._id,
+          {
+            status: bookingStatus,
+            $push: {
+              notes: {
+                note: `Status updated to ${bookingStatus} via job ${job.jobId} status change`,
+                createdBy: userId,
+                createdAt: new Date()
               }
-            },
-            { new: true, runValidators: true }
+            }
+          },
+          { new: true, runValidators: true }
         );
 
         if (updatedBooking) {
@@ -498,9 +522,9 @@ const assignLabourers = asyncWrapper(async (req, res, next) => {
   const requiredSkills = job.requirements?.skills || [];
   if (requiredSkills.length > 0) {
     const skilledLabourers = labourers.filter(labourer =>
-        labourer.employeeDetails?.specializations?.some(skill =>
-            requiredSkills.includes(skill)
-        )
+      labourer.employeeDetails?.specializations?.some(skill =>
+        requiredSkills.includes(skill)
+      )
     );
 
     if (skilledLabourers.length === 0) {
@@ -593,7 +617,7 @@ const addWorkLog = asyncWrapper(async (req, res, next) => {
 
   // Update hours worked for this specific labourer
   const labourerAssignment = job.assignedLabourers.find(assignment =>
-      assignment.labourer.toString() === currentUser._id.toString()
+    assignment.labourer.toString() === currentUser._id.toString()
   );
   if (labourerAssignment) {
     labourerAssignment.hoursWorked = (labourerAssignment.hoursWorked || 0) + hoursWorked;
@@ -765,27 +789,27 @@ const getMyJobs = asyncWrapper(async (req, res) => {
   try {
     // Get jobs assigned to this technician
     const jobs = await Job.find(query)
-        .populate([
-          {
-            path: "booking",
-            select: "bookingId customer vehicle serviceType scheduledDate status",
-            populate: [
-              { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
-              { path: "vehicle", select: "registrationNumber make model year" }
-            ]
-          },
-          {
-            path: "createdBy",
-            select: "userId profile.firstName profile.lastName role"
-          },
-          {
-            path: "assignedLabourers.labourer",
-            select: "userId profile.firstName profile.lastName role employeeDetails.department employeeDetails.employeeId"
-          }
-        ])
-        .limit(limitNum)
-        .skip(skip)
-        .sort({ createdAt: -1 });
+      .populate([
+        {
+          path: "booking",
+          select: "bookingId customer vehicle serviceType scheduledDate status",
+          populate: [
+            { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
+            { path: "vehicle", select: "registrationNumber make model year" }
+          ]
+        },
+        {
+          path: "createdBy",
+          select: "userId profile.firstName profile.lastName role"
+        },
+        {
+          path: "assignedLabourers.labourer",
+          select: "userId profile.firstName profile.lastName role employeeDetails.department employeeDetails.employeeId"
+        }
+      ])
+      .limit(limitNum)
+      .skip(skip)
+      .sort({ createdAt: -1 });
 
     const total = await Job.countDocuments(query);
 
@@ -796,7 +820,7 @@ const getMyJobs = asyncWrapper(async (req, res) => {
       console.log(`📋 Job details:`);
       jobs.forEach(job => {
         const assignedLabourers = job.assignedLabourers.map(al =>
-            `${al.labourer.profile.firstName} ${al.labourer.profile.lastName} (${al.labourer.userId})`
+          `${al.labourer.profile.firstName} ${al.labourer.profile.lastName} (${al.labourer.userId})`
         ).join(", ");
         console.log(`  - Job ${job.jobId || job._id}: ${job.title} (${job.status}) - Assigned: ${assignedLabourers}`);
       });
@@ -877,27 +901,27 @@ const getMyCreatedJobs = asyncWrapper(async (req, res) => {
   try {
     // Get jobs created by this service advisor
     const jobs = await Job.find(query)
-        .populate([
-          {
-            path: "booking",
-            select: "bookingId customer vehicle serviceType scheduledDate status estimatedCost",
-            populate: [
-              { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
-              { path: "vehicle", select: "registrationNumber make model year color" }
-            ]
-          },
-          {
-            path: "assignedLabourers.labourer",
-            select: "userId profile.firstName profile.lastName role employeeDetails.specializations employeeDetails.department employeeDetails.employeeId"
-          },
-          {
-            path: "inspectedBy",
-            select: "userId profile.firstName profile.lastName role"
-          }
-        ])
-        .limit(limitNum)
-        .skip(skip)
-        .sort({ createdAt: -1 });
+      .populate([
+        {
+          path: "booking",
+          select: "bookingId customer vehicle serviceType scheduledDate status estimatedCost",
+          populate: [
+            { path: "customer", select: "userId profile.firstName profile.lastName profile.phoneNumber" },
+            { path: "vehicle", select: "registrationNumber make model year color" }
+          ]
+        },
+        {
+          path: "assignedLabourers.labourer",
+          select: "userId profile.firstName profile.lastName role employeeDetails.specializations employeeDetails.department employeeDetails.employeeId"
+        },
+        {
+          path: "inspectedBy",
+          select: "userId profile.firstName profile.lastName role"
+        }
+      ])
+      .limit(limitNum)
+      .skip(skip)
+      .sort({ createdAt: -1 });
 
     const total = await Job.countDocuments(query);
 

@@ -43,7 +43,7 @@ const createGoodsRequest = asyncWrapper(async (req, res, next) => {
   await goodsRequest.populate([
     { path: "job", select: "jobId description priority status" },
     { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
-    { path: "items.item", select: "itemId name category currentStock unitPrice" }
+    { path: "item", select: "itemId name category currentStock unitPrice" }
   ]);
 
   res.status(StatusCodes.CREATED).json({
@@ -97,7 +97,7 @@ const getAllGoodsRequests = asyncWrapper(async (req, res, next) => {
       { path: "job", select: "jobId description priority status booking" },
       { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
       { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "items.item", select: "itemId name category currentStock unitPrice" }
+      { path: "item", select: "itemId name category currentStock unitPrice" }
     ])
     .limit(limit * 1)
     .skip(skip)
@@ -132,7 +132,7 @@ const getMyGoodsRequests = asyncWrapper(async (req, res) => {
     .populate([
       { path: "job", select: "jobId description priority status" },
       { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "items.item", select: "itemId name category currentStock unitPrice" }
+      { path: "item", select: "itemId name category currentStock unitPrice" }
     ])
     .limit(limit * 1)
     .skip(skip)
@@ -160,7 +160,7 @@ const getGoodsRequestById = asyncWrapper(async (req, res, next) => {
       { path: "job", select: "jobId description priority status booking" },
       { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
       { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "items.item", select: "itemId name category currentStock unitPrice stockLocation" }
+      { path: "item", select: "itemId name category currentStock unitPrice stockLocation" }
     ]);
 
   if (!goodsRequest) {
@@ -224,7 +224,7 @@ const updateGoodsRequest = asyncWrapper(async (req, res, next) => {
   ).populate([
     { path: "job", select: "jobId description priority status" },
     { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
-    { path: "items.item", select: "itemId name category currentStock unitPrice" }
+    { path: "item", select: "itemId name category currentStock unitPrice" }
   ]);
 
   res.status(StatusCodes.OK).json({
@@ -282,7 +282,7 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
     .populate([
       { path: "job", select: "jobId description" },
       { path: "requestedBy", select: "userId profile.firstName profile.lastName email" },
-      { path: "items.item", select: "itemId name currentStock" }
+      { path: "item", select: "itemId name currentStock" }
     ]);
 
   if (!goodsRequest) {
@@ -295,19 +295,19 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
 
   // Check stock availability for all items
   try {
-    for (const requestItem of goodsRequest.items) {
-      console.log(`Checking item:`, requestItem);
+    // for (const requestItem of goodsRequest.items) {
+    console.log(`Checking item:`, goodsRequest.item);
 
-      if (!requestItem.item) {
-        console.error(`Item not found for request item:`, requestItem);
-        return next(createCustomError(`Inventory item not found in request`, 400));
-      }
-
-      if (requestItem.item.currentStock < requestItem.quantity) {
-        console.log(`Insufficient stock for ${requestItem.item.name}. Available: ${requestItem.item.currentStock}, Requested: ${requestItem.quantity}`);
-        return next(createCustomError(`Insufficient stock for ${requestItem.item.name}. Available: ${requestItem.item.currentStock}, Requested: ${requestItem.quantity}`, 400));
-      }
+    if (!goodsRequest.item) {
+      console.error(`Item not found for request item:`, goodsRequest.item);
+      return next(createCustomError(`Inventory item not found in request`, 400));
     }
+
+    if (goodsRequest.item.currentStock < goodsRequest.quantity) {
+      console.log(`Insufficient stock for ${goodsRequest.item.name}. Available: ${goodsRequest.item.currentStock}, Requested: ${goodsRequest.quantity}`);
+      return next(createCustomError(`Insufficient stock for ${goodsRequest.item.name}. Available: ${goodsRequest.item.currentStock}, Requested: ${goodsRequest.quantity}`, 400));
+    }
+    // }
   } catch (error) {
     console.error("Error checking stock availability:", error);
     return next(createCustomError("Error validating stock availability", 500));
@@ -325,40 +325,42 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
     console.log("Updating inventory stock for approved items...");
     const stockUpdates = [];
 
-    for (const requestItem of goodsRequest.items) {
-      try {
-        const inventoryItem = await InventoryItem.findById(requestItem.item._id);
-        if (inventoryItem) {
-          const oldStock = inventoryItem.currentStock;
-          inventoryItem.currentStock -= requestItem.quantity;
+    // for (const requestItem of goodsRequest.items) {
+    try {
+      const inventoryItem = await InventoryItem.findById(goodsRequest.item);
+      if (inventoryItem) {
+        const oldStock = inventoryItem.currentStock;
+        console.log('before stock update:', inventoryItem.name, oldStock);
+        inventoryItem.currentStock -= goodsRequest.quantity;
+        console.log('after stock update:', inventoryItem.name, inventoryItem.currentStock);
 
-          // Update inventory status based on stock levels
-          if (inventoryItem.currentStock === 0) {
-            inventoryItem.status = "out_of_stock";
-          } else if (inventoryItem.currentStock <= inventoryItem.minimumStock) {
-            inventoryItem.status = "low_stock";
-          } else {
-            inventoryItem.status = "active";
-          }
-
-          await inventoryItem.save();
-
-          stockUpdates.push({
-            itemId: inventoryItem.itemId,
-            name: inventoryItem.name,
-            quantityReduced: requestItem.quantity,
-            oldStock: oldStock,
-            newStock: inventoryItem.currentStock,
-            status: inventoryItem.status
-          });
-
-          console.log(`Stock updated for ${inventoryItem.name}: ${oldStock} -> ${inventoryItem.currentStock} (reduced by ${requestItem.quantity}), Status: ${inventoryItem.status}`);
+        // Update inventory status based on stock levels
+        if (inventoryItem.currentStock === 0) {
+          inventoryItem.status = "out_of_stock";
+        } else if (inventoryItem.currentStock <= inventoryItem.minimumStock) {
+          inventoryItem.status = "low_stock";
+        } else {
+          inventoryItem.status = "active";
         }
-      } catch (stockError) {
-        console.error(`Error updating stock for item ${requestItem.item.itemId}:`, stockError);
-        // Don't fail the entire approval if one stock update fails
+
+        await inventoryItem.save();
+
+        stockUpdates.push({
+          itemId: inventoryItem.itemId,
+          name: inventoryItem.name,
+          quantityReduced: requestItem.quantity,
+          oldStock: oldStock,
+          newStock: inventoryItem.currentStock,
+          status: inventoryItem.status
+        });
+
+        console.log(`Stock updated for ${inventoryItem.name}: ${oldStock} -> ${inventoryItem.currentStock} (reduced by ${requestItem.quantity}), Status: ${inventoryItem.status}`);
       }
+    } catch (stockError) {
+      console.error(`Error updating stock for item ${goodsRequest.item}:`, stockError);
+      // Don't fail the entire approval if one stock update fails
     }
+    // }
 
     // Populate approver details
     await goodsRequest.populate("approvedBy", "userId profile.firstName profile.lastName");
@@ -440,7 +442,7 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-    .populate("items.item", "itemId name currentStock");
+    .populate("item", "itemId name currentStock");
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -461,7 +463,7 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
   await goodsRequest.populate([
     { path: "job", select: "jobId title" },
     { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
-    { path: "items.item", select: "name category currentStock unitPrice" }
+    { path: "item", select: "name category currentStock unitPrice" }
   ]);
 
   res.status(StatusCodes.OK).json({
@@ -593,7 +595,7 @@ const getPendingGoodsRequests = asyncWrapper(async (req, res, next) => {
       .populate([
         { path: "job", select: "jobId description priority status booking" },
         { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
-        { path: "items.item", select: "itemId name category currentStock unitPrice" }
+        { path: "item", select: "itemId name category currentStock unitPrice" }
       ])
       .limit(limit * 1)
       .skip(skip)

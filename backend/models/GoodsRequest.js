@@ -18,22 +18,20 @@ const GoodsRequestSchema = new mongoose.Schema({
     ref: "User",
     required: [true, "Requested by is required"],
   },
-  items: [{
-    item: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InventoryItem",
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      min: 1,
-      required: true,
-    },
-    purpose: {
-      type: String,
-      trim: true,
-    },
-  }],
+  item: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "InventoryItem",
+    required: true,
+  },
+  quantity: {
+    type: Number,
+    min: 1,
+    required: true,
+  },
+  purpose: {
+    type: String,
+    trim: true,
+  },
   status: {
     type: String,
     enum: ["pending", "approved", "rejected", "released"],
