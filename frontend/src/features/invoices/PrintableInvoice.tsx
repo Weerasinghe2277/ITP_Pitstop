@@ -90,9 +90,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
 
 
     const bookingId = booking?.bookingId || invoice.booking?.bookingId || "N/A";
-    const jobId = job?.jobId || invoice.job?.jobId || "N/A";
     const serviceType = booking?.serviceType || invoice.booking?.serviceType || "N/A";
-    const customerPhone = invoice.customer?.phone || invoice.customer?.profile?.phone || "N/A";
 
     return (
         <>
@@ -214,10 +212,6 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
                                 Email:
                             </span>
                             <span style={{ fontSize: "14px", fontWeight: 500 }}>{invoice.customer?.email || "N/A"}</span>
-                            <span style={{ fontSize: "13px", fontWeight: 600, color: "#718096", textTransform: 'uppercase' }}>
-                                Phone:
-                            </span>
-                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{customerPhone}</span>
                         </div>
                     </div>
 
@@ -242,10 +236,6 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
                                 Booking ID:
                             </span>
                             <span style={{ fontSize: "14px", fontWeight: 500 }}>{bookingId}</span>
-                            <span style={{ fontSize: "13px", fontWeight: 600, color: "#718096", textTransform: 'uppercase' }}>
-                                Job ID:
-                            </span>
-                            <span style={{ fontSize: "14px", fontWeight: 500 }}>{jobId}</span>
                             <span style={{ fontSize: "13px", fontWeight: 600, color: "#718096", textTransform: 'uppercase' }}>
                                 Service Type:
                             </span>
@@ -274,78 +264,78 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
                     </h3>
                     <table style={{ width: "100%", borderCollapse: "collapse", margin: "20px 0" }}>
                         <thead>
-                        <tr>
-                            <th style={{
-                                textAlign: "left",
-                                padding: "12px 8px",
-                                fontSize: "12px",
-                                color: "#718096",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                background: "#f7fafc",
-                                borderBottom: "2px solid #e2e8f0",
-                                fontWeight: 700
-                            }}>Description</th>
-                            <th style={{
-                                textAlign: 'center',
-                                padding: "12px 8px",
-                                fontSize: "12px",
-                                color: "#718096",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                background: "#f7fafc",
-                                borderBottom: "2px solid #e2e8f0",
-                                fontWeight: 700,
-                                width: '80px'
-                            }}>Qty</th>
-                            <th style={{
-                                textAlign: 'right',
-                                padding: "12px 8px",
-                                fontSize: "12px",
-                                color: "#718096",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                background: "#f7fafc",
-                                borderBottom: "2px solid #e2e8f0",
-                                fontWeight: 700,
-                                width: '120px'
-                            }}>Unit Price</th>
-                            <th style={{
-                                textAlign: 'right',
-                                padding: "12px 8px",
-                                fontSize: "12px",
-                                color: "#718096",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em",
-                                background: "#f7fafc",
-                                borderBottom: "2px solid #e2e8f0",
-                                fontWeight: 700,
-                                width: '120px'
-                            }}>Amount</th>
-                        </tr>
+                            <tr>
+                                <th style={{
+                                    textAlign: "left",
+                                    padding: "12px 8px",
+                                    fontSize: "12px",
+                                    color: "#718096",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                    background: "#f7fafc",
+                                    borderBottom: "2px solid #e2e8f0",
+                                    fontWeight: 700
+                                }}>Description</th>
+                                <th style={{
+                                    textAlign: 'center',
+                                    padding: "12px 8px",
+                                    fontSize: "12px",
+                                    color: "#718096",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                    background: "#f7fafc",
+                                    borderBottom: "2px solid #e2e8f0",
+                                    fontWeight: 700,
+                                    width: '80px'
+                                }}>Qty</th>
+                                <th style={{
+                                    textAlign: 'right',
+                                    padding: "12px 8px",
+                                    fontSize: "12px",
+                                    color: "#718096",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                    background: "#f7fafc",
+                                    borderBottom: "2px solid #e2e8f0",
+                                    fontWeight: 700,
+                                    width: '120px'
+                                }}>Unit Price</th>
+                                <th style={{
+                                    textAlign: 'right',
+                                    padding: "12px 8px",
+                                    fontSize: "12px",
+                                    color: "#718096",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                    background: "#f7fafc",
+                                    borderBottom: "2px solid #e2e8f0",
+                                    fontWeight: 700,
+                                    width: '120px'
+                                }}>Amount</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {invoice.items?.map((item, index) => (
-                            <tr key={index}>
-                                <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top" }}>
-                                    <div style={{ fontWeight: 500 }}>{item.description}</div>
-                                    {item.note && (
-                                        <div style={{ fontSize: "11px", color: "#718096", marginTop: "2px" }}>
-                                            {item.note}
-                                        </div>
-                                    )}
-                                </td>
-                                <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'center' }}>
-                                    {item.quantity}
-                                </td>
-                                <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'right' }}>
-                                    {toMoney(item.unitPrice)}
-                                </td>
-                                <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'right', fontWeight: 600 }}>
-                                    {toMoney(item.total)}
-                                </td>
-                            </tr>
-                        ))}
+                            {invoice.items?.map((item, index) => (
+                                <tr key={index}>
+                                    <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top" }}>
+                                        <div style={{ fontWeight: 500 }}>{item.description}</div>
+                                        {item.note && (
+                                            <div style={{ fontSize: "11px", color: "#718096", marginTop: "2px" }}>
+                                                {item.note}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'center' }}>
+                                        {item.quantity}
+                                    </td>
+                                    <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'right' }}>
+                                        {toMoney(item.unitPrice)}
+                                    </td>
+                                    <td style={{ padding: "12px 8px", borderBottom: "1px solid #edf2f7", fontSize: "13px", verticalAlign: "top", textAlign: 'right', fontWeight: 600 }}>
+                                        {toMoney(item.total)}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
