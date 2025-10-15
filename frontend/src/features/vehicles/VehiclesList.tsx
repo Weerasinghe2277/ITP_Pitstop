@@ -13,8 +13,6 @@ export default function VehiclesList() {
     const [message, setMessage] = useState({ text: "", type: "" });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
-    const [editingVehicle, setEditingVehicle] = useState(null);
-    const [showEditModal, setShowEditModal] = useState(false);
 
     // Statistics
     const [stats, setStats] = useState({
@@ -80,34 +78,6 @@ export default function VehiclesList() {
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentVehicles = filteredVehicles.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
-
-    function handleEdit(vehicle) {
-        setEditingVehicle({
-            _id: vehicle._id,
-            registrationNumber: vehicle.registrationNumber,
-            make: vehicle.make,
-            model: vehicle.model,
-            year: vehicle.year,
-            color: vehicle.color || "",
-            fuelType: vehicle.fuelType,
-            transmission: vehicle.transmission,
-            status: vehicle.status
-        });
-        setShowEditModal(true);
-    }
-
-    async function handleUpdateVehicle(e) {
-        e.preventDefault();
-        try {
-            await http.put(`/vehicles/${editingVehicle._id}`, editingVehicle);
-            setMessage({ text: "Vehicle updated successfully", type: "success" });
-            setShowEditModal(false);
-            setEditingVehicle(null);
-            loadVehicles();
-        } catch (error) {
-            setMessage({ text: "Failed to update vehicle", type: "error" });
-        }
-    }
 
     async function exportVehicles() {
         try {
@@ -384,9 +354,9 @@ export default function VehiclesList() {
                                     '&:hover': { backgroundColor: '#f9fafb' }
                                 }}>
                                     <td style={tableCellStyle}>
-                                        <span style={{ fontWeight: '500', color: '#3b82f6' }}>
-                                            {vehicle.registrationNumber}
-                                        </span>
+                                            <span style={{ fontWeight: '500', color: '#3b82f6' }}>
+                                                {vehicle.registrationNumber}
+                                            </span>
                                     </td>
                                     <td style={tableCellStyle}>
                                         {vehicle.owner ? (
@@ -416,15 +386,15 @@ export default function VehiclesList() {
                                     </td>
                                     <td style={tableCellStyle}>{vehicle.year}</td>
                                     <td style={tableCellStyle}>
-                                        <span style={{
-                                            padding: '4px 8px',
-                                            backgroundColor: '#f3f4f6',
-                                            borderRadius: '4px',
-                                            fontSize: '12px',
-                                            fontWeight: '500'
-                                        }}>
-                                            {vehicle.fuelType}
-                                        </span>
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                backgroundColor: '#f3f4f6',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                fontWeight: '500'
+                                            }}>
+                                                {vehicle.fuelType}
+                                            </span>
                                     </td>
                                     <td style={tableCellStyle}>
                                         <StatusBadge value={vehicle.status} />
@@ -445,21 +415,20 @@ export default function VehiclesList() {
                                             >
                                                 View
                                             </Link>
-                                            <button
-                                                onClick={() => handleEdit(vehicle)}
+                                            <Link
+                                                to={`/bookings/new/${vehicle._id}`}
                                                 style={{
                                                     padding: '4px 8px',
-                                                    backgroundColor: '#f59e0b',
+                                                    backgroundColor: '#10b981',
                                                     color: 'white',
-                                                    border: 'none',
+                                                    textDecoration: 'none',
                                                     borderRadius: '4px',
                                                     fontSize: '12px',
-                                                    fontWeight: '500',
-                                                    cursor: 'pointer'
+                                                    fontWeight: '500'
                                                 }}
                                             >
-                                                Edit
-                                            </button>
+                                                Book
+                                            </Link>
                                         </div>
                                     </td>
                                 </tr>
@@ -541,190 +510,6 @@ export default function VehiclesList() {
                     </div>
                 )}
             </div>
-
-            {/* Edit Modal */}
-            {showEditModal && editingVehicle && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1000,
-                    padding: '20px'
-                }}>
-                    <div style={{
-                        backgroundColor: 'white',
-                        borderRadius: '12px',
-                        padding: '24px',
-                        maxWidth: '600px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflowY: 'auto'
-                    }}>
-                        <h2 style={{
-                            fontSize: '24px',
-                            fontWeight: '700',
-                            marginBottom: '20px',
-                            color: theme.text
-                        }}>
-                            Edit Vehicle
-                        </h2>
-
-                        <form onSubmit={handleUpdateVehicle}>
-                            <div style={{ display: 'grid', gap: '16px' }}>
-                                <div>
-                                    <label style={labelStyle}>Registration Number</label>
-                                    <input
-                                        type="text"
-                                        value={editingVehicle.registrationNumber}
-                                        onChange={(e) => setEditingVehicle({...editingVehicle, registrationNumber: e.target.value})}
-                                        style={inputStyle}
-                                        required
-                                    />
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={labelStyle}>Make</label>
-                                        <input
-                                            type="text"
-                                            value={editingVehicle.make}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, make: e.target.value})}
-                                            style={inputStyle}
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={labelStyle}>Model</label>
-                                        <input
-                                            type="text"
-                                            value={editingVehicle.model}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, model: e.target.value})}
-                                            style={inputStyle}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={labelStyle}>Year</label>
-                                        <input
-                                            type="number"
-                                            value={editingVehicle.year}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, year: e.target.value})}
-                                            style={inputStyle}
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={labelStyle}>Color</label>
-                                        <input
-                                            type="text"
-                                            value={editingVehicle.color}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, color: e.target.value})}
-                                            style={inputStyle}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={labelStyle}>Fuel Type</label>
-                                        <select
-                                            value={editingVehicle.fuelType}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, fuelType: e.target.value})}
-                                            style={inputStyle}
-                                            required
-                                        >
-                                            <option value="petrol">Petrol</option>
-                                            <option value="diesel">Diesel</option>
-                                            <option value="electric">Electric</option>
-                                            <option value="hybrid">Hybrid</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label style={labelStyle}>Transmission</label>
-                                        <select
-                                            value={editingVehicle.transmission}
-                                            onChange={(e) => setEditingVehicle({...editingVehicle, transmission: e.target.value})}
-                                            style={inputStyle}
-                                            required
-                                        >
-                                            <option value="manual">Manual</option>
-                                            <option value="automatic">Automatic</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={labelStyle}>Status</label>
-                                    <select
-                                        value={editingVehicle.status}
-                                        onChange={(e) => setEditingVehicle({...editingVehicle, status: e.target.value})}
-                                        style={inputStyle}
-                                        required
-                                    >
-                                        <option value="active">Active</option>
-                                        <option value="maintenance">Maintenance</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div style={{
-                                display: 'flex',
-                                gap: '12px',
-                                marginTop: '24px',
-                                justifyContent: 'flex-end'
-                            }}>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowEditModal(false);
-                                        setEditingVehicle(null);
-                                    }}
-                                    style={{
-                                        padding: '10px 20px',
-                                        backgroundColor: '#e5e7eb',
-                                        color: '#374151',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{
-                                        padding: '10px 20px',
-                                        backgroundColor: '#3b82f6',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Update Vehicle
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
@@ -773,23 +558,4 @@ const tableCellStyle = {
     fontSize: '14px',
     color: '#111827',
     verticalAlign: 'top'
-};
-
-const labelStyle = {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: '6px'
-};
-
-const inputStyle = {
-    width: '100%',
-    padding: '10px 12px',
-    border: '1px solid #e5e7eb',
-    borderRadius: '8px',
-    fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#000000',
-    boxSizing: 'border-box'
 };
