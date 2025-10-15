@@ -37,7 +37,7 @@ router.get("/customer/:customerId", authenticate, getInvoicesByCustomer);
 // Invoice management by ID
 router.route("/:id")
   .get(authenticate, getInvoiceById) // All authenticated users can view invoice details
-  .patch(authenticate, authorize("admin","cashier", "manager", "service_advisor"), updateInvoice) // Staff can update invoices
+  .patch(authenticate, authorize("admin", "manager", "service_advisor"), updateInvoice) // Staff can update invoices
   .delete(authenticate, authorize("admin", "manager"), deleteInvoice); // Admin/Manager can delete invoices
 
 // Specialized invoice operations
