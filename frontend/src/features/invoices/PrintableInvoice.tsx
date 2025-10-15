@@ -104,7 +104,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
             }}>
                 <div style={{ flex: 1 }}>
                     <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#2c5530", margin: "0 0 8px 0" }}>
-                        AutoCare Center
+                        PITSTOP
                     </h1>
                     <p style={{ fontSize: "14px", color: "#666", margin: "0 0 4px 0" }}>
                         Professional Automotive Services
@@ -113,7 +113,7 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
                         <div>123 Garage Lane, Colombo 05</div>
                         <div>Sri Lanka</div>
                         <div>Phone: +94 11 234 5678</div>
-                        <div>Email: info@autocare.lk</div>
+                        <div>Email: info@pitstop.lk</div>
                         <div>VAT: GB123456789</div>
                     </div>
                 </div>
@@ -376,4 +376,4 @@ const PrintableInvoice: React.FC<PrintableInvoiceProps> = ({ invoice, booking, j
     );
 };
 
-export default PrintableInvoice;
+export default PrintableInvoice
