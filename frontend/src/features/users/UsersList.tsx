@@ -39,12 +39,10 @@ export default function UsersList() {
                     limit: itemsPerPage.toString(),
                 });
 
-                // Add search parameter if exists
                 if (debouncedQ.trim()) {
                     params.append('search', debouncedQ.trim());
                 }
 
-                // Add role filter if not 'all'
                 if (role && role !== 'all') {
                     params.append('role', role);
                 }
@@ -52,7 +50,6 @@ export default function UsersList() {
                 const r = await http.get(`/users?${params.toString()}`);
                 if (!cancelled) {
                     setRows(r.data?.users || []);
-                    // Update pagination info from server response
                     setTotalItems(r.data?.total || 0);
                     setTotalPages(r.data?.totalPages || 1);
                 }
@@ -68,7 +65,6 @@ export default function UsersList() {
         };
     }, [currentPage, itemsPerPage, debouncedQ, role]);
 
-    // Reload data function
     const reloadData = async () => {
         setIsLoading(true);
         try {
@@ -96,45 +92,40 @@ export default function UsersList() {
         }
     };
 
-    // Delete user function
-    const handleDelete = async (userId, userName) => {
-        try {
-            await http.delete(`/users/${userId}`);
-            setMsg({ text: `User ${userName} deleted successfully`, type: "success" });
-            setDeleteConfirm(null);
-            // Reload data to reflect changes
-            await reloadData();
-        } catch (e) {
-            setMsg({ text: e.message || "Failed to delete user", type: "error" });
-        }
-    };
-
-    // Update user function
+    // ✅ FIXED: Changed PUT to PATCH
     const handleUpdate = async (userId, updatedData) => {
         try {
-            await http.put(`/users/${userId}`, updatedData);
+            await http.patch(`/users/${userId}`, updatedData); // ✅ CHANGED FROM PUT TO PATCH
             setMsg({ text: "User updated successfully", type: "success" });
             setEditUser(null);
-            setViewUser(null); // Close view modal after successful update
-            // Reload data to reflect changes
+            setViewUser(null);
             await reloadData();
         } catch (e) {
             setMsg({ text: e.message || "Failed to update user", type: "error" });
         }
     };
 
-    // Function to open edit modal from view modal
+    const handleDelete = async (userId, userName) => {
+        try {
+            await http.delete(`/users/${userId}`);
+            setMsg({ text: `User ${userName} deleted successfully`, type: "success" });
+            setDeleteConfirm(null);
+            await reloadData();
+        } catch (e) {
+            setMsg({ text: e.message || "Failed to delete user", type: "error" });
+        }
+    };
+
     const handleEditFromView = (user) => {
         setViewUser(null);
         setEditUser(user);
     };
 
-    // Since we're using server-side pagination, rows already contains the paginated results
+    // Pagination calculations
     const paginatedResults = rows;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
-    // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
     }, [debouncedQ, role]);
@@ -148,7 +139,7 @@ export default function UsersList() {
         setCurrentPage(1);
     };
 
-    // Styles (keeping existing styles)
+    // Styles
     const wrap = {
         maxWidth: "1200px",
         margin: "0 auto",
@@ -207,8 +198,6 @@ export default function UsersList() {
         zIndex: 1,
     };
     const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px" };
-
-    // Action button styles
     const actionBtnGroup = { display: "flex", gap: "8px", flexWrap: "wrap" };
     const viewBtn = {
         padding: "6px 10px",
@@ -243,8 +232,6 @@ export default function UsersList() {
         border: "1px solid #dc2626",
         cursor: "pointer",
     };
-
-    // Modal styles
     const modalOverlay = {
         position: "fixed",
         top: 0,
@@ -296,8 +283,6 @@ export default function UsersList() {
         fontSize: "14px",
         cursor: "pointer",
     };
-
-    // Pagination styles
     const paginationWrap = {
         display: "flex",
         justifyContent: "space-between",
@@ -311,20 +296,17 @@ export default function UsersList() {
         flexWrap: "wrap",
         gap: "16px",
     };
-
     const paginationInfo = {
         color: "#6b7280",
         fontSize: "14px",
         minWidth: "200px",
     };
-
     const paginationControls = {
         display: "flex",
         alignItems: "center",
         gap: "8px",
         flexWrap: "wrap",
     };
-
     const pageBtn = {
         padding: "8px 12px",
         backgroundColor: "white",
@@ -337,14 +319,12 @@ export default function UsersList() {
         textAlign: "center",
         transition: "all 0.2s",
     };
-
     const activePage = {
         ...pageBtn,
         backgroundColor: "#3b82f6",
         color: "white",
         borderColor: "#3b82f6",
     };
-
     const disabledBtn = {
         ...pageBtn,
         backgroundColor: "#f9fafb",
@@ -352,7 +332,6 @@ export default function UsersList() {
         cursor: "not-allowed",
         borderColor: "#e5e7eb",
     };
-
     const itemsPerPageSelect = {
         padding: "6px 8px",
         border: "1px solid #d1d5db",
@@ -434,65 +413,65 @@ export default function UsersList() {
                                 Users list with CRUD operations
                             </caption>
                             <thead>
-                                <tr>
-                                    <th scope="col" style={thStyle}>UserId</th>
-                                    <th scope="col" style={thStyle}>Name</th>
-                                    <th scope="col" style={thStyle}>Email</th>
-                                    <th scope="col" style={thStyle}>Role</th>
-                                    <th scope="col" style={thStyle}>Actions</th>
-                                </tr>
+                            <tr>
+                                <th scope="col" style={thStyle}>UserId</th>
+                                <th scope="col" style={thStyle}>Name</th>
+                                <th scope="col" style={thStyle}>Email</th>
+                                <th scope="col" style={thStyle}>Role</th>
+                                <th scope="col" style={thStyle}>Actions</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {totalItems === 0 && (
-                                    <tr>
-                                        <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                            No users found
-                                        </td>
-                                    </tr>
-                                )}
-                                {paginatedResults.map((u) => {
-                                    const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
-                                    return (
-                                        <tr key={u._id}>
-                                            <td style={tdStyle}>
-                                                <div style={{ display: "flex", flexDirection: "column" }}>
-                                                    <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
-                                                    <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {totalItems === 0 && (
+                                <tr>
+                                    <td colSpan={5} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                        No users found
+                                    </td>
+                                </tr>
+                            )}
+                            {paginatedResults.map((u) => {
+                                const name = [u.profile?.firstName || "", u.profile?.lastName || ""].filter(Boolean).join(" ");
+                                return (
+                                    <tr key={u._id}>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <span style={{ fontWeight: 600, color: "#111827" }}>{u.userId || u._id}</span>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : ""}
                                                     </span>
-                                                </div>
-                                            </td>
-                                            <td style={tdStyle}>{name || "—"}</td>
-                                            <td style={tdStyle}>{u.email || "—"}</td>
-                                            <td style={tdStyle}>{u.role || "—"}</td>
-                                            <td style={tdStyle}>
-                                                <div style={actionBtnGroup}>
-                                                    <button
-                                                        onClick={() => setViewUser(u)}
-                                                        style={viewBtn}
-                                                        aria-label={`View user ${name || u.email}`}
-                                                    >
-                                                        View
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditUser(u)}
-                                                        style={editBtn}
-                                                        aria-label={`Edit user ${name || u.email}`}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
-                                                        style={deleteBtn}
-                                                        aria-label={`Delete user ${name || u.email}`}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>{name || "—"}</td>
+                                        <td style={tdStyle}>{u.email || "—"}</td>
+                                        <td style={tdStyle}>{u.role || "—"}</td>
+                                        <td style={tdStyle}>
+                                            <div style={actionBtnGroup}>
+                                                <button
+                                                    onClick={() => setViewUser(u)}
+                                                    style={viewBtn}
+                                                    aria-label={`View user ${name || u.email}`}
+                                                >
+                                                    View
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditUser(u)}
+                                                    style={editBtn}
+                                                    aria-label={`Edit user ${name || u.email}`}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteConfirm({ user: u, name: name || u.email })}
+                                                    style={deleteBtn}
+                                                    aria-label={`Delete user ${name || u.email}`}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             </tbody>
                         </table>
                     </div>
@@ -533,7 +512,6 @@ export default function UsersList() {
                             Previous
                         </button>
 
-                        {/* Page numbers */}
                         {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                             let pageNum;
                             if (totalPages <= 5) {
@@ -575,12 +553,7 @@ export default function UsersList() {
                         <h3 style={modalHeader}>Confirm Delete</h3>
                         <p>Are you sure you want to delete user <strong>{deleteConfirm.name}</strong>? This action cannot be undone.</p>
                         <div style={modalActions}>
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                style={cancelBtn}
-                            >
-                                Cancel
-                            </button>
+                            <button onClick={() => setDeleteConfirm(null)} style={cancelBtn}>Cancel</button>
                             <button
                                 onClick={() => handleDelete(deleteConfirm.user._id, deleteConfirm.name)}
                                 style={confirmBtn}
@@ -592,7 +565,7 @@ export default function UsersList() {
                 </div>
             )}
 
-            {/* View User Modal - UPDATED with Edit button */}
+            {/* View User Modal */}
             {viewUser && (
                 <ViewUserModal
                     user={viewUser}
@@ -611,19 +584,17 @@ export default function UsersList() {
                 />
             )}
 
-            <style>
-                {`
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                `}
-            </style>
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }
 
-// UPDATED: View User Modal Component with Edit Button
+// ✅ COMPLETE ViewUserModal Component
 function ViewUserModal({ user, onClose, onEdit }) {
     const modalOverlay = {
         position: "fixed",
@@ -1040,7 +1011,7 @@ function ViewUserModal({ user, onClose, onEdit }) {
     );
 }
 
-// Enhanced Edit User Modal Component
+// ✅ COMPLETE EditUserModal Component
 function EditUserModal({ user, onClose, onUpdate, roles }) {
     const [formData, setFormData] = useState({
         email: user.email || "",
