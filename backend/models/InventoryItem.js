@@ -13,9 +13,15 @@ const InventoryItemSchema = new mongoose.Schema({
     required: [true, "Item name is required"],
     trim: true,
   },
+  description: {
+    type: String,
+    trim: true,
+    default: "",
+  },
   notes: {
     type: String,
     trim: true,
+    default: "",
   },
   category: {
     type: String,
@@ -25,10 +31,12 @@ const InventoryItemSchema = new mongoose.Schema({
   brand: {
     type: String,
     trim: true,
+    default: "",
   },
   partNumber: {
     type: String,
     trim: true,
+    default: "",
   },
   unitPrice: {
     type: Number,
@@ -50,16 +58,28 @@ const InventoryItemSchema = new mongoose.Schema({
     enum: ["piece", "liter", "kg", "meter", "set"],
     required: [true, "Unit is required"],
   },
-  // supplier: {
-  //   name: {
-  //     type: String,
-  //     trim: true,
-  //   },
-  //   contact: {
-  //     type: String,
-  //     trim: true,
-  //   },
-  // },
+  supplier: {
+    name: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    contactPerson: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    email: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+  },
   status: {
     type: String,
     enum: ["active", "inactive", "discontinued", "out_of_stock", "low_stock"],
@@ -78,9 +98,9 @@ const InventoryItemSchema = new mongoose.Schema({
 InventoryItemSchema.pre("save", async function (next) {
   if (this.isNew && !this.itemId) {
     const lastItem = await this.constructor
-      .findOne({ itemId: /^ITM/ })
-      .sort({ itemId: -1 })
-      .select("itemId");
+        .findOne({ itemId: /^ITM/ })
+        .sort({ itemId: -1 })
+        .select("itemId");
 
     let nextNumber = 1;
     if (lastItem?.itemId) {
