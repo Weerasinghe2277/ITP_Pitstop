@@ -1,4 +1,4 @@
-// src/features/bookings/BookingsList.tsx
+// src/features/bookings/BookingsList.jsx
 import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
 import { Link } from "react-router-dom";
@@ -54,7 +54,7 @@ export default function BookingsList() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 9;
 
     // Check if user can create bookings (not service advisor)
     const canCreateBookings = user?.role !== "service_advisor";
@@ -66,7 +66,7 @@ export default function BookingsList() {
     async function loadBookings() {
         setIsLoading(true);
         try {
-            const response = await http.get('/bookings');
+            const response = await http.get(`/bookings`);
             setBookings(response.data?.bookings || []);
         } catch (error) {
             console.error("Failed to load bookings:", error);
@@ -76,14 +76,13 @@ export default function BookingsList() {
         }
     }
 
-    // Filter bookings based on all criteria
     const filteredBookings = bookings.filter(booking => {
         // Status filter
         if (filter.status && booking.status !== filter.status) {
             return false;
         }
 
-        // Service Type filter
+        // Service type filter
         if (filter.serviceType && booking.serviceType !== filter.serviceType) {
             return false;
         }
@@ -111,42 +110,61 @@ export default function BookingsList() {
         return true;
     });
 
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filter.status, filter.serviceType, filter.priority, searchTerm]);
-
     // Pagination calculations
     const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentBookings = filteredBookings.slice(startIndex, endIndex);
 
-    // Pagination helpers
-    const goToPage = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
-            setCurrentPage(page);
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter.status, filter.serviceType, filter.priority, searchTerm]);
+
+    const statusOptions = ["pending", "confirmed", "inspecting", "working", "completed", "cancelled"];
+    const serviceTypeOptions = ["inspection", "repair", "maintenance", "bodywork", "detailing"];
+    const priorityOptions = ["low", "medium", "high", "urgent"];
+
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
+    const handleNextPage = () => {
+        if (currentPage < totalPages) {
+            setCurrentPage(currentPage + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handlePageClick = (pageNumber: number) => {
+        setCurrentPage(pageNumber);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const getPageNumbers = () => {
         const pages: (number | string)[] = [];
-        const maxVisible = 5;
+        const maxPagesToShow = 5;
 
-        if (totalPages <= maxVisible) {
+        if (totalPages <= maxPagesToShow) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
             if (currentPage <= 3) {
-                for (let i = 1; i <= 4; i++) pages.push(i);
+                for (let i = 1; i <= 4; i++) {
+                    pages.push(i);
+                }
                 pages.push('...');
                 pages.push(totalPages);
             } else if (currentPage >= totalPages - 2) {
                 pages.push(1);
                 pages.push('...');
-                for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+                for (let i = totalPages - 3; i <= totalPages; i++) {
+                    pages.push(i);
+                }
             } else {
                 pages.push(1);
                 pages.push('...');
@@ -160,10 +178,6 @@ export default function BookingsList() {
 
         return pages;
     };
-
-    const statusOptions = ["pending", "confirmed", "inspecting", "working", "completed", "cancelled"];
-    const serviceTypeOptions = ["inspection", "repair", "maintenance", "bodywork", "detailing"];
-    const priorityOptions = ["low", "medium", "high", "urgent"];
 
     return (
         <div style={{
@@ -217,8 +231,7 @@ export default function BookingsList() {
                 borderRadius: '12px',
                 padding: '24px',
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                marginBottom: '24px',
-                border: '1px solid #e5e7eb'
+                marginBottom: '24px'
             }}>
                 <h2 style={{
                     fontSize: '18px',
@@ -229,7 +242,7 @@ export default function BookingsList() {
                     Filter Bookings
                 </h2>
 
-                {/* Filters */}
+                {/* First Row of Filters */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -368,11 +381,11 @@ export default function BookingsList() {
                     gap: '12px'
                 }}>
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        Showing {currentBookings.length} of {filteredBookings.length} bookings
+                        Showing {startIndex + 1}-{Math.min(endIndex, filteredBookings.length)} of {filteredBookings.length} bookings
                         {filteredBookings.length !== bookings.length && ` (filtered from ${bookings.length} total)`}
                     </span>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <button
                             onClick={() => {
                                 setFilter({
@@ -485,14 +498,14 @@ export default function BookingsList() {
                                 padding: '20px',
                                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                                 transition: 'all 0.2s ease',
-                                border: '1px solid #e5e7eb'
+                                border: '1px solid transparent'
                             }} onMouseEnter={(e) => {
                                 e.currentTarget.style.boxShadow = '0 10px 15px rgba(0, 0, 0, 0.1)';
                                 e.currentTarget.style.borderColor = '#3b82f6';
                                 e.currentTarget.style.transform = 'translateY(-2px)';
                             }} onMouseLeave={(e) => {
                                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
-                                e.currentTarget.style.borderColor = '#e5e7eb';
+                                e.currentTarget.style.borderColor = 'transparent';
                                 e.currentTarget.style.transform = 'translateY(0)';
                             }}>
                                 <div style={{
@@ -515,11 +528,7 @@ export default function BookingsList() {
                                             color: '#6b7280',
                                             margin: 0
                                         }}>
-                                            {new Date(booking.createdAt).toLocaleDateString('en-US', {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric'
-                                            })}
+                                            {new Date(booking.createdAt).toLocaleDateString()}
                                         </p>
                                     </div>
                                     <StatusBadge value={booking.status} title={booking.status} />
@@ -544,15 +553,12 @@ export default function BookingsList() {
                                         }}>
                                             <span style={{ color: '#3b82f6', fontSize: '16px' }}>👤</span>
                                         </div>
-                                        <div style={{ minWidth: 0 }}>
+                                        <div>
                                             <p style={{
                                                 fontSize: '14px',
                                                 fontWeight: '500',
                                                 color: '#1f2937',
-                                                margin: '0 0 2px 0',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
+                                                margin: '0 0 2px 0'
                                             }}>
                                                 {booking.customer?.profile?.firstName} {booking.customer?.profile?.lastName}
                                             </p>
@@ -584,15 +590,12 @@ export default function BookingsList() {
                                         }}>
                                             <span style={{ color: '#3b82f6', fontSize: '16px' }}>🚗</span>
                                         </div>
-                                        <div style={{ minWidth: 0 }}>
+                                        <div>
                                             <p style={{
                                                 fontSize: '14px',
                                                 fontWeight: '500',
                                                 color: '#1f2937',
-                                                margin: '0 0 2px 0',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
+                                                margin: '0 0 2px 0'
                                             }}>
                                                 {booking.vehicle?.make} {booking.vehicle?.model}
                                             </p>
@@ -623,7 +626,7 @@ export default function BookingsList() {
                                         }}>
                                             <span style={{ color: '#3b82f6', fontSize: '16px' }}>🔧</span>
                                         </div>
-                                        <div style={{ minWidth: 0 }}>
+                                        <div>
                                             <p style={{
                                                 fontSize: '14px',
                                                 fontWeight: '500',
@@ -641,27 +644,6 @@ export default function BookingsList() {
                                             </p>
                                         </div>
                                     </div>
-
-                                    {booking.priority && (
-                                        <div style={{
-                                            marginTop: '12px',
-                                            padding: '8px 12px',
-                                            backgroundColor: booking.priority === 'urgent' ? '#fee2e2' :
-                                                booking.priority === 'high' ? '#fef3c7' :
-                                                    booking.priority === 'medium' ? '#dbeafe' : '#f3f4f6',
-                                            borderRadius: '6px'
-                                        }}>
-                                            <span style={{
-                                                fontSize: '12px',
-                                                fontWeight: '600',
-                                                color: booking.priority === 'urgent' ? '#991b1b' :
-                                                    booking.priority === 'high' ? '#92400e' :
-                                                        booking.priority === 'medium' ? '#1e40af' : '#374151'
-                                            }}>
-                                                ⚡ Priority: {booking.priority.charAt(0).toUpperCase() + booking.priority.slice(1)}
-                                            </span>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div style={{
@@ -674,8 +656,8 @@ export default function BookingsList() {
                                         to={`/bookings/${booking._id}`}
                                         style={{
                                             padding: '8px 16px',
-                                            backgroundColor: '#3b82f6',
-                                            color: 'white',
+                                            backgroundColor: '#f3f4f6',
+                                            color: '#374151',
                                             borderRadius: '6px',
                                             textDecoration: 'none',
                                             fontSize: '14px',
@@ -685,7 +667,7 @@ export default function BookingsList() {
                                             gap: '6px'
                                         }}
                                     >
-                                        View Details →
+                                        View Details
                                     </Link>
                                 </div>
                             </div>
@@ -695,17 +677,18 @@ export default function BookingsList() {
                     {/* Pagination Controls */}
                     {totalPages > 1 && (
                         <div style={{
+                            background: 'white',
+                            borderRadius: '12px',
+                            padding: '20px',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
                             gap: '8px',
-                            padding: '24px',
-                            background: 'white',
-                            borderRadius: '12px',
-                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+                            flexWrap: 'wrap'
                         }}>
                             <button
-                                onClick={() => goToPage(currentPage - 1)}
+                                onClick={handlePreviousPage}
                                 disabled={currentPage === 1}
                                 style={{
                                     padding: '8px 16px',
@@ -723,34 +706,37 @@ export default function BookingsList() {
                             </button>
 
                             {getPageNumbers().map((page, index) => (
-                                typeof page === 'number' ? (
+                                page === '...' ? (
+                                    <span key={`ellipsis-${index}`} style={{
+                                        padding: '8px 12px',
+                                        color: '#6b7280'
+                                    }}>
+                                        ...
+                                    </span>
+                                ) : (
                                     <button
-                                        key={index}
-                                        onClick={() => goToPage(page)}
+                                        key={page}
+                                        onClick={() => handlePageClick(page as number)}
                                         style={{
                                             padding: '8px 12px',
-                                            minWidth: '40px',
                                             backgroundColor: currentPage === page ? '#3b82f6' : '#f3f4f6',
                                             color: currentPage === page ? 'white' : '#374151',
                                             border: 'none',
                                             borderRadius: '6px',
                                             fontSize: '14px',
-                                            fontWeight: currentPage === page ? '600' : '500',
+                                            fontWeight: '500',
                                             cursor: 'pointer',
+                                            minWidth: '40px',
                                             transition: 'all 0.2s'
                                         }}
                                     >
                                         {page}
                                     </button>
-                                ) : (
-                                    <span key={index} style={{ padding: '8px 4px', color: '#9ca3af' }}>
-                                        {page}
-                                    </span>
                                 )
                             ))}
 
                             <button
-                                onClick={() => goToPage(currentPage + 1)}
+                                onClick={handleNextPage}
                                 disabled={currentPage === totalPages}
                                 style={{
                                     padding: '8px 16px',
