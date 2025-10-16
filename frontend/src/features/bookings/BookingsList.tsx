@@ -1,4 +1,4 @@
-// src/features/bookings/BookingsList.jsx
+// src/features/bookings/BookingsList.tsx
 import { useEffect, useState } from "react";
 import { http } from "../../lib/http";
 import { Link } from "react-router-dom";
@@ -53,33 +53,47 @@ export default function BookingsList() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Check if user can create bookings (not service advisor)
     const canCreateBookings = user?.role !== "service_advisor";
 
     useEffect(() => {
         loadBookings();
-    }, [filter]);
+    }, []);
 
     async function loadBookings() {
         setIsLoading(true);
         try {
-            const params = new URLSearchParams();
-            if (filter.status) params.set("status", filter.status);
-            if (filter.serviceType) params.set("serviceType", filter.serviceType);
-            if (filter.priority) params.set("priority", filter.priority);
-
-            const response = await http.get(`/bookings?${params.toString()}`);
+            const response = await http.get('/bookings');
             setBookings(response.data?.bookings || []);
         } catch (error) {
             console.error("Failed to load bookings:", error);
+            setBookings([]);
         } finally {
             setIsLoading(false);
         }
     }
 
+    // Filter bookings based on all criteria
     const filteredBookings = bookings.filter(booking => {
-        // General search term filter
+        // Status filter
+        if (filter.status && booking.status !== filter.status) {
+            return false;
+        }
+
+        // Service Type filter
+        if (filter.serviceType && booking.serviceType !== filter.serviceType) {
+            return false;
+        }
+
+        // Priority filter
+        if (filter.priority && booking.priority !== filter.priority) {
+            return false;
+        }
+
+        // Search term filter
         if (searchTerm) {
             const searchLower = searchTerm.toLowerCase();
             const matchesSearch = (
@@ -96,6 +110,56 @@ export default function BookingsList() {
 
         return true;
     });
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter.status, filter.serviceType, filter.priority, searchTerm]);
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentBookings = filteredBookings.slice(startIndex, endIndex);
+
+    // Pagination helpers
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        const maxVisible = 5;
+
+        if (totalPages <= maxVisible) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            if (currentPage <= 3) {
+                for (let i = 1; i <= 4; i++) pages.push(i);
+                pages.push('...');
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                pages.push(1);
+                pages.push('...');
+                for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                pages.push('...');
+                pages.push(currentPage - 1);
+                pages.push(currentPage);
+                pages.push(currentPage + 1);
+                pages.push('...');
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
 
     const statusOptions = ["pending", "confirmed", "inspecting", "working", "completed", "cancelled"];
     const serviceTypeOptions = ["inspection", "repair", "maintenance", "bodywork", "detailing"];
@@ -153,7 +217,8 @@ export default function BookingsList() {
                 borderRadius: '12px',
                 padding: '24px',
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                marginBottom: '24px'
+                marginBottom: '24px',
+                border: '1px solid #e5e7eb'
             }}>
                 <h2 style={{
                     fontSize: '18px',
@@ -164,7 +229,7 @@ export default function BookingsList() {
                     Filter Bookings
                 </h2>
 
-                {/* First Row of Filters */}
+                {/* Filters */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
@@ -298,10 +363,13 @@ export default function BookingsList() {
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '12px'
                 }}>
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                        Showing {filteredBookings.length} of {bookings.length} bookings
+                        Showing {currentBookings.length} of {filteredBookings.length} bookings
+                        {filteredBookings.length !== bookings.length && ` (filtered from ${bookings.length} total)`}
                     </span>
 
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -325,7 +393,7 @@ export default function BookingsList() {
                                 cursor: 'pointer'
                             }}
                         >
-                            � Pending Bookings
+                            📋 Pending Bookings
                         </button>
                         <button
                             onClick={() => {
@@ -384,210 +452,323 @@ export default function BookingsList() {
                     <p style={{ color: '#6b7280', marginBottom: '20px' }}>
                         {bookings.length === 0 ? 'No bookings have been created yet.' : 'Try adjusting your filters or search term.'}
                     </p>
-                    <Link
-                        to="/bookings/new"
-                        style={{
-                            padding: '10px 20px',
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            borderRadius: '8px',
-                            textDecoration: 'none',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            display: 'inline-block'
-                        }}
-                    >
-                        Create Your First Booking
-                    </Link>
+                    {canCreateBookings && bookings.length === 0 && (
+                        <Link
+                            to="/bookings/new"
+                            style={{
+                                padding: '10px 20px',
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                display: 'inline-block'
+                            }}
+                        >
+                            Create Your First Booking
+                        </Link>
+                    )}
                 </div>
             ) : (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-                    gap: '20px'
-                }}>
-                    {filteredBookings.map(booking => (
-                        <div key={booking._id} style={{
+                <>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                        gap: '20px',
+                        marginBottom: '24px'
+                    }}>
+                        {currentBookings.map(booking => (
+                            <div key={booking._id} style={{
+                                background: 'white',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+                                transition: 'all 0.2s ease',
+                                border: '1px solid #e5e7eb'
+                            }} onMouseEnter={(e) => {
+                                e.currentTarget.style.boxShadow = '0 10px 15px rgba(0, 0, 0, 0.1)';
+                                e.currentTarget.style.borderColor = '#3b82f6';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                            }} onMouseLeave={(e) => {
+                                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
+                                e.currentTarget.style.borderColor = '#e5e7eb';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    marginBottom: '16px'
+                                }}>
+                                    <div>
+                                        <h3 style={{
+                                            fontSize: '18px',
+                                            fontWeight: '600',
+                                            color: '#1f2937',
+                                            margin: '0 0 4px 0'
+                                        }}>
+                                            #{booking.bookingId}
+                                        </h3>
+                                        <p style={{
+                                            fontSize: '14px',
+                                            color: '#6b7280',
+                                            margin: 0
+                                        }}>
+                                            {new Date(booking.createdAt).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric'
+                                            })}
+                                        </p>
+                                    </div>
+                                    <StatusBadge value={booking.status} title={booking.status} />
+                                </div>
+
+                                <div style={{ marginBottom: '16px' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        marginBottom: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '8px',
+                                            background: '#f3f4f6',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: '12px',
+                                            flexShrink: 0
+                                        }}>
+                                            <span style={{ color: '#3b82f6', fontSize: '16px' }}>👤</span>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <p style={{
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                color: '#1f2937',
+                                                margin: '0 0 2px 0',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {booking.customer?.profile?.firstName} {booking.customer?.profile?.lastName}
+                                            </p>
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                margin: 0
+                                            }}>
+                                                Customer
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        marginBottom: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '8px',
+                                            background: '#f3f4f6',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: '12px',
+                                            flexShrink: 0
+                                        }}>
+                                            <span style={{ color: '#3b82f6', fontSize: '16px' }}>🚗</span>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <p style={{
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                color: '#1f2937',
+                                                margin: '0 0 2px 0',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {booking.vehicle?.make} {booking.vehicle?.model}
+                                            </p>
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                margin: 0
+                                            }}>
+                                                {booking.vehicle?.registrationNumber}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '8px',
+                                            background: '#f3f4f6',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            marginRight: '12px',
+                                            flexShrink: 0
+                                        }}>
+                                            <span style={{ color: '#3b82f6', fontSize: '16px' }}>🔧</span>
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <p style={{
+                                                fontSize: '14px',
+                                                fontWeight: '500',
+                                                color: '#1f2937',
+                                                margin: '0 0 2px 0'
+                                            }}>
+                                                {booking.serviceType?.charAt(0).toUpperCase() + booking.serviceType?.slice(1)}
+                                            </p>
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: '#6b7280',
+                                                margin: 0
+                                            }}>
+                                                Service Type
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {booking.priority && (
+                                        <div style={{
+                                            marginTop: '12px',
+                                            padding: '8px 12px',
+                                            backgroundColor: booking.priority === 'urgent' ? '#fee2e2' :
+                                                booking.priority === 'high' ? '#fef3c7' :
+                                                    booking.priority === 'medium' ? '#dbeafe' : '#f3f4f6',
+                                            borderRadius: '6px'
+                                        }}>
+                                            <span style={{
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                color: booking.priority === 'urgent' ? '#991b1b' :
+                                                    booking.priority === 'high' ? '#92400e' :
+                                                        booking.priority === 'medium' ? '#1e40af' : '#374151'
+                                            }}>
+                                                ⚡ Priority: {booking.priority.charAt(0).toUpperCase() + booking.priority.slice(1)}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'flex-end',
+                                    borderTop: '1px solid #f3f4f6',
+                                    paddingTop: '16px'
+                                }}>
+                                    <Link
+                                        to={`/bookings/${booking._id}`}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: '#3b82f6',
+                                            color: 'white',
+                                            borderRadius: '6px',
+                                            textDecoration: 'none',
+                                            fontSize: '14px',
+                                            fontWeight: '500',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}
+                                    >
+                                        View Details →
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '24px',
                             background: 'white',
                             borderRadius: '12px',
-                            padding: '20px',
-                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
-                            transition: 'all 0.2s ease',
-                            border: '1px solid transparent'
-                        }} onMouseEnter={(e) => {
-                            e.currentTarget.style.boxShadow = '0 10px 15px rgba(0, 0, 0, 0.1)';
-                            e.currentTarget.style.borderColor = '#3b82f6';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                        }} onMouseLeave={(e) => {
-                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.05)';
-                            e.currentTarget.style.borderColor = 'transparent';
-                            e.currentTarget.style.transform = 'translateY(0)';
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
                         }}>
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'flex-start',
-                                marginBottom: '16px'
-                            }}>
-                                <div>
-                                    <h3 style={{
-                                        fontSize: '18px',
-                                        fontWeight: '600',
-                                        color: '#1f2937',
-                                        margin: '0 0 4px 0'
-                                    }}>
-                                        #{booking.bookingId}
-                                    </h3>
-                                    <p style={{
-                                        fontSize: '14px',
-                                        color: '#6b7280',
-                                        margin: 0
-                                    }}>
-                                        {new Date(booking.createdAt).toLocaleDateString()}
-                                    </p>
-                                </div>
-                                <StatusBadge value={booking.status} title={booking.status} />
-                            </div>
+                            <button
+                                onClick={() => goToPage(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: currentPage === 1 ? '#f3f4f6' : '#3b82f6',
+                                    color: currentPage === 1 ? '#9ca3af' : 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                ← Previous
+                            </button>
 
-                            <div style={{ marginBottom: '16px' }}>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    marginBottom: '12px'
-                                }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '8px',
-                                        background: '#f3f4f6',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: '12px',
-                                        flexShrink: 0
-                                    }}>
-                                        <span style={{ color: '#3b82f6', fontSize: '16px' }}>👤</span>
-                                    </div>
-                                    <div>
-                                        <p style={{
+                            {getPageNumbers().map((page, index) => (
+                                typeof page === 'number' ? (
+                                    <button
+                                        key={index}
+                                        onClick={() => goToPage(page)}
+                                        style={{
+                                            padding: '8px 12px',
+                                            minWidth: '40px',
+                                            backgroundColor: currentPage === page ? '#3b82f6' : '#f3f4f6',
+                                            color: currentPage === page ? 'white' : '#374151',
+                                            border: 'none',
+                                            borderRadius: '6px',
                                             fontSize: '14px',
-                                            fontWeight: '500',
-                                            color: '#1f2937',
-                                            margin: '0 0 2px 0'
-                                        }}>
-                                            {booking.customer?.profile?.firstName} {booking.customer?.profile?.lastName}
-                                        </p>
-                                        <p style={{
-                                            fontSize: '12px',
-                                            color: '#6b7280',
-                                            margin: 0
-                                        }}>
-                                            Customer
-                                        </p>
-                                    </div>
-                                </div>
+                                            fontWeight: currentPage === page ? '600' : '500',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {page}
+                                    </button>
+                                ) : (
+                                    <span key={index} style={{ padding: '8px 4px', color: '#9ca3af' }}>
+                                        {page}
+                                    </span>
+                                )
+                            ))}
 
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    marginBottom: '12px'
-                                }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '8px',
-                                        background: '#f3f4f6',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: '12px',
-                                        flexShrink: 0
-                                    }}>
-                                        <span style={{ color: '#3b82f6', fontSize: '16px' }}>🚗</span>
-                                    </div>
-                                    <div>
-                                        <p style={{
-                                            fontSize: '14px',
-                                            fontWeight: '500',
-                                            color: '#1f2937',
-                                            margin: '0 0 2px 0'
-                                        }}>
-                                            {booking.vehicle?.make} {booking.vehicle?.model}
-                                        </p>
-                                        <p style={{
-                                            fontSize: '12px',
-                                            color: '#6b7280',
-                                            margin: 0
-                                        }}>
-                                            {booking.vehicle?.registrationNumber}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '8px',
-                                        background: '#f3f4f6',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        marginRight: '12px',
-                                        flexShrink: 0
-                                    }}>
-                                        <span style={{ color: '#3b82f6', fontSize: '16px' }}>🔧</span>
-                                    </div>
-                                    <div>
-                                        <p style={{
-                                            fontSize: '14px',
-                                            fontWeight: '500',
-                                            color: '#1f2937',
-                                            margin: '0 0 2px 0'
-                                        }}>
-                                            {booking.serviceType?.charAt(0).toUpperCase() + booking.serviceType?.slice(1)}
-                                        </p>
-                                        <p style={{
-                                            fontSize: '12px',
-                                            color: '#6b7280',
-                                            margin: 0
-                                        }}>
-                                            Service Type
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                borderTop: '1px solid #f3f4f6',
-                                paddingTop: '16px'
-                            }}>
-                                <Link
-                                    to={`/bookings/${booking._id}`}
-                                    style={{
-                                        padding: '8px 16px',
-                                        backgroundColor: '#f3f4f6',
-                                        color: '#374151',
-                                        borderRadius: '6px',
-                                        textDecoration: 'none',
-                                        fontSize: '14px',
-                                        fontWeight: '500',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px'
-                                    }}
-                                >
-                                    View Details
-                                </Link>
-                            </div>
+                            <button
+                                onClick={() => goToPage(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: currentPage === totalPages ? '#f3f4f6' : '#3b82f6',
+                                    color: currentPage === totalPages ? '#9ca3af' : 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Next →
+                            </button>
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             )}
 
             <style>
