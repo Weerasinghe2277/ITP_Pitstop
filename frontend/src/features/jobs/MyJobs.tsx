@@ -165,8 +165,81 @@ export default function MyJobs() {
         fontSize: "14px",
         backgroundColor: "white",
     };
+
+    // MOBILE RESPONSIVE STYLES
+    const mobileCard = {
+        ...card,
+        padding: "12px",
+        marginBottom: "16px",
+    };
+    const jobCard = {
+        background: "white",
+        borderRadius: "12px",
+        padding: "16px",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+        border: "1px solid #e5e7eb",
+        marginBottom: "12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+    };
+    const jobHeader = {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: "12px",
+    };
+    const jobMain = {
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        flex: 1,
+    };
+    const jobTitle = {
+        fontSize: "16px",
+        fontWeight: 600,
+        color: "#111827",
+        margin: 0,
+    };
+    const jobMeta = {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "8px",
+        fontSize: "12px",
+    };
+    const metaChip = {
+        padding: "2px 6px",
+        background: "#f3f4f6",
+        borderRadius: "4px",
+        color: "#6b7280",
+    };
+    const jobFooter = {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: "12px",
+        paddingTop: "12px",
+        borderTop: "1px solid #f3f4f6",
+    };
+    const openBtnMobile = {
+        ...openBtn,
+        padding: "8px 16px",
+        fontSize: "14px",
+        flexShrink: 0,
+    };
+    const statusPriorityRow = {
+        display: "flex",
+        gap: "8px",
+        alignItems: "center",
+    };
+
     const tableWrap = { overflowX: "auto" };
-    const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
+    const tableStyle = {
+        width: "100%",
+        borderCollapse: "separate",
+        borderSpacing: 0,
+        display: "table" // Ensure table layout on desktop
+    };
     const thStyle = {
         textAlign: "left",
         padding: "12px",
@@ -358,80 +431,86 @@ export default function MyJobs() {
                 </div>
             )}
 
-            {/* Table */}
+            {/* MOBILE RESPONSIVE TABLE/CARDS */}
             {!isLoading && (
                 <div style={{ ...card, padding: 0 }}>
                     <div style={tableWrap}>
-                        <table style={tableStyle} aria-label="My assigned jobs">
-                            <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-                                List of jobs assigned to me as a technician
-                            </caption>
-                            <thead>
-                            <tr>
-                                <th scope="col" style={thStyle}>Job ID</th>
-                                <th scope="col" style={thStyle}>Booking</th>
-                                <th scope="col" style={thStyle}>Title & Category</th>
-                                <th scope="col" style={thStyle}>Customer & Vehicle</th>
-                                <th scope="col" style={thStyle}>Priority</th>
-                                <th scope="col" style={thStyle}>Status</th>
-                                <th scope="col" style={thStyle}>Created</th>
-                                <th scope="col" style={thStyle}></th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {filtered.length === 0 && (
+                        {/* DESKTOP: Table */}
+                        <div
+                            style={{
+                                display: window.innerWidth >= 768 ? "block" : "none"
+                            }}
+                        >
+                            <table style={tableStyle} aria-label="My assigned jobs">
+                                <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
+                                    List of jobs assigned to me as a technician
+                                </caption>
+                                <thead>
                                 <tr>
-                                    <td colSpan={8} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                                        {rows.length === 0
-                                            ? "No jobs assigned to you yet"
-                                            : "No jobs match your search criteria"
-                                        }
-                                    </td>
+                                    <th scope="col" style={thStyle}>Job ID</th>
+                                    <th scope="col" style={thStyle}>Booking</th>
+                                    <th scope="col" style={thStyle}>Title & Category</th>
+                                    <th scope="col" style={thStyle}>Customer & Vehicle</th>
+                                    <th scope="col" style={thStyle}>Priority</th>
+                                    <th scope="col" style={thStyle}>Status</th>
+                                    <th scope="col" style={thStyle}>Created</th>
+                                    <th scope="col" style={thStyle}></th>
                                 </tr>
-                            )}
-                            {filtered.map((job) => (
-                                <tr key={job._id}>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                </thead>
+                                <tbody>
+                                {filtered.length === 0 && (
+                                    <tr>
+                                        <td colSpan={8} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                                            {rows.length === 0
+                                                ? "No jobs assigned to you yet"
+                                                : "No jobs match your search criteria"
+                                            }
+                                        </td>
+                                    </tr>
+                                )}
+                                {filtered.map((job) => (
+                                    <tr key={job._id}>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
                                                 <span style={{ fontWeight: 600, color: "#111827" }}>
                                                     {job.jobId || job._id}
                                                 </span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                     Est: {job.estimatedHours || 0}h
                                                 </span>
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
                                                 <span style={{ fontWeight: 500 }}>
                                                     {job.booking?.bookingId || "—"}
                                                 </span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                     {job.booking?.serviceType || "—"}
                                                 </span>
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
                                                 <span style={{ fontWeight: 500 }}>
                                                     {job.title || "—"}
                                                 </span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                     {job.category || "—"}
                                                 </span>
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
                                                 <span style={{ fontWeight: 500 }}>
                                                     {job.booking?.customer?.profile?.firstName} {job.booking?.customer?.profile?.lastName}
                                                 </span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                     {job.booking?.vehicle?.registrationNumber} | {job.booking?.vehicle?.make} {job.booking?.vehicle?.model}
                                                 </span>
-                                        </div>
-                                    </td>
-                                    <td style={tdStyle}>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>
                                             <span style={{
                                                 padding: "4px 8px",
                                                 borderRadius: "12px",
@@ -448,32 +527,119 @@ export default function MyJobs() {
                                             }}>
                                                 {job.priority || 'medium'}
                                             </span>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <StatusBadge value={job.status} />
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <StatusBadge value={job.status} />
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
                                                 <span style={{ fontSize: 13 }}>
                                                     {formatDate(job.createdAt)}
                                                 </span>
-                                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                                                <span style={{ color: "#6b7280", fontSize: 12 }}>
                                                     {formatTime(job.createdAt)}
                                                 </span>
+                                            </div>
+                                        </td>
+                                        <td style={tdStyle}>
+                                            <Link
+                                                to={`/jobs/${job._id}`}
+                                                style={openBtn}
+                                            >
+                                                View Job
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* MOBILE: Cards */}
+                        <div
+                            style={{
+                                display: window.innerWidth < 768 ? "block" : "none",
+                                padding: "0 12px"
+                            }}
+                        >
+                            {filtered.length === 0 ? (
+                                <div style={{
+                                    ...mobileCard,
+                                    textAlign: "center",
+                                    color: "#6b7280",
+                                    padding: "24px 12px"
+                                }}>
+                                    {rows.length === 0
+                                        ? "No jobs assigned to you yet"
+                                        : "No jobs match your search criteria"
+                                    }
+                                </div>
+                            ) : (
+                                filtered.map((job) => (
+                                    <div key={job._id} style={jobCard}>
+                                        <div style={jobHeader}>
+                                            <div style={jobMain}>
+                                                <h3 style={jobTitle}>
+                                                    {job.jobId || job._id} • {job.title || "—"}
+                                                </h3>
+                                                <div style={jobMeta}>
+                                                    <span style={metaChip}>
+                                                        {job.category || "—"}
+                                                    </span>
+                                                    <span style={metaChip}>
+                                                        Est: {job.estimatedHours || 0}h
+                                                    </span>
+                                                    <span style={metaChip}>
+                                                        {job.booking?.bookingId || "—"}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </td>
-                                    <td style={tdStyle}>
-                                        <Link
-                                            to={`/jobs/${job._id}`}
-                                            style={openBtn}
-                                        >
-                                            View Job
-                                        </Link>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            <div style={{ fontSize: "14px", color: "#374151" }}>
+                                                {job.booking?.customer?.profile?.firstName} {job.booking?.customer?.profile?.lastName}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                                                {job.booking?.vehicle?.registrationNumber} • {job.booking?.vehicle?.make} {job.booking?.vehicle?.model}
+                                            </div>
+                                        </div>
+
+                                        <div style={statusPriorityRow}>
+                                            <span style={{
+                                                padding: "4px 8px",
+                                                borderRadius: "12px",
+                                                fontSize: "12px",
+                                                fontWeight: 500,
+                                                backgroundColor:
+                                                    job.priority === 'urgent' ? '#fee2e2' :
+                                                        job.priority === 'high' ? '#fef3c7' :
+                                                            job.priority === 'medium' ? '#e0f2fe' : '#f3f4f6',
+                                                color:
+                                                    job.priority === 'urgent' ? '#991b1b' :
+                                                        job.priority === 'high' ? '#92400e' :
+                                                            job.priority === 'medium' ? '#0c4a6e' : '#374151'
+                                            }}>
+                                                {job.priority || 'medium'}
+                                            </span>
+                                            <StatusBadge value={job.status} />
+                                        </div>
+
+                                        <div style={jobFooter}>
+                                            <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                                                {formatDate(job.createdAt)} {formatTime(job.createdAt)}
+                                            </div>
+                                            <Link
+                                                to={`/jobs/${job._id}`}
+                                                style={openBtnMobile}
+                                            >
+                                                View Job
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -483,6 +649,16 @@ export default function MyJobs() {
                     @keyframes spin {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
+                    }
+                    
+                    @media (max-width: 767px) {
+                        .controls {
+                            flex-direction: column;
+                            align-items: stretch;
+                        }
+                        .controls input {
+                            min-width: 100% !important;
+                        }
                     }
                 `}
             </style>
