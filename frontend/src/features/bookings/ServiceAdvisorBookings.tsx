@@ -50,6 +50,7 @@ export default function ServiceAdvisorBookings() {
     priority: "",
     status: ""
   });
+  const [sortOrder, setSortOrder] = useState<"oldest" | "newest">("oldest");
   const [isLoading, setIsLoading] = useState(true);
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -113,7 +114,7 @@ export default function ServiceAdvisorBookings() {
 
   const filtered = useMemo(() => {
     const needle = debouncedQ.toLowerCase();
-    return bookings.filter(booking => {
+    let list = bookings.filter(booking => {
       if (filter.status && booking.status !== filter.status) return false;
       if (filter.serviceType && booking.serviceType !== filter.serviceType) return false;
       if (filter.priority && booking.priority !== filter.priority) return false;
@@ -135,7 +136,21 @@ export default function ServiceAdvisorBookings() {
 
       return true;
     });
-  }, [bookings, filter, debouncedQ]);
+
+    // Sort by creation date
+    list = [...list].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+
+      if (sortOrder === "oldest") {
+        return dateA.getTime() - dateB.getTime(); // Oldest first
+      } else {
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      }
+    });
+
+    return list;
+  }, [bookings, filter, debouncedQ, sortOrder]);
 
   const serviceTypeOptions = ["inspection", "repair", "maintenance", "bodywork", "detailing"];
   const priorityOptions = ["low", "medium", "high", "urgent"];
@@ -145,7 +160,7 @@ export default function ServiceAdvisorBookings() {
   const card = { background: "white", borderRadius: "12px", padding: "16px", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: "1px solid #e5e7eb", marginBottom: "24px" };
   const control = { padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px", backgroundColor: "white" };
   const tableWrap = { overflowX: "auto" };
-  const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
+  const tableStyle = { width: "100%", borderCollapse: "separate" as const, borderSpacing: 0 };
   const thStyle = { textAlign: "left" as const, padding: "12px", fontSize: "12px", color: "#596274", textTransform: "uppercase" as const, letterSpacing: "0.04em", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" };
   const tdStyle = { padding: "12px", borderBottom: "1px solid #f3f4f6", fontSize: "14px" };
   const openBtn = { padding: "8px 12px", backgroundColor: "#3b82f6", color: "white", borderRadius: "8px", fontSize: "13px", fontWeight: 600, textDecoration: "none", border: "1px solid #2563eb" };
@@ -211,6 +226,18 @@ export default function ServiceAdvisorBookings() {
               <option value="">All Priorities</option>
               {priorityOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
             </select>
+
+            {/* Sort Order Selector */}
+            <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "oldest" | "newest")}
+                style={control}
+                aria-label="Sort by date"
+            >
+              <option value="oldest">Oldest First</option>
+              <option value="newest">Newest First</option>
+            </select>
+
             <input placeholder="Search by ID, Customer, Vehicle..." value={q} onChange={(e) => setQ(e.target.value)} style={{ ...control, minWidth: 300 }} />
           </div>
         </div>
@@ -220,6 +247,23 @@ export default function ServiceAdvisorBookings() {
             <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
               <span>Loading bookings…</span>
               <div style={{ width: 14, height: 14, border: "2px solid transparent", borderTop: "2px solid #6b7280", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+            </div>
+        )}
+
+        {/* Results Count */}
+        {!isLoading && filtered.length > 0 && (
+            <div style={{
+              padding: "12px 16px",
+              marginBottom: "16px",
+              backgroundColor: "#eff6ff",
+              borderRadius: "8px",
+              border: "1px solid #bfdbfe",
+              fontSize: "14px",
+              color: "#1e40af",
+              fontWeight: 500
+            }}>
+              📋 Showing {filtered.length} booking{filtered.length !== 1 ? 's' : ''}
+              {sortOrder === "oldest" ? " (oldest first)" : " (newest first)"}
             </div>
         )}
 
@@ -253,14 +297,20 @@ export default function ServiceAdvisorBookings() {
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 600, color: "#111827" }}>{b.bookingId}</span>
-                            <span style={{ color: "#6b7280", fontSize: 12 }}>{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : ""}</span>
+                            <span style={{ color: "#6b7280", fontSize: 12 }}>
+                              {b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : ""}
+                            </span>
                           </div>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500 }}>
-                          {b.customer?.profile?.firstName || ""} {b.customer?.profile?.lastName || ""}
-                        </span>
+                            <span style={{ fontWeight: 500 }}>
+                              {b.customer?.profile?.firstName || ""} {b.customer?.profile?.lastName || ""}
+                            </span>
                             <span style={{ color: "#6b7280", fontSize: 12 }}>{b.customer?.profile?.phone || ""}</span>
                           </div>
                         </td>
@@ -268,41 +318,45 @@ export default function ServiceAdvisorBookings() {
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <span style={{ fontWeight: 500 }}>{b.vehicle?.registrationNumber || "—"}</span>
                             <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {b.vehicle?.make && b.vehicle?.model ? `${b.vehicle.make} ${b.vehicle.model}` : ""}
-                        </span>
+                              {b.vehicle?.make && b.vehicle?.model ? `${b.vehicle.make} ${b.vehicle.model}` : ""}
+                            </span>
                           </div>
                         </td>
                         <td style={tdStyle}>
-                      <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                        {b.serviceType ? b.serviceType.charAt(0).toUpperCase() + b.serviceType.slice(1) : "—"}
-                      </span>
+                          <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                            {b.serviceType ? b.serviceType.charAt(0).toUpperCase() + b.serviceType.slice(1) : "—"}
+                          </span>
                         </td>
                         <td style={tdStyle}>
-                      <span style={{
-                        padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
-                        backgroundColor: b.status === 'pending' ? '#fef3c7' : b.status === 'inspecting' ? '#dbeafe' : '#f3f4f6',
-                        color: b.status === 'pending' ? '#92400e' : b.status === 'inspecting' ? '#1e40af' : '#374151'
-                      }}>
-                        {b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}
-                      </span>
+                          <span style={{
+                            padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
+                            backgroundColor: b.status === 'pending' ? '#fef3c7' : b.status === 'inspecting' ? '#dbeafe' : '#f3f4f6',
+                            color: b.status === 'pending' ? '#92400e' : b.status === 'inspecting' ? '#1e40af' : '#374151'
+                          }}>
+                            {b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}
+                          </span>
                         </td>
                         <td style={tdStyle}>
-                      <span style={{
-                        padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
-                        backgroundColor: b.priority === 'urgent' ? '#fee2e2' : b.priority === 'high' ? '#fef3c7' : b.priority === 'medium' ? '#dbeafe' : '#f3f4f6',
-                        color: b.priority === 'urgent' ? '#991b1b' : b.priority === 'high' ? '#92400e' : b.priority === 'medium' ? '#1e40af' : '#374151'
-                      }}>
-                        {b.priority || "—"}
-                      </span>
+                          <span style={{
+                            padding: "4px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: 500,
+                            backgroundColor: b.priority === 'urgent' ? '#fee2e2' : b.priority === 'high' ? '#fef3c7' : b.priority === 'medium' ? '#dbeafe' : '#f3f4f6',
+                            color: b.priority === 'urgent' ? '#991b1b' : b.priority === 'high' ? '#92400e' : b.priority === 'medium' ? '#1e40af' : '#374151'
+                          }}>
+                            {b.priority || "—"}
+                          </span>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column" }}>
-                            <span>{b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString() : "—"}</span>
+                            <span>{b.scheduledDate ? new Date(b.scheduledDate).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            }) : "—"}</span>
                             <span style={{ color: "#6b7280", fontSize: 12 }}>{b.timeSlot || ""}</span>
                           </div>
                         </td>
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 8 }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <Link to={`/bookings/${b._id}`} style={openBtn}>View</Link>
                             <Link to={`/jobs/new/${b._id}`} style={{ ...openBtn, backgroundColor: "#10b981", borderColor: "#059669" }}>Create Job</Link>
                           </div>
@@ -313,7 +367,9 @@ export default function ServiceAdvisorBookings() {
                 </table>
               </div>
               <div style={{ display: "flex", justifyContent: "center", padding: 16 }}>
-                <span style={{ color: "#6b7280", fontSize: 14 }}>Showing {filtered.length} of {bookings.length} bookings</span>
+                <span style={{ color: "#6b7280", fontSize: 14 }}>
+                  Showing {filtered.length} of {bookings.length} bookings
+                </span>
               </div>
             </div>
         )}

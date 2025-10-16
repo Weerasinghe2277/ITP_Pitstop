@@ -10,6 +10,7 @@ export default function MyJobs() {
     const [q, setQ] = useState("");
     const [debouncedQ, setDebouncedQ] = useState("");
     const [status, setStatus] = useState("all");
+    const [sortOrder, setSortOrder] = useState("oldest"); // 'oldest' or 'newest'
     const [isLoading, setIsLoading] = useState(true);
     const [msg, setMsg] = useState({ text: "", type: "" });
     const [userInfo, setUserInfo] = useState(null);
@@ -90,15 +91,17 @@ export default function MyJobs() {
         };
     }, []);
 
-    // Filter + search
+    // Filter + search + sort
     const filtered = useMemo(() => {
         const needle = debouncedQ.toLowerCase();
         let list = rows;
 
+        // Filter by status
         if (status !== "all") {
             list = list.filter((x) => String(x.status || "").toLowerCase() === status);
         }
 
+        // Search filter
         if (needle) {
             list = list.filter((x) => {
                 const id = String(x.jobId || x._id || "").toLowerCase();
@@ -115,10 +118,22 @@ export default function MyJobs() {
             });
         }
 
-        return list;
-    }, [rows, debouncedQ, status]);
+        // Sort by creation date
+        list = [...list].sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
 
-    // Styles (same as before)
+            if (sortOrder === "oldest") {
+                return dateA - dateB; // Oldest first
+            } else {
+                return dateB - dateA; // Newest first
+            }
+        });
+
+        return list;
+    }, [rows, debouncedQ, status, sortOrder]);
+
+    // Styles
     const wrap = {
         maxWidth: "1200px",
         margin: "0 auto",
@@ -229,6 +244,18 @@ export default function MyJobs() {
                             </option>
                         ))}
                     </select>
+
+                    {/* Sort Order Selector */}
+                    <select
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value)}
+                        style={control}
+                        aria-label="Sort by date"
+                    >
+                        <option value="oldest">Oldest First</option>
+                        <option value="newest">Newest First</option>
+                    </select>
+
                     <input
                         placeholder="Search jobs, bookings, categories..."
                         value={q}
@@ -311,6 +338,23 @@ export default function MyJobs() {
                             <div style={{ fontSize: "12px", color: "#6b7280", textTransform: "uppercase" }}>Pending</div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Results Count */}
+            {!isLoading && filtered.length > 0 && (
+                <div style={{
+                    padding: "12px 16px",
+                    marginBottom: "16px",
+                    backgroundColor: "#eff6ff",
+                    borderRadius: "8px",
+                    border: "1px solid #bfdbfe",
+                    fontSize: "14px",
+                    color: "#1e40af",
+                    fontWeight: 500
+                }}>
+                    📋 Showing {filtered.length} job{filtered.length !== 1 ? 's' : ''}
+                    {sortOrder === "oldest" ? " (oldest first)" : " (newest first)"}
                 </div>
             )}
 
