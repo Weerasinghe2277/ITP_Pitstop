@@ -145,8 +145,21 @@ export default function JobDetail() {
     const [updating, setUpdating] = useState<boolean>(false);
     const [addingWorkLog, setAddingWorkLog] = useState<boolean>(false);
 
-    console.log("Current user:", user); // Debug log
-    console.log("Job ID:", id); // Debug log
+    // Get current datetime in local format for max attribute
+    const getCurrentDateTimeLocal = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    const [maxDateTime] = useState(getCurrentDateTimeLocal());
+
+    console.log("Current user:", user);
+    console.log("Job ID:", id);
 
     async function load() {
         if (!id) {
@@ -169,7 +182,6 @@ export default function JobDetail() {
                 setStatus(jobData.status || "");
                 console.log("Job loaded successfully:", jobData);
 
-                // Check if current user is assigned to this job (for technicians)
                 if (user?.role === "technician") {
                     const isAssigned = jobData.assignedLabourers?.some(
                         assignment => assignment.labourer._id === user._id || assignment.labourer.userId === user.userId
@@ -211,14 +223,12 @@ export default function JobDetail() {
         load();
     }, [id, user]);
 
-    // NEW: Function to sync booking status with job status
     async function syncBookingStatus(jobStatus: string) {
         if (!job?.booking?._id) {
             console.log("No booking associated with this job, skipping sync");
             return;
         }
 
-        // Define job status to booking status mapping
         const statusMapping: Record<string, string> = {
             'working': 'working',
             'completed': 'completed',
@@ -241,7 +251,6 @@ export default function JobDetail() {
             console.log(`Booking status updated successfully to: ${bookingStatus}`);
         } catch (error: any) {
             console.error("Error syncing booking status:", error);
-            // Don't show error to user for sync failure, just log it
         }
     }
 
@@ -251,7 +260,6 @@ export default function JobDetail() {
             return;
         }
 
-        // Additional validation for technicians
         if (user?.role === "technician" && job) {
             const isAssigned = job.assignedLabourers?.some(
                 assignment => assignment.labourer._id === user._id || assignment.labourer.userId === user.userId
@@ -261,7 +269,6 @@ export default function JobDetail() {
                 return;
             }
 
-            // Validate status transitions for technicians
             const allowedTransitions: Record<string, string[]> = {
                 "pending": ["working"],
                 "working": ["completed", "on_hold"],
@@ -274,7 +281,7 @@ export default function JobDetail() {
                     text: `Invalid status transition from ${currentStatus} to ${status}. ${allowedTransitions[currentStatus]
                         ? `Allowed transitions: ${allowedTransitions[currentStatus].join(", ")}`
                         : "No transitions allowed from current status"
-                        }`,
+                    }`,
                     type: "error"
                 });
                 return;
@@ -293,7 +300,6 @@ export default function JobDetail() {
             console.log("Updating job status:", requestData);
             await http.patch(`/jobs/${id}/status`, requestData);
 
-            // NEW: Sync booking status after successful job status update
             await syncBookingStatus(status.trim());
 
             setMsg({ text: "Status updated successfully and booking synced", type: "success" });
@@ -323,19 +329,26 @@ export default function JobDetail() {
 
         const start = new Date(workLogStartTime);
         const end = new Date(workLogEndTime);
+        const now = new Date();
 
+        // Prevent future start time
+        if (start > now) {
+            setMsg({ text: "Start time cannot be in the future", type: "error" });
+            return;
+        }
+
+        // Prevent future end time
+        if (end > now) {
+            setMsg({ text: "End time cannot be in the future", type: "error" });
+            return;
+        }
+
+        // End time must be after start time
         if (start >= end) {
             setMsg({ text: "End time must be after start time", type: "error" });
             return;
         }
 
-        // Check if work log is for a future date
-        if (start > new Date()) {
-            setMsg({ text: "Start time cannot be in the future", type: "error" });
-            return;
-        }
-
-        // Additional validation for technicians
         if (user?.role === "technician" && job) {
             const isAssigned = job.assignedLabourers?.some(
                 assignment => assignment.labourer._id === user._id || assignment.labourer.userId === user.userId
@@ -379,20 +392,17 @@ export default function JobDetail() {
         }
     }
 
-    // Enhanced permission checks
     const canUpdateStatus = user?.role && ["admin", "manager", "service_advisor", "technician"].includes(user.role);
     const canAddWorkLog = user?.role === "technician";
     const isAssignedTechnician = user?.role === "technician" && job?.assignedLabourers?.some(
         assignment => assignment.labourer._id === user._id || assignment.labourer.userId === user.userId
     );
 
-    // NEW: Condition for showing Update Job Status section
     const showUpdateStatusSection = canUpdateStatus &&
-        user?.role !== "service_advisor" && // Hide for service advisors
-        (user?.role !== "technician" || isAssignedTechnician) && // For technicians, only if assigned
-        job?.status === "working"; // Only show when job status is "working"
+        user?.role !== "service_advisor" &&
+        (user?.role !== "technician" || isAssignedTechnician) &&
+        job?.status === "working";
 
-    // Set default datetime values
     useEffect(() => {
         const now = new Date();
         const nowString = now.toISOString().slice(0, 16);
@@ -401,7 +411,6 @@ export default function JobDetail() {
         }
     }, []);
 
-    // Styles (keeping your existing styles)
     const wrap: React.CSSProperties = {
         maxWidth: "1400px",
         margin: "0 auto",
@@ -612,7 +621,7 @@ export default function JobDetail() {
                                 msg.type === "info" ? "#1e40af" : "#166534",
                         border: `1px solid ${msg.type === "error" ? "#fecaca" :
                             msg.type === "info" ? "#93c5fd" : "#bbf7d0"
-                            }`,
+                        }`,
                     }}
                 >
                     {msg.text}
@@ -715,7 +724,6 @@ export default function JobDetail() {
                                 <span style={value}>{new Date(job.booking.scheduledDate).toLocaleString()}</span>
                             </div>
                         )}
-                        {/* NEW: Display synced booking status */}
                         {job.booking.status && (
                             <div style={field}>
                                 <span style={label}>Booking Status</span>
@@ -727,37 +735,6 @@ export default function JobDetail() {
                     </div>
                 </div>
             )}
-
-            {/* Cost & Hours Breakdown */}
-            {/* <div style={card}>
-                <h2 style={sectionTitle}>Cost & Hours Breakdown</h2>
-                <div style={grid}>
-                    <div style={field}>
-                        <span style={label}>Estimated Hours</span>
-                        <span style={value}>{job.estimatedHours} hrs</span>
-                    </div>
-                    <div style={field}>
-                        <span style={label}>Actual Hours</span>
-                        <span style={value}>{job.actualHours} hrs</span>
-                    </div>
-                    <div style={field}>
-                        <span style={label}>Estimated Cost</span>
-                        <span style={value}>Rs. {job.estimatedCost?.toFixed(2) || "0.00"}</span>
-                    </div>
-                    <div style={field}>
-                        <span style={label}>Actual Cost</span>
-                        <span style={value}>Rs. {job.actualCost?.toFixed(2) || "0.00"}</span>
-                    </div>
-                    <div style={field}>
-                        <span style={label}>Parts Cost</span>
-                        <span style={value}>Rs. {job.partsCost?.toFixed(2) || "0.00"}</span>
-                    </div>
-                    <div style={field}>
-                        <span style={label}>Labour Cost</span>
-                        <span style={value}>Rs. {job.labourCost?.toFixed(2) || "0.00"}</span>
-                    </div>
-                </div>
-            </div> */}
 
             {/* Assigned Technicians */}
             {job.assignedLabourers && job.assignedLabourers.length > 0 && (
@@ -869,10 +846,6 @@ export default function JobDetail() {
                                         <div>
                                             <strong>End:</strong> {new Date(log.endTime).toLocaleString()}
                                         </div>
-                                        {/* <div>
-                                            <strong>Hours:</strong> {
-                                                ((new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 3600000).toFixed(2) || 0}
-                                        </div> */}
                                         {log.loggedAt && (
                                             <div style={{ fontSize: 12, fontStyle: "italic" }}>
                                                 Logged: {new Date(log.loggedAt).toLocaleString()}
@@ -933,7 +906,7 @@ export default function JobDetail() {
 
             {/* Actions */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24 }}>
-                {/* Update Job Status Section - Conditionally rendered */}
+                {/* Update Job Status Section */}
                 {showUpdateStatusSection && (
                     <div style={card}>
                         <h2 style={sectionTitle}>Update Job Status</h2>
@@ -956,7 +929,6 @@ export default function JobDetail() {
                             <button type="button" onClick={updateStatus} disabled={updating || !status.trim()} style={btn("#3b82f6", updating || !status.trim())}>
                                 {updating ? "Updating..." : "Update Status"}
                             </button>
-                            {/* NEW: Info message about booking sync */}
                             <div style={{
                                 padding: "8px 12px",
                                 backgroundColor: "#f0f9ff",
@@ -971,6 +943,7 @@ export default function JobDetail() {
                     </div>
                 )}
 
+                {/* Add Work Log Section */}
                 {canAddWorkLog && (user?.role !== "technician" || isAssignedTechnician) && (
                     <div style={card}>
                         <h2 style={sectionTitle}>Add Work Log</h2>
@@ -982,8 +955,16 @@ export default function JobDetail() {
                                     value={workLogStartTime}
                                     onChange={(e) => setWorkLogStartTime(e.target.value)}
                                     disabled={addingWorkLog}
+                                    max={maxDateTime}
                                     style={control}
                                 />
+                                <div style={{
+                                    fontSize: "11px",
+                                    color: "#6b7280",
+                                    marginTop: "4px"
+                                }}>
+                                    ⚠️ Cannot select future date/time
+                                </div>
                             </div>
                             <div>
                                 <label style={{ ...label, display: "block", marginBottom: 6 }}>End Time</label>
@@ -992,8 +973,16 @@ export default function JobDetail() {
                                     value={workLogEndTime}
                                     onChange={(e) => setWorkLogEndTime(e.target.value)}
                                     disabled={addingWorkLog}
+                                    max={maxDateTime}
                                     style={control}
                                 />
+                                <div style={{
+                                    fontSize: "11px",
+                                    color: "#6b7280",
+                                    marginTop: "4px"
+                                }}>
+                                    ⚠️ Cannot select future date/time
+                                </div>
                             </div>
                             <textarea
                                 placeholder="Description of work performed..."
