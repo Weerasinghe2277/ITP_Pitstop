@@ -112,6 +112,23 @@ export default function ServiceAdvisorBookings() {
     return { total, pending, inspecting, urgent };
   }, [bookings]);
 
+  // Helper function to parse time slot (e.g., "09:00 AM" or "2:00 PM")
+  const parseTimeSlot = (timeSlot?: string): number => {
+    if (!timeSlot) return 0;
+
+    const match = timeSlot.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return 0;
+
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const period = match[3].toUpperCase();
+
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+
+    return hours * 60 + minutes; // Return total minutes
+  };
+
   const filtered = useMemo(() => {
     const needle = debouncedQ.toLowerCase();
     let list = bookings.filter(booking => {
@@ -137,15 +154,28 @@ export default function ServiceAdvisorBookings() {
       return true;
     });
 
-    // Sort by creation date
+    // Sort by scheduled date and time
     list = [...list].sort((a, b) => {
-      const dateA = new Date(a.createdAt || 0);
-      const dateB = new Date(b.createdAt || 0);
+      const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : 0;
+      const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : 0;
+
+      // If dates are different, sort by date
+      if (dateA !== dateB) {
+        if (sortOrder === "oldest") {
+          return dateA - dateB; // Older dates first
+        } else {
+          return dateB - dateA; // Newer dates first
+        }
+      }
+
+      // If dates are same or both missing, sort by time slot
+      const timeA = parseTimeSlot(a.timeSlot);
+      const timeB = parseTimeSlot(b.timeSlot);
 
       if (sortOrder === "oldest") {
-        return dateA.getTime() - dateB.getTime(); // Oldest first
+        return timeA - timeB; // Earlier times first
       } else {
-        return dateB.getTime() - dateA.getTime(); // Newest first
+        return timeB - timeA; // Later times first
       }
     });
 
@@ -227,15 +257,15 @@ export default function ServiceAdvisorBookings() {
               {priorityOptions.map(opt => <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>)}
             </select>
 
-            {/* Sort Order Selector */}
+            {/* Sort Order Selector - Updated labels */}
             <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as "oldest" | "newest")}
                 style={control}
-                aria-label="Sort by date"
+                aria-label="Sort by scheduled date"
             >
-              <option value="oldest">Oldest First</option>
-              <option value="newest">Newest First</option>
+              <option value="oldest">Earliest Scheduled First</option>
+              <option value="newest">Latest Scheduled First</option>
             </select>
 
             <input placeholder="Search by ID, Customer, Vehicle..." value={q} onChange={(e) => setQ(e.target.value)} style={{ ...control, minWidth: 300 }} />
@@ -263,7 +293,7 @@ export default function ServiceAdvisorBookings() {
               fontWeight: 500
             }}>
               📋 Showing {filtered.length} booking{filtered.length !== 1 ? 's' : ''}
-              {sortOrder === "oldest" ? " (oldest first)" : " (newest first)"}
+              {sortOrder === "oldest" ? " (earliest scheduled first)" : " (latest scheduled first)"}
             </div>
         )}
 
