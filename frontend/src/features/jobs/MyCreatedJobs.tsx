@@ -106,8 +106,87 @@ export default function MyCreatedJobs() {
     fontSize: "14px",
     backgroundColor: "white",
   };
+
+  // MOBILE RESPONSIVE STYLES
+  const mobileCard = {
+    ...card,
+    padding: "12px",
+    marginBottom: "16px",
+  };
+  const jobCard = {
+    background: "white",
+    borderRadius: "12px",
+    padding: "16px",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+    border: "1px solid #e5e7eb",
+    marginBottom: "12px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  };
+  const jobHeader = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "12px",
+  };
+  const jobMain = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    flex: 1,
+  };
+  const jobTitle = {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#111827",
+    margin: 0,
+  };
+  const jobMeta = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    fontSize: "12px",
+  };
+  const metaChip = {
+    padding: "2px 6px",
+    background: "#f3f4f6",
+    borderRadius: "4px",
+    color: "#6b7280",
+  };
+  const jobFooter = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px",
+    paddingTop: "12px",
+    borderTop: "1px solid #f3f4f6",
+  };
+  const openBtnMobile = {
+    padding: "8px 16px",
+    backgroundColor: "#3b82f6",
+    color: "white",
+    borderRadius: "8px",
+    fontSize: "14px",
+    fontWeight: 600,
+    textDecoration: "none",
+    border: "1px solid #2563eb",
+    flexShrink: 0,
+  };
+  const statusPriorityRow = {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  };
+
   const tableWrap = { overflowX: "auto" };
-  const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: 0 };
+  const tableStyle = {
+    width: "100%",
+    borderCollapse: "separate",
+    borderSpacing: 0,
+    display: "table"
+  };
   const thStyle = {
     textAlign: "left",
     padding: "12px",
@@ -155,257 +234,375 @@ export default function MyCreatedJobs() {
     backdropFilter: "blur(10px)",
   };
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "—";
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch {
+      return "—";
+    }
+  };
+
   return (
-    <div style={wrap}>
-      {/* Header */}
-      <div style={headerRow}>
-        <h1 style={title}>My Created Jobs</h1>
-      </div>
+      <div style={wrap}>
+        {/* Header */}
+        <div style={headerRow}>
+          <h1 style={title}>My Created Jobs</h1>
+        </div>
 
-      {/* Statistics Card */}
-      {stats && (
-        <div style={statCard}>
-          <h2 style={{ fontSize: "20px", fontWeight: 600, margin: "0 0 16px 0" }}>
-            📊 Job Creation Statistics
-          </h2>
-          <div style={statGrid}>
-            <div style={statItem}>
-              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.total}</div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Jobs Created</div>
-            </div>
-            <div style={statItem}>
-              <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.totalAssignedLabourers}</div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Labourers Assigned</div>
-            </div>
-            <div style={statItem}>
-              <div style={{ fontSize: "24px", fontWeight: 700 }}>
-                {stats.byStatus?.completed || 0}
+        {/* Statistics Card */}
+        {stats && (
+            <div style={statCard}>
+              <h2 style={{ fontSize: "20px", fontWeight: 600, margin: "0 0 16px 0" }}>
+                📊 Job Creation Statistics
+              </h2>
+              <div style={statGrid}>
+                <div style={statItem}>
+                  <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.total}</div>
+                  <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Jobs Created</div>
+                </div>
+                <div style={statItem}>
+                  <div style={{ fontSize: "24px", fontWeight: 700 }}>{stats.totalAssignedLabourers}</div>
+                  <div style={{ fontSize: "14px", opacity: 0.9 }}>Total Labourers Assigned</div>
+                </div>
+                <div style={statItem}>
+                  <div style={{ fontSize: "24px", fontWeight: 700 }}>
+                    {stats.byStatus?.completed || 0}
+                  </div>
+                  <div style={{ fontSize: "14px", opacity: 0.9 }}>Completed Jobs</div>
+                </div>
+                <div style={statItem}>
+                  <div style={{ fontSize: "24px", fontWeight: 700 }}>
+                    {stats.byStatus?.working || 0}
+                  </div>
+                  <div style={{ fontSize: "14px", opacity: 0.9 }}>Jobs in Progress</div>
+                </div>
               </div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>Completed Jobs</div>
             </div>
-            <div style={statItem}>
-              <div style={{ fontSize: "24px", fontWeight: 700 }}>
-                {stats.byStatus?.working || 0}
-              </div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>Jobs in Progress</div>
-            </div>
+        )}
+
+        {/* Filters */}
+        <div style={card}>
+          <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "#1f2937" }}>
+            🔍 Filters & Search
+          </h3>
+          <div style={controls}>
+            <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                style={control}
+                aria-label="Filter by status"
+            >
+              <option value="all">All Statuses</option>
+              {Enums.JobStatus.map((s) => (
+                  <option key={s} value={String(s).toLowerCase()}>{s}</option>
+              ))}
+            </select>
+            <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                style={control}
+                aria-label="Filter by priority"
+            >
+              <option value="all">All Priorities</option>
+              {Enums.Priority.map((p) => (
+                  <option key={p} value={String(p).toLowerCase()}>{p}</option>
+              ))}
+            </select>
+            <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                style={control}
+                aria-label="Filter by category"
+            >
+              <option value="all">All Categories</option>
+              {Enums.JobCategory.map((c) => (
+                  <option key={c} value={String(c).toLowerCase()}>{c}</option>
+              ))}
+            </select>
+            <input
+                placeholder="Search by Job ID, Title, Booking, or Customer"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                style={{ ...control, minWidth: 300 }}
+                aria-label="Search created jobs"
+            />
           </div>
         </div>
-      )}
 
-      {/* Filters */}
-      <div style={card}>
-        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px", color: "#1f2937" }}>
-          🔍 Filters & Search
-        </h3>
-        <div style={controls}>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            style={control}
-            aria-label="Filter by status"
-          >
-            <option value="all">All Statuses</option>
-            {Enums.JobStatus.map((s) => (
-              <option key={s} value={String(s).toLowerCase()}>{s}</option>
-            ))}
-          </select>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            style={control}
-            aria-label="Filter by priority"
-          >
-            <option value="all">All Priorities</option>
-            {Enums.Priority.map((p) => (
-              <option key={p} value={String(p).toLowerCase()}>{p}</option>
-            ))}
-          </select>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            style={control}
-            aria-label="Filter by category"
-          >
-            <option value="all">All Categories</option>
-            {Enums.JobCategory.map((c) => (
-              <option key={c} value={String(c).toLowerCase()}>{c}</option>
-            ))}
-          </select>
-          <input
-            placeholder="Search by Job ID, Title, Booking, or Customer"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ ...control, minWidth: 300 }}
-            aria-label="Search created jobs"
-          />
-        </div>
-      </div>
+        {/* Message */}
+        {msg.text && (
+            <div
+                role="status"
+                aria-live="polite"
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  marginBottom: "16px",
+                  backgroundColor: msg.type === "error" ? "#fef2f2" : "#f0fdf4",
+                  color: msg.type === "error" ? "#991b1b" : "#166534",
+                  border: `1px solid ${msg.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                }}
+            >
+              {msg.text}
+            </div>
+        )}
 
-      {/* Message */}
-      {msg.text && (
-        <div
-          role="status"
-          aria-live="polite"
-          style={{
-            padding: "12px 16px",
-            borderRadius: "8px",
-            marginBottom: "16px",
-            backgroundColor: msg.type === "error" ? "#fef2f2" : "#f0fdf4",
-            color: msg.type === "error" ? "#991b1b" : "#166534",
-            border: `1px solid ${msg.type === "error" ? "#fecaca" : "#bbf7d0"}`,
-          }}
-        >
-          {msg.text}
-        </div>
-      )}
+        {/* Loading */}
+        {isLoading && (
+            <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
+              <span>Loading your created jobs…</span>
+              <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    border: "2px solid transparent",
+                    borderTop: "2px solid #6b7280",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+              />
+            </div>
+        )}
 
-      {/* Loading */}
-      {isLoading && (
-        <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, color: "#6b7280" }}>
-          <span>Loading your created jobs…</span>
-          <div
-            style={{
-              width: 14,
-              height: 14,
-              border: "2px solid transparent",
-              borderTop: "2px solid #6b7280",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-        </div>
-      )}
+        {/* MOBILE RESPONSIVE TABLE/CARDS */}
+        {!isLoading && (
+            <div style={{ ...card, padding: 0 }}>
+              <div style={tableWrap}>
+                {/* DESKTOP: Table */}
+                <div
+                    style={{
+                      display: window.innerWidth >= 768 ? "block" : "none"
+                    }}
+                >
+                  <table style={tableStyle} aria-label="My created jobs list">
+                    <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
+                      My created jobs list
+                    </caption>
+                    <thead>
+                    <tr>
+                      <th scope="col" style={thStyle}>Job ID</th>
+                      <th scope="col" style={thStyle}>Booking</th>
+                      <th scope="col" style={thStyle}>Customer</th>
+                      <th scope="col" style={thStyle}>Title</th>
+                      <th scope="col" style={thStyle}>Status</th>
+                      <th scope="col" style={thStyle}>Priority</th>
+                      <th scope="col" style={thStyle}>Category</th>
+                      <th scope="col" style={thStyle}>Assigned</th>
+                      <th scope="col" style={thStyle}>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {filtered.length === 0 && (
+                        <tr>
+                          <td colSpan={9} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
+                            {rows.length === 0 ? "No jobs created yet" : "No jobs match your search"}
+                          </td>
+                        </tr>
+                    )}
+                    {filtered.map((j) => (
+                        <tr key={j._id}>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 600, color: "#111827" }}>{j.jobId || j._id}</span>
+                              <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {formatDate(j.createdAt)}
+                          </span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 500 }}>{j.booking?.bookingId || "—"}</span>
+                              <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {j.booking?.vehicle?.registrationNumber || ""}
+                          </span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontWeight: 500 }}>
+                            {j.booking?.customer?.profile?.firstName || ""} {j.booking?.customer?.profile?.lastName || ""}
+                          </span>
+                              <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {j.booking?.customer?.profile?.phoneNumber || ""}
+                          </span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 500 }}>{j.title || "—"}</span>
+                              <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {j.estimatedHours ? `~${j.estimatedHours}h` : ""}
+                          </span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <StatusBadge value={j.status} />
+                          </td>
+                          <td style={tdStyle}>
+                        <span style={{
+                          padding: "4px 8px",
+                          borderRadius: "12px",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          backgroundColor:
+                              j.priority === "urgent" ? "#fee2e2" :
+                                  j.priority === "high" ? "#fef3c7" :
+                                      j.priority === "medium" ? "#dbeafe" : "#f3f4f6",
+                          color:
+                              j.priority === "urgent" ? "#991b1b" :
+                                  j.priority === "high" ? "#92400e" :
+                                      j.priority === "medium" ? "#1e40af" : "#374151"
+                        }}>
+                          {j.priority || "—"}
+                        </span>
+                          </td>
+                          <td style={tdStyle}>
+                        <span style={{ fontSize: "12px", color: "#6b7280" }}>
+                          {j.category || "—"}
+                        </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontWeight: 500 }}>
+                            {j.assignedLabourers?.length || 0} technician{(j.assignedLabourers?.length || 0) !== 1 ? 's' : ''}
+                          </span>
+                              <span style={{ color: "#6b7280", fontSize: 12 }}>
+                            {j.assignedLabourers?.length > 0 ? "assigned" : "pending"}
+                          </span>
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <Link to={`/jobs/${j._id}`} style={openBtn}>
+                              View Details
+                            </Link>
+                          </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                </div>
 
-      {/* Table */}
-      {!isLoading && (
-        <div style={{ ...card, padding: 0 }}>
-          <div style={tableWrap}>
-            <table style={tableStyle} aria-label="My created jobs list">
-              <caption style={{ position: "absolute", left: "-10000px", height: 0, width: 0, overflow: "hidden" }}>
-                My created jobs list
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col" style={thStyle}>Job ID</th>
-                  <th scope="col" style={thStyle}>Booking</th>
-                  <th scope="col" style={thStyle}>Customer</th>
-                  <th scope="col" style={thStyle}>Title</th>
-                  <th scope="col" style={thStyle}>Status</th>
-                  <th scope="col" style={thStyle}>Priority</th>
-                  <th scope="col" style={thStyle}>Category</th>
-                  <th scope="col" style={thStyle}>Assigned</th>
-                  <th scope="col" style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={9} style={{ ...tdStyle, color: "#6b7280", textAlign: "center", padding: 24 }}>
-                      {rows.length === 0 ? "No jobs created yet" : "No jobs match your search"}
-                    </td>
-                  </tr>
-                )}
-                {filtered.map((j) => (
-                  <tr key={j._id}>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 600, color: "#111827" }}>{j.jobId || j._id}</span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.createdAt ? new Date(j.createdAt).toLocaleDateString() : ""}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500 }}>{j.booking?.bookingId || "—"}</span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.booking?.vehicle?.registrationNumber || ""}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500 }}>
-                          {j.booking?.customer?.profile?.firstName || ""} {j.booking?.customer?.profile?.lastName || ""}
-                        </span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.booking?.customer?.profile?.phoneNumber || ""}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500 }}>{j.title || "—"}</span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.estimatedHours ? `~${j.estimatedHours}h` : ""}
-                        </span>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <StatusBadge value={j.status} />
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        padding: "4px 8px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        backgroundColor:
-                          j.priority === "urgent" ? "#fee2e2" :
-                            j.priority === "high" ? "#fef3c7" :
-                              j.priority === "medium" ? "#dbeafe" : "#f3f4f6",
-                        color:
-                          j.priority === "urgent" ? "#991b1b" :
-                            j.priority === "high" ? "#92400e" :
-                              j.priority === "medium" ? "#1e40af" : "#374151"
+                {/* MOBILE: Cards */}
+                <div
+                    style={{
+                      display: window.innerWidth < 768 ? "block" : "none",
+                      padding: "0 12px"
+                    }}
+                >
+                  {filtered.length === 0 ? (
+                      <div style={{
+                        ...mobileCard,
+                        textAlign: "center",
+                        color: "#6b7280",
+                        padding: "24px 12px"
                       }}>
-                        {j.priority || "—"}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ fontSize: "12px", color: "#6b7280" }}>
-                        {j.category || "—"}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500 }}>
-                          {j.assignedLabourers?.length || 0} technician{(j.assignedLabourers?.length || 0) !== 1 ? 's' : ''}
-                        </span>
-                        <span style={{ color: "#6b7280", fontSize: 12 }}>
-                          {j.assignedLabourers?.length > 0 ? "assigned" : "pending"}
-                        </span>
+                        {rows.length === 0 ? "No jobs created yet" : "No jobs match your search"}
                       </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <Link to={`/jobs/${j._id}`} style={openBtn}>
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                      filtered.map((j) => (
+                          <div key={j._id} style={jobCard}>
+                            <div style={jobHeader}>
+                              <div style={jobMain}>
+                                <h3 style={jobTitle}>
+                                  {j.jobId || j._id} • {j.title || "—"}
+                                </h3>
+                                <div style={jobMeta}>
+                                  <span style={metaChip}>{j.category || "—"}</span>
+                                  <span style={metaChip}>
+                            {j.estimatedHours ? `~${j.estimatedHours}h` : ""}
+                          </span>
+                                  <span style={metaChip}>
+                            {j.booking?.bookingId || "—"}
+                          </span>
+                                </div>
+                              </div>
+                            </div>
 
-          {/* Pagination info */}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <div style={{ fontSize: "14px", color: "#374151" }}>
+                                {j.booking?.customer?.profile?.firstName} {j.booking?.customer?.profile?.lastName}
+                              </div>
+                              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                                {j.booking?.vehicle?.registrationNumber || ""} •
+                                {j.booking?.customer?.profile?.phoneNumber || ""}
+                              </div>
+                            </div>
+
+                            <div style={statusPriorityRow}>
+                              <StatusBadge value={j.status} />
+                              <span style={{
+                                padding: "4px 8px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 500,
+                                backgroundColor:
+                                    j.priority === "urgent" ? "#fee2e2" :
+                                        j.priority === "high" ? "#fef3c7" :
+                                            j.priority === "medium" ? "#dbeafe" : "#f3f4f6",
+                                color:
+                                    j.priority === "urgent" ? "#991b1b" :
+                                        j.priority === "high" ? "#92400e" :
+                                            j.priority === "medium" ? "#1e40af" : "#374151"
+                              }}>
+                        {j.priority || "medium"}
+                      </span>
+                              <span style={metaChip}>
+                        {j.assignedLabourers?.length || 0} tech{(j.assignedLabourers?.length || 0) !== 1 ? 's' : ''}
+                      </span>
+                            </div>
+
+                            <div style={jobFooter}>
+                              <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                                Created: {formatDate(j.createdAt)}
+                              </div>
+                              <Link
+                                  to={`/jobs/${j._id}`}
+                                  style={openBtnMobile}
+                              >
+                                View Details
+                              </Link>
+                            </div>
+                          </div>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Pagination info */}
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }}>
             <span style={{ color: "#6b7280", fontSize: 14 }}>
               Showing {filtered.length} of {rows.length} jobs
             </span>
-          </div>
-        </div>
-      )}
+              </div>
+            </div>
+        )}
 
-      <style>
-        {`
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                `}
-      </style>
-    </div>
+        <style>
+          {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          @media (max-width: 767px) {
+            .controls {
+              flex-direction: column;
+              align-items: stretch;
+            }
+            .controls input {
+              min-width: 100% !important;
+            }
+            .stat-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}
+        </style>
+      </div>
   );
 }
