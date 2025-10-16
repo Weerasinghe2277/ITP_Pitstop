@@ -54,7 +54,7 @@ export default function BookingsList() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 9;
+    const [itemsPerPage, setItemsPerPage] = useState(12); // Increased from 9 to 12
 
     // Check if user can create bookings (not service advisor)
     const canCreateBookings = user?.role !== "service_advisor";
@@ -179,6 +179,9 @@ export default function BookingsList() {
         return pages;
     };
 
+    // Show all bookings without pagination if there are fewer than itemsPerPage
+    const displayBookings = filteredBookings.length <= itemsPerPage ? filteredBookings : currentBookings;
+
     return (
         <div style={{
             maxWidth: '1400px',
@@ -195,14 +198,23 @@ export default function BookingsList() {
                 flexWrap: 'wrap',
                 gap: '16px'
             }}>
-                <h1 style={{
-                    fontSize: '28px',
-                    fontWeight: '700',
-                    color: '#1f2937',
-                    margin: 0
-                }}>
-                    Bookings Management
-                </h1>
+                <div>
+                    <h1 style={{
+                        fontSize: '28px',
+                        fontWeight: '700',
+                        color: '#1f2937',
+                        margin: 0
+                    }}>
+                        Bookings Management
+                    </h1>
+                    <p style={{
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        margin: '4px 0 0 0'
+                    }}>
+                        Total: {bookings.length} bookings • Showing: {filteredBookings.length} filtered
+                    </p>
+                </div>
 
                 {canCreateBookings && (
                     <Link
@@ -373,64 +385,99 @@ export default function BookingsList() {
                     </div>
                 </div>
 
+                {/* Items Per Page Selector */}
                 <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     flexWrap: 'wrap',
-                    gap: '12px'
+                    gap: '12px',
+                    marginBottom: '16px'
                 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#374151'
+                        }}>
+                            Show:
+                        </label>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                            style={{
+                                padding: '6px 10px',
+                                border: '1px solid #d1d5db',
+                                borderRadius: '6px',
+                                fontSize: '14px',
+                                backgroundColor: '#ffffff',
+                                color: '#000000'
+                            }}
+                        >
+                            <option value={12}>12 per page</option>
+                            <option value={24}>24 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                        </select>
+                    </div>
+
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>
                         Showing {startIndex + 1}-{Math.min(endIndex, filteredBookings.length)} of {filteredBookings.length} bookings
                         {filteredBookings.length !== bookings.length && ` (filtered from ${bookings.length} total)`}
                     </span>
+                </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button
-                            onClick={() => {
-                                setFilter({
-                                    status: "pending",
-                                    serviceType: "",
-                                    priority: ""
-                                });
-                                setSearchTerm("");
-                            }}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            📋 Pending Bookings
-                        </button>
-                        <button
-                            onClick={() => {
-                                setFilter({
-                                    status: "",
-                                    serviceType: "",
-                                    priority: ""
-                                });
-                                setSearchTerm("");
-                            }}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#f3f4f6',
-                                color: '#374151',
-                                border: 'none',
-                                borderRadius: '6px',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            🗑️ Clear All Filters
-                        </button>
-                    </div>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                }}>
+                    <button
+                        onClick={() => {
+                            setFilter({
+                                status: "pending",
+                                serviceType: "",
+                                priority: ""
+                            });
+                            setSearchTerm("");
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        📋 Pending Bookings
+                    </button>
+                    <button
+                        onClick={() => {
+                            setFilter({
+                                status: "",
+                                serviceType: "",
+                                priority: ""
+                            });
+                            setSearchTerm("");
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#f3f4f6',
+                            color: '#374151',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        🗑️ Clear All Filters
+                    </button>
                 </div>
             </div>
 
@@ -491,7 +538,7 @@ export default function BookingsList() {
                         gap: '20px',
                         marginBottom: '24px'
                     }}>
-                        {currentBookings.map(booking => (
+                        {displayBookings.map(booking => (
                             <div key={booking._id} style={{
                                 background: 'white',
                                 borderRadius: '12px',
@@ -674,7 +721,7 @@ export default function BookingsList() {
                         ))}
                     </div>
 
-                    {/* Pagination Controls */}
+                    {/* Pagination Controls - Only show if needed */}
                     {totalPages > 1 && (
                         <div style={{
                             background: 'white',

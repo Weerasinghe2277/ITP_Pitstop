@@ -118,36 +118,26 @@ const getAllBookings = asyncWrapper(async (req, res) => {
     customer,
     assignedInspector,
     page = 1,
-    limit = 10,
+    limit = 50, // Increased default limit from 10 to 50
     search,
     dateFrom,
-    dateTo
+    dateTo,
+    getAll = false // New parameter to get all bookings without pagination
   } = req.query;
 
   let query = {};
 
   // Build query based on filters
   if (status) query.status = status;
-
   if (serviceType) query.serviceType = serviceType;
   if (priority) query.priority = priority;
   if (customer) query.customer = customer;
   if (assignedInspector) query.assignedInspector = assignedInspector;
 
   if (assignedInspector) {
-    // const [firstName = "", lastName = ""] = assignedInspector.split(" ");
-
-    // const nameFilter = {};
-    // if (firstName) nameFilter["profile.firstName"] = firstName;//new RegExp(`^${escapeRegex(firstName)}$`, "i");
-    // if (lastName) nameFilter["profile.lastName"] = lastName; //new RegExp(`^${escapeRegex(lastName)}$`,  "i");
-
-    // const inspectors = await User.find(nameFilter).select("_id").lean();
-    // const inspectorIds = inspectors.map(u => u._id);
-
     query = {
       ...query,
       status: { $nin: ["cancelled", "completed", "pending"] },
-      // assignedInspector: { $in: inspectorIds },
     };
   }
 
@@ -166,25 +156,60 @@ const getAllBookings = asyncWrapper(async (req, res) => {
     ];
   }
 
-  // Calculate pagination
-  const skip = (page - 1) * limit;
+  console.log('📋 Booking query:', {
+    query,
+    page,
+    limit,
+    getAll,
+    totalBookings: await Booking.countDocuments({})
+  });
+
+  // If getAll is true, return all bookings without pagination
+  if (getAll === 'true' || getAll === true) {
+    const bookings = await Booking.find(query)
+        .populate("customer", "userId profile.firstName profile.lastName email profile.phoneNumber")
+        .populate("vehicle", "vehicleId make model year licensePlate")
+        .populate("assignedInspector", "userId profile.firstName profile.lastName")
+        .populate("createdBy", "userId profile.firstName profile.lastName")
+        .sort({ createdAt: -1 });
+
+    const total = await Booking.countDocuments(query);
+
+    console.log(`✅ Returning ALL ${bookings.length} bookings (no pagination)`);
+
+    return res.status(200).json({
+      success: true,
+      count: bookings.length,
+      total,
+      bookings,
+      note: "Returning all bookings without pagination"
+    });
+  }
+
+  // Calculate pagination for normal requests
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const skip = (pageNum - 1) * limitNum;
+
   const bookings = await Booking.find(query)
-    .populate("customer", "userId profile.firstName profile.lastName email profile.phoneNumber")
-    .populate("vehicle", "vehicleId make model year licensePlate")
-    .populate("assignedInspector", "userId profile.firstName profile.lastName")
-    .populate("createdBy", "userId profile.firstName profile.lastName")
-    .limit(limit * 1)
-    .skip(skip)
-    .sort({ createdAt: -1 });
+      .populate("customer", "userId profile.firstName profile.lastName email profile.phoneNumber")
+      .populate("vehicle", "vehicleId make model year licensePlate")
+      .populate("assignedInspector", "userId profile.firstName profile.lastName")
+      .populate("createdBy", "userId profile.firstName profile.lastName")
+      .limit(limitNum)
+      .skip(skip)
+      .sort({ createdAt: -1 });
 
   const total = await Booking.countDocuments(query);
+
+  console.log(`✅ Returning ${bookings.length} bookings (page ${pageNum}, limit ${limitNum})`);
 
   res.status(200).json({
     success: true,
     count: bookings.length,
     total,
-    totalPages: Math.ceil(total / limit),
-    currentPage: page * 1,
+    totalPages: Math.ceil(total / limitNum),
+    currentPage: pageNum,
     bookings,
   });
 });
@@ -194,11 +219,11 @@ const getBookingById = asyncWrapper(async (req, res, next) => {
   const { id: bookingId } = req.params;
 
   const booking = await Booking.findById(bookingId)
-    .populate("customer", "userId profile.firstName profile.lastName email profile.phoneNumber profile.address customerDetails")
-    .populate("vehicle")
-    .populate("assignedInspector", "userId profile.firstName profile.lastName employeeDetails")
-    .populate("createdBy", "userId profile.firstName profile.lastName")
-    .populate("notes.createdBy", "userId profile.firstName profile.lastName");
+      .populate("customer", "userId profile.firstName profile.lastName email profile.phoneNumber profile.address customerDetails")
+      .populate("vehicle")
+      .populate("assignedInspector", "userId profile.firstName profile.lastName employeeDetails")
+      .populate("createdBy", "userId profile.firstName profile.lastName")
+      .populate("notes.createdBy", "userId profile.firstName profile.lastName");
 
   if (!booking) {
     return next(createCustomError(`No booking with id: ${bookingId}`, 404));
@@ -219,12 +244,12 @@ const updateBooking = asyncWrapper(async (req, res, next) => {
   restrictedFields.forEach(field => delete req.body[field]);
 
   const booking = await Booking.findByIdAndUpdate(
-    bookingId,
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
+      bookingId,
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
   ).populate("customer vehicle assignedInspector createdBy");
 
   if (!booking) {
@@ -498,8 +523,8 @@ const getAvailableInspectors = asyncWrapper(async (req, res) => {
     role: "service_advisor",
     status: "active"
   })
-    .select("userId profile.firstName profile.lastName employeeDetails.department employeeDetails.specializations")
-    .sort({ "profile.firstName": 1 });
+      .select("userId profile.firstName profile.lastName employeeDetails.department employeeDetails.specializations")
+      .sort({ "profile.firstName": 1 });
 
   res.status(200).json({
     success: true,
