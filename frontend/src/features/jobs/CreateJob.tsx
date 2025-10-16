@@ -66,6 +66,55 @@ export default function CreateJob() {
         }
     }
 
+    // NEW: Create goods requests for selected inventory items
+    async function createGoodsRequests(jobId, jobTitle) {
+        if (selectedItems.length === 0) {
+            console.log('No items selected, skipping goods request creation');
+            return { success: true, created: 0 };
+        }
+
+        const createdRequests = [];
+        const failedRequests = [];
+
+        // Create separate goods request for each item (matches GoodsRequest schema)
+        for (const selectedItem of selectedItems) {
+            try {
+                const goodsRequestData = {
+                    job: jobId,
+                    requestedBy: form.assignedTechnician,
+                    item: selectedItem._id,  // Singular item field (matches schema)
+                    quantity: selectedItem.requestedQuantity || 1,  // Singular quantity field
+                    purpose: `Required for job: ${jobTitle}`,
+                    notes: `Automatically created for job: ${jobTitle}`
+                };
+
+                console.log('Creating goods request:', goodsRequestData);
+
+                const response = await http.post('/goods-requests', goodsRequestData);
+
+                if (response.data?.goodsRequest) {
+                    createdRequests.push(response.data.goodsRequest);
+                    console.log('Goods request created:', response.data.goodsRequest);
+                } else {
+                    failedRequests.push({ item: selectedItem.name, error: 'No response data' });
+                }
+            } catch (error) {
+                console.error(`Failed to create goods request for ${selectedItem.name}:`, error);
+                failedRequests.push({
+                    item: selectedItem.name,
+                    error: error.response?.data?.message || error.message
+                });
+            }
+        }
+
+        return {
+            success: failedRequests.length === 0,
+            created: createdRequests.length,
+            failed: failedRequests.length,
+            failedItems: failedRequests
+        };
+    }
+
     // Load booking details
     useEffect(() => {
         let ignore = false;
@@ -195,7 +244,7 @@ export default function CreateJob() {
         return twoWeeksLater.toISOString().split('T')[0];
     }
 
-    // Form submission
+    // UPDATED: Form submission with goods request creation
     async function submit(e) {
         e.preventDefault();
         const validationError = validate();
@@ -244,8 +293,25 @@ export default function CreateJob() {
 
             if (response.data?.job?._id) {
                 console.log('Job created successfully:', response.data.job);
+                const createdJobId = response.data.job._id;
+                const createdJobTitle = response.data.job.title;
 
-                // Step 2: Update booking status to "working"
+                // Step 2: Create goods requests for selected items
+                let goodsRequestMessage = "";
+                if (selectedItems.length > 0) {
+                    console.log('Creating goods requests for selected items...');
+                    const goodsRequestResult = await createGoodsRequests(createdJobId, createdJobTitle);
+
+                    if (goodsRequestResult.success) {
+                        goodsRequestMessage = ` ${goodsRequestResult.created} goods request(s) created.`;
+                        console.log(`Successfully created ${goodsRequestResult.created} goods requests`);
+                    } else {
+                        goodsRequestMessage = ` ${goodsRequestResult.created} goods request(s) created, ${goodsRequestResult.failed} failed.`;
+                        console.warn('Some goods requests failed:', goodsRequestResult.failedItems);
+                    }
+                }
+
+                // Step 3: Update booking status to "working"
                 try {
                     await updateBookingStatusToWorking();
                 } catch (statusError) {
@@ -253,15 +319,15 @@ export default function CreateJob() {
                     // Continue even if status update fails
                 }
 
-                // Step 3: Show success message and navigate
+                // Step 4: Show success message and navigate
                 setMessage({
-                    text: "Job created successfully! Redirecting to job details...",
+                    text: `Job created successfully!${goodsRequestMessage} Redirecting to job details...`,
                     type: "success"
                 });
 
                 setTimeout(() => {
-                    nav(`/jobs/${response.data.job._id}`);
-                }, 1500);
+                    nav(`/jobs/${createdJobId}`);
+                }, 2000);
             } else {
                 throw new Error("Job created but no ID returned from server");
             }
@@ -596,7 +662,7 @@ export default function CreateJob() {
                     <div style={card}>
                         <h2 style={sectionTitle}>📦 Request Inventory Items</h2>
                         <p style={{ color: "#6b7280", marginBottom: "16px", fontSize: "14px" }}>
-                            Add inventory items needed for this job. Items will be requested from inventory.
+                            Add inventory items needed for this job. Goods requests will be automatically created when you submit.
                         </p>
 
                         {selectedItems.length > 0 && (
@@ -716,7 +782,7 @@ export default function CreateJob() {
                                 }}>
                                     <div style={{ fontWeight: 600, color: "#1e40af" }}>
                                         Total: Rs. {selectedItems.reduce((total, item) =>
-                                            total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0).toFixed(2)}
+                                        total + ((item.unitPrice || item.price || 0) * (item.requestedQuantity || 1)), 0).toFixed(2)}
                                     </div>
                                 </div>
                             </div>
@@ -757,7 +823,7 @@ export default function CreateJob() {
                                     cursor: (!form.assignedTechnician || isSubmitting) ? "not-allowed" : "pointer"
                                 }}
                             >
-                                {isSubmitting ? "Creating Job & Syncing Status..." : "Create Job"}
+                                {isSubmitting ? "Creating Job & Goods Requests..." : "Create Job"}
                             </button>
                             <button
                                 type="button"

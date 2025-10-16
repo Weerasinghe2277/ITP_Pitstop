@@ -7,35 +7,39 @@ import { createCustomError } from "../errors/custom-error.js";
 
 // Create goods request (Inspector)
 const createGoodsRequest = asyncWrapper(async (req, res, next) => {
-  const { job, items, notes } = req.body;
+  const { job, item, quantity, purpose, notes } = req.body;
   const requestedBy = req.user.userId;
 
-  // Validate required fields
-  if (!job || !items || !Array.isArray(items) || items.length === 0) {
-    return next(createCustomError("Job and items are required", 400));
+  // Validate required fields (matches the schema: item and quantity are singular)
+  if (!job) {
+    return next(createCustomError("Job is required", 400));
   }
 
-  // Validate each item
-  for (const item of items) {
-    if (!item.item || !item.quantity || item.quantity < 1) {
-      return next(createCustomError("Each item must have valid item ID and quantity", 400));
-    }
+  if (!item) {
+    return next(createCustomError("Item is required", 400));
   }
 
-  // Check if user is authorized to create goods requests (inspector, service_advisor, manager)
+  if (!quantity || quantity < 1) {
+    return next(createCustomError("Quantity must be at least 1", 400));
+  }
+
+  // Check if user is authorized to create goods requests
   const user = await User.findById(requestedBy);
   if (!user) {
     return next(createCustomError("User not found", 404));
   }
 
   if (!["service_advisor", "manager", "admin"].includes(user.role)) {
-    return next(createCustomError("Only inspectors, managers, and admins can create goods requests", 403));
+    return next(createCustomError("Only service advisors, managers, and admins can create goods requests", 403));
   }
 
+  // Create goods request with singular item and quantity (matches schema)
   const goodsRequest = await GoodsRequest.create({
     job,
     requestedBy,
-    items,
+    item,
+    quantity,
+    purpose,
     notes,
   });
 
@@ -93,15 +97,15 @@ const getAllGoodsRequests = asyncWrapper(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const goodsRequests = await GoodsRequest.find(query)
-    .populate([
-      { path: "job", select: "jobId description priority status booking" },
-      { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
-      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "item", select: "itemId name category currentStock unitPrice" }
-    ])
-    .limit(limit * 1)
-    .skip(skip)
-    .sort({ createdAt: -1 });
+      .populate([
+        { path: "job", select: "jobId description priority status booking" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
+        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+        { path: "item", select: "itemId name category currentStock unitPrice" }
+      ])
+      .limit(limit * 1)
+      .skip(skip)
+      .sort({ createdAt: -1 });
 
   const total = await GoodsRequest.countDocuments(query);
 
@@ -129,14 +133,14 @@ const getMyGoodsRequests = asyncWrapper(async (req, res) => {
   const skip = (page - 1) * limit;
 
   const goodsRequests = await GoodsRequest.find(query)
-    .populate([
-      { path: "job", select: "jobId description priority status" },
-      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "item", select: "itemId name category currentStock unitPrice" }
-    ])
-    .limit(limit * 1)
-    .skip(skip)
-    .sort({ createdAt: -1 });
+      .populate([
+        { path: "job", select: "jobId description priority status" },
+        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+        { path: "item", select: "itemId name category currentStock unitPrice" }
+      ])
+      .limit(limit * 1)
+      .skip(skip)
+      .sort({ createdAt: -1 });
 
   const total = await GoodsRequest.countDocuments(query);
 
@@ -156,12 +160,12 @@ const getGoodsRequestById = asyncWrapper(async (req, res, next) => {
   const { userId, role } = req.user;
 
   const goodsRequest = await GoodsRequest.findById(id)
-    .populate([
-      { path: "job", select: "jobId description priority status booking" },
-      { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
-      { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
-      { path: "item", select: "itemId name category currentStock unitPrice stockLocation" }
-    ]);
+      .populate([
+        { path: "job", select: "jobId description priority status booking" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role employeeDetails.department" },
+        { path: "approvedBy", select: "userId profile.firstName profile.lastName" },
+        { path: "item", select: "itemId name category currentStock unitPrice stockLocation" }
+      ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -186,7 +190,7 @@ const getGoodsRequestById = asyncWrapper(async (req, res, next) => {
 const updateGoodsRequest = asyncWrapper(async (req, res, next) => {
   const { id } = req.params;
   const { userId } = req.user;
-  const { items, notes } = req.body;
+  const { item, quantity, purpose, notes } = req.body;
 
   const goodsRequest = await GoodsRequest.findById(id);
 
@@ -206,21 +210,19 @@ const updateGoodsRequest = asyncWrapper(async (req, res, next) => {
 
   // Update fields
   const updateData = {};
-  if (items && Array.isArray(items) && items.length > 0) {
-    // Validate items
-    for (const item of items) {
-      if (!item.item || !item.quantity || item.quantity < 1) {
-        return next(createCustomError("Each item must have valid item ID and quantity", 400));
-      }
-    }
-    updateData.items = items;
+  if (item) {
+    updateData.item = item;
   }
+  if (quantity && quantity >= 1) {
+    updateData.quantity = quantity;
+  }
+  if (purpose !== undefined) updateData.purpose = purpose;
   if (notes !== undefined) updateData.notes = notes;
 
   const updatedGoodsRequest = await GoodsRequest.findByIdAndUpdate(
-    id,
-    updateData,
-    { new: true, runValidators: true }
+      id,
+      updateData,
+      { new: true, runValidators: true }
   ).populate([
     { path: "job", select: "jobId description priority status" },
     { path: "requestedBy", select: "userId profile.firstName profile.lastName" },
@@ -279,11 +281,11 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-    .populate([
-      { path: "job", select: "jobId description" },
-      { path: "requestedBy", select: "userId profile.firstName profile.lastName email" },
-      { path: "item", select: "itemId name currentStock" }
-    ]);
+      .populate([
+        { path: "job", select: "jobId description" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email" },
+        { path: "item", select: "itemId name currentStock" }
+      ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -293,9 +295,8 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Goods request has already been processed", 400));
   }
 
-  // Check stock availability for all items
+  // Check stock availability
   try {
-    // for (const requestItem of goodsRequest.items) {
     console.log(`Checking item:`, goodsRequest.item);
 
     if (!goodsRequest.item) {
@@ -307,7 +308,6 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
       console.log(`Insufficient stock for ${goodsRequest.item.name}. Available: ${goodsRequest.item.currentStock}, Requested: ${goodsRequest.quantity}`);
       return next(createCustomError(`Insufficient stock for ${goodsRequest.item.name}. Available: ${goodsRequest.item.currentStock}, Requested: ${goodsRequest.quantity}`, 400));
     }
-    // }
   } catch (error) {
     console.error("Error checking stock availability:", error);
     return next(createCustomError("Error validating stock availability", 500));
@@ -325,7 +325,6 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
     console.log("Updating inventory stock for approved items...");
     const stockUpdates = [];
 
-    // for (const requestItem of goodsRequest.items) {
     try {
       const inventoryItem = await InventoryItem.findById(goodsRequest.item);
       if (inventoryItem) {
@@ -348,19 +347,18 @@ const approveGoodsRequest = asyncWrapper(async (req, res, next) => {
         stockUpdates.push({
           itemId: inventoryItem.itemId,
           name: inventoryItem.name,
-          quantityReduced: requestItem.quantity,
+          quantityReduced: goodsRequest.quantity,
           oldStock: oldStock,
           newStock: inventoryItem.currentStock,
           status: inventoryItem.status
         });
 
-        console.log(`Stock updated for ${inventoryItem.name}: ${oldStock} -> ${inventoryItem.currentStock} (reduced by ${requestItem.quantity}), Status: ${inventoryItem.status}`);
+        console.log(`Stock updated for ${inventoryItem.name}: ${oldStock} -> ${inventoryItem.currentStock} (reduced by ${goodsRequest.quantity}), Status: ${inventoryItem.status}`);
       }
     } catch (stockError) {
       console.error(`Error updating stock for item ${goodsRequest.item}:`, stockError);
-      // Don't fail the entire approval if one stock update fails
+      // Don't fail the entire approval if stock update fails
     }
-    // }
 
     // Populate approver details
     await goodsRequest.populate("approvedBy", "userId profile.firstName profile.lastName");
@@ -396,10 +394,10 @@ const rejectGoodsRequest = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-    .populate([
-      { path: "job", select: "jobId description" },
-      { path: "requestedBy", select: "userId profile.firstName profile.lastName email" }
-    ]);
+      .populate([
+        { path: "job", select: "jobId description" },
+        { path: "requestedBy", select: "userId profile.firstName profile.lastName email" }
+      ]);
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -442,7 +440,7 @@ const releaseGoods = asyncWrapper(async (req, res, next) => {
   }
 
   const goodsRequest = await GoodsRequest.findById(id)
-    .populate("item", "itemId name currentStock");
+      .populate("item", "itemId name currentStock");
 
   if (!goodsRequest) {
     return next(createCustomError("Goods request not found", 404));
@@ -592,14 +590,14 @@ const getPendingGoodsRequests = asyncWrapper(async (req, res, next) => {
     console.log("Querying for pending goods requests...");
 
     const pendingRequests = await GoodsRequest.find({ status: "pending" })
-      .populate([
-        { path: "job", select: "jobId description priority status booking" },
-        { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
-        { path: "item", select: "itemId name category currentStock unitPrice" }
-      ])
-      .limit(limit * 1)
-      .skip(skip)
-      .lean(); // Convert to plain JavaScript objects to avoid potential serialization issues
+        .populate([
+          { path: "job", select: "jobId description priority status booking" },
+          { path: "requestedBy", select: "userId profile.firstName profile.lastName email role" },
+          { path: "item", select: "itemId name category currentStock unitPrice" }
+        ])
+        .limit(limit * 1)
+        .skip(skip)
+        .lean(); // Convert to plain JavaScript objects to avoid potential serialization issues
 
     console.log(`Found ${pendingRequests.length} pending goods requests`);
 
